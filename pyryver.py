@@ -68,7 +68,10 @@ class Chat(Object):
         return [Topic(self, TYPE_TOPIC, data) for data in resp.json()["d"]["results"]]
 
 class User(Chat):
-    pass
+    def set_activated(self, activated: bool) -> None:
+        url = self.cred.url_prefix + f"{self.obj_type}({self.id})/User.Active.Set(value='{'true' if activated else 'false'}')"
+        resp = requests.post(url, headers=self.cred.headers)
+        resp.raise_for_status()
 
 class Forum(Chat):
     pass
