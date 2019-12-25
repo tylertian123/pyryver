@@ -23,6 +23,12 @@ TYPE_USERS = "users"
 TYPE_FORUMS = "forums"
 TYPE_TEAMS = "workrooms"
 
+ENTITY_TYPES = {
+    TYPE_USERS: "Entity.User",
+    TYPE_FORUMS: "Entity.Forum",
+    TYPE_TEAMS: "Entity.Workroom"
+}
+
 FIELD_USER_USERNAME = "username"
 FIELD_USER_EMAIL_ADDR = "emailAddress"
 FIELD_USER_DISPLAY_NAME = "displayName"
@@ -60,17 +66,41 @@ def get_topics(cred, objtype, objid, archived=False):
     resp.raise_for_status()
     return resp.json()["d"]["results"]
 
-def send_message(cred, objtype, objid, message, displayName=None, avatarURL=None):
+def creator(name, avatar):
+    return {
+        "displayName": name,
+        "avatar": avatar
+    }
+
+def create_topic(cred, objtype, objid, subject, body, creator=None):
+    url = cred.url_prefix + "posts"
+    data = {
+        "body": body,
+        "subject": subject,
+        "outAssociations": {
+            "results": [
+                {
+                    "inSecured": True,
+                    "inType": ENTITY_TYPES[objtype],
+                    "inId": objid
+                }
+            ]
+        },
+        "recordType": "note"
+    }
+    if creator:
+        data["createSource"] = creator
+    resp = requests.post(url, json=data, headers=cred.headers)
+    resp.raise_for_status()
+    return resp.json()["d"]["results"]
+
+def send_message(cred, objtype, objid, message, creator=None):
     url = cred.url_prefix + f"{objtype}({objid})/Chat.PostMessage()"
     data = {
         "body": message
     }
-    if displayName or avatarURL:
-        data["createSource"] = {}
-        if displayName:
-            data["createSource"]["displayName"] = displayName
-        if avatarURL:
-            data["createSource"]["avatar"] = avatarURL
+    if creator:
+        data["createSource"] = creator
     resp = requests.post(url, json=data, headers=cred.headers)
     resp.raise_for_status()
-    return resp.json()
+    return resp.json()["d"]
