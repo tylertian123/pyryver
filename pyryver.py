@@ -63,9 +63,8 @@ class Chat(Object):
     
     def get_topics(self, archived: bool = False) -> typing.List[Topic]:
         url = self.cred.url_prefix + f"{self.obj_type}({self.id})/Post.Stream(archived={'true' if archived else 'false'})?$format=json"
-        resp = requests.get(url, headers=self.cred.headers)
-        resp.raise_for_status()
-        return [Topic(self, TYPE_TOPIC, data) for data in resp.json()["d"]["results"]]
+        topics = get_all(url, self.cred.headers)
+        return [Topic(self, TYPE_TOPIC, data) for data in topics]
 
 class User(Chat):
     def set_activated(self, activated: bool) -> None:
@@ -96,9 +95,7 @@ class Ryver:
     
     def get_chats(self, obj_type: str) -> typing.List[Chat]:
         url = self.url_prefix + obj_type
-        resp = requests.get(url, headers=self.headers)
-        resp.raise_for_status()
-        chats = resp.json()["d"]["results"]
+        chats = get_all(url, self.headers)
         return [TYPES_DICT[obj_type](self, obj_type, chat) for chat in chats]
     
     def get_cached_chats(self, obj_type: str, name: str = None) -> typing.List[Chat]:
@@ -146,3 +143,20 @@ def get_obj_by_field(objs: typing.List[Object], field: str, value: typing.Any) -
         if obj.data[field] == value:
             return obj
     return None
+
+def get_all(url, headers):
+    """
+    Because the REST API only gives 50 results at a time, this function is used
+    to retrieve all objects.
+    """
+    result = []
+    skip = 0
+    while True:
+        resp = requests.get(url + f"?$skip={skip}", headers=headers)
+        resp.raise_for_status()
+        page = resp.json()["d"]["results"]
+        if len(page) == 0:
+            break
+        result.extend(page)
+        skip += len(page)
+    return result
