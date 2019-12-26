@@ -63,7 +63,7 @@ class Chat(Object):
     
     def get_topics(self, archived: bool = False) -> typing.List[Topic]:
         url = self.cred.url_prefix + f"{self.obj_type}({self.id})/Post.Stream(archived={'true' if archived else 'false'})?$format=json"
-        topics = get_all(url, self.cred.headers)
+        topics = get_all(url, self.cred.headers, "&$skip")
         return [Topic(self, TYPE_TOPIC, data) for data in topics]
 
 class User(Chat):
@@ -144,7 +144,7 @@ def get_obj_by_field(objs: typing.List[Object], field: str, value: typing.Any) -
             return obj
     return None
 
-def get_all(url, headers):
+def get_all(url: str, headers: dict, param: str = "?$skip"):
     """
     Because the REST API only gives 50 results at a time, this function is used
     to retrieve all objects.
@@ -152,7 +152,7 @@ def get_all(url, headers):
     result = []
     skip = 0
     while True:
-        resp = requests.get(url + f"?$skip={skip}", headers=headers)
+        resp = requests.get(url + f"{param}={skip}", headers=headers)
         resp.raise_for_status()
         page = resp.json()["d"]["results"]
         if len(page) == 0:
