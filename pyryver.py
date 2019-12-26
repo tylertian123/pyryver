@@ -27,6 +27,19 @@ class Object:
 class Topic(Object):
     pass
 
+class Message(Object):
+    def get_body(self) -> str:
+        return self.data["body"]
+    
+    def get_creator(self) -> Creator:
+        if self.data["createSource"]:
+            return Creator(self.data["createSource"]["displayName"], self.data["createSource"]["avatar"])
+        else:
+            return None
+    
+    def get_author(self):
+        return self.cred.get_object(TYPE_USER, self.data["from"]["id"])
+
 class Chat(Object):
     def send_message(self, message: str, creator: Creator = None) -> str:
         url = self.cred.url_prefix + f"{self.obj_type}({self.id})/Chat.PostMessage()"
@@ -65,6 +78,13 @@ class Chat(Object):
         url = self.cred.url_prefix + f"{self.obj_type}({self.id})/Post.Stream(archived={'true' if archived else 'false'})?$format=json"
         topics = get_all(url, self.cred.headers, "&$skip")
         return [Topic(self.cred, TYPE_TOPIC, data) for data in topics]
+    
+    def get_messages(self, count: int) -> typing.List[Message]:
+        url = self.cred.url_prefix + f"{self.obj_type}({self.id})/Chat.History()?$format=json&$top={count}"
+        resp = requests.get(url, headers = self.cred.headers)
+        resp.raise_for_status()
+        messages = resp.json()["d"]["results"]
+        return [Message(self.cred, TYPE_MESSAGE, data) for data in messages]
 
 class User(Chat):
     def set_activated(self, activated: bool) -> None:
@@ -93,6 +113,12 @@ class Ryver:
         }
         self.url_prefix = "https://" + org + ".ryver.com/api/1/odata.svc/"
     
+    def get_object(self, obj_type: str, obj_id: int) -> Object:
+        url = self.url_prefix + f"{obj_type}({obj_id})"
+        resp = requests.get(url, headers = self.headers)
+        resp.raise_for_status()
+        return TYPES_DICT[obj_type](self, obj_type, resp.json()["d"]["results"])
+
     def get_chats(self, obj_type: str) -> typing.List[Chat]:
         url = self.url_prefix + obj_type
         chats = get_all(url, self.headers)
@@ -116,11 +142,16 @@ TYPE_TEAM = "workrooms"
 
 TYPE_TOPIC = "posts"
 
+# Note: messages aren't really a "real" type in the Ryver API
+# They're just here for the sake of completeness and to fit in with the rest of pyryver
+TYPE_MESSAGE = "messages"
+
 ENTITY_TYPES = {
     TYPE_USER: "Entity.User",
     TYPE_FORUM: "Entity.Forum",
     TYPE_TEAM: "Entity.Workroom",
     TYPE_TOPIC: "Entity.Post",
+    TYPE_MESSAGE: None,
 }
 
 TYPES_DICT = {
@@ -128,6 +159,7 @@ TYPES_DICT = {
     TYPE_FORUM: Forum,
     TYPE_TEAM: Team,
     TYPE_TOPIC: Topic,
+    TYPE_MESSAGE: Message,
 }
 
 FIELD_USER_USERNAME = "username"
