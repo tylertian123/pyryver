@@ -59,12 +59,12 @@ class Chat(Object):
             data["createSource"] = creator.to_dict()
         resp = requests.post(url, json=data, headers=self.cred.headers)
         resp.raise_for_status()
-        return Topic(self, TYPE_TOPIC, resp.json()["d"]["results"])
+        return Topic(self.cred, TYPE_TOPIC, resp.json()["d"]["results"])
     
     def get_topics(self, archived: bool = False) -> typing.List[Topic]:
         url = self.cred.url_prefix + f"{self.obj_type}({self.id})/Post.Stream(archived={'true' if archived else 'false'})?$format=json"
         topics = get_all(url, self.cred.headers, "&$skip")
-        return [Topic(self, TYPE_TOPIC, data) for data in topics]
+        return [Topic(self.cred, TYPE_TOPIC, data) for data in topics]
 
 class User(Chat):
     def set_activated(self, activated: bool) -> None:
