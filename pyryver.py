@@ -23,6 +23,15 @@ class Object:
         self.obj_type = obj_type
         self.entity_type = ENTITY_TYPES[obj_type]
         self.id = data["id"]
+    
+    def get_id(self) -> typing.Any:
+        return self.id
+    
+    def get_type(self) -> str:
+        return self.obj_type
+    
+    def get_raw_data(self) -> dict:
+        return self.data
 
 class Topic(Object):
     pass
@@ -87,16 +96,30 @@ class Chat(Object):
         return [Message(self.cred, TYPE_MESSAGE, data) for data in messages]
 
 class User(Chat):
+    def get_username(self) -> str:
+        return self.data["username"]
+    
+    def get_display_name(self) -> str:
+        return self.data["displayName"]
+
     def set_activated(self, activated: bool) -> None:
         url = self.cred.url_prefix + f"{self.obj_type}({self.id})/User.Active.Set(value='{'true' if activated else 'false'}')"
         resp = requests.post(url, headers=self.cred.headers)
         resp.raise_for_status()
 
 class Forum(Chat):
-    pass
+    def get_name(self) -> str:
+        return self.data["name"]
+    
+    def get_nickname(self) -> str:
+        return self.data["nickname"]
 
 class Team(Chat):
-    pass
+    def get_name(self) -> str:
+        return self.data["name"]
+    
+    def get_nickname(self) -> str:
+        return self.data["nickname"]
 
 class Ryver:
     def __init__(self, org: str = None, user: str = None, password: str = None):
@@ -124,9 +147,9 @@ class Ryver:
         chats = get_all(url, self.headers)
         return [TYPES_DICT[obj_type](self, obj_type, chat) for chat in chats]
     
-    def get_cached_chats(self, obj_type: str, name: str = None) -> typing.List[Chat]:
+    def get_cached_chats(self, obj_type: str, force_update: bool = False, name: str = None) -> typing.List[Chat]:
         name = name or "pyryver." + obj_type + ".json"
-        if os.path.exists(name):
+        if not force_update and os.path.exists(name):
             with open(name, "r") as f:
                 data = json.load(f)
                 return [TYPES_DICT[obj_type](self, obj_type, chat) for chat in data]
