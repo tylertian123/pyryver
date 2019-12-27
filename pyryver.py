@@ -144,6 +144,16 @@ class Message(Object):
         counts = {reaction: len(users) for reaction, users in reactions.items()}
         return counts
 
+    def delete(self):
+        url = self.cred.url_prefix + \
+            "forums({forum_id})/Chat.DeleteMessage()?%24format=json".format(forum_id=self.get_chat_id())
+        data = {
+            "id": self.id,
+        }
+
+        resp = requests.post(url, json=data, headers=self.cred.headers)
+        resp.raise_for_status()
+
 class Chat(Object):
     """
     A Ryver chat (forum, team, user, etc).
