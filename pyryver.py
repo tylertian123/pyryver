@@ -101,6 +101,49 @@ class Message(Object):
         """
         return self.cred.get_object(TYPE_USER, self.data["from"]["id"])
 
+    def get_chat_type(self):
+        """
+        Gets the type of chat that this message was sent to, as a string.
+
+        This string will be one of the ENTITY_TYPES values
+        """
+        return self.data["to"]["__metadata"]["type"]
+
+    def get_chat_id(self) -> int:
+        """
+        Get the id of the chat that this message was sent to, as an integer.
+
+        Note that this is different from get_chat() as the id is stored in
+        the message data and is good for most API purposes while get_chat()
+        returns an entire Chat object, which might not be necessary depending
+        on what you're trying to do.
+        """
+        return self.data["to"]["id"]
+
+    def get_chat(self):
+        """
+        Get the chat that this message was sent to, as a Chat object.
+
+        Note that this method does send requests, so it may take some time.
+        """
+        return self.cred.get_object(get_type_from_entity(self.get_chat_type()), self.get_chat_id())
+
+    def react(self, emoji: str):
+        url = self.cred.url_prefix + \
+            "forums({forum_id})/Chat.React()".format(forum_id=self.get_chat_id())
+        data = {
+            "id": self.id,
+            "reaction": emoji
+        }
+
+        resp = requests.post(url, json=data, headers=self.cred.headers)
+        resp.raise_for_status()
+
+    def get_reaction_counts(self):
+        reactions = self.data['__reactions']
+        counts = {reaction: len(users) for reaction, users in reactions.items()}
+        return counts
+
 class Chat(Object):
     """
     A Ryver chat (forum, team, user, etc).
@@ -363,3 +406,13 @@ def get_all(url: str, headers: dict, param: str = "?$skip"):
         result.extend(page)
         skip += len(page)
     return result
+
+def get_type_from_entity(entity_type: str) -> str:
+    """
+    Gets the object type from the entity type
+
+    Note that it doesn't actually return a class, just the string
+    """
+    for t, e in ENTITY_TYPES.items():
+        if e == entity_type:
+            return t
