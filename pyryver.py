@@ -79,6 +79,19 @@ class TopicReply(Object):
         Get the message of this reply.
         """
         return self.data["comment"]
+    
+    def get_creator(self) -> Creator:
+        """
+        Get the Creator of this message.
+
+        Note that this is different from the author. Creators are used to
+        override the display name and avatar of a user. If the username and 
+        avatar were not overridden, this will return None.
+        """
+        if self.data["createSource"]:
+            return Creator(self.data["createSource"]["displayName"], self.data["createSource"]["avatar"])
+        else:
+            return None
 
     def get_author_id(self) -> int:
         """
@@ -93,13 +106,41 @@ class TopicReply(Object):
         Note that this method does send requests, so it may take some time.
         """
         return self.cred.get_object(TYPE_USER, self.data["createUser"]["id"])
+    
+    def react(self, emoji: str) -> None:
+        """
+        React to this topic with an emoji, specified with the string name (e.g. "thumbsup").
+
+        Note that this method does send requests, so it may take some time.
+        """
+        url = self.cred.url_prefix + f"{self.obj_type}({self.get_id()})/React(reaction='{emoji}')"
+        resp = requests.post(url, headers=self.cred.headers)
+        resp.raise_for_status()
+    
+    def get_reactions(self) -> dict:
+        """
+        Get the reactions on this message.
+
+        Returns a dict of {emoji: [users]}
+        """
+        return self.data['__reactions']
+
+    def get_reaction_counts(self) -> dict:
+        """
+        Count the number of reactions for each emoji on a message.
+
+        Returns a dict of {emoji: number_of_reacts}
+        """
+        reactions = self.get_reactions()
+        counts = {reaction: len(users)
+                  for reaction, users in reactions.items()}
+        return counts
 
 
 class Topic(Object):
     """
     A Ryver topic in a chat.
     """
-    # TODO: Add function to get replies
 
     def get_subject(self) -> str:
         """
@@ -113,7 +154,7 @@ class Topic(Object):
         """
         return self.data["body"]
 
-    def reply(self, message: str) -> TopicReply:
+    def reply(self, message: str, creator: Creator = None) -> TopicReply:
         """
         Reply to the topic.
 
@@ -128,10 +169,55 @@ class Topic(Object):
                 "id": self.get_id()
             }
         }
+        if creator:
+            data["createSource"] = creator.to_dict()
         resp = requests.post(url, json=data, headers=self.cred.headers)
         resp.raise_for_status()
         return TopicReply(self.cred, TYPE_TOPIC_REPLY, resp.json()["d"]["results"])
 
+    def get_replies(self, top: int = -1, skip: int = 0) -> typing.List[TopicReply]:
+        """
+        Get all the replies to this topic.
+
+        top is the maximum number of results (-1 for unlimited), skip is how
+        many results to skip.
+
+        Note that this method does send requests, so it may take some time.
+        """
+        url = self.cred.url_prefix + TYPE_TOPIC_REPLY + \
+            f"?$format=json&$filter=((post/id eq {self.get_id()}))"
+        replies = get_all(url, self.cred.headers, top=top,
+                          skip=skip, param="&$skip")
+        return [TopicReply(self.cred, TYPE_TOPIC_REPLY, data) for data in replies]
+
+    def react(self, emoji: str) -> None:
+        """
+        React to this topic with an emoji, specified with the string name (e.g. "thumbsup").
+
+        Note that this method does send requests, so it may take some time.
+        """
+        url = self.cred.url_prefix + f"{self.obj_type}({self.get_id()})/React(reaction='{emoji}')"
+        resp = requests.post(url, headers=self.cred.headers)
+        resp.raise_for_status()
+    
+    def get_reactions(self) -> dict:
+        """
+        Get the reactions on this message.
+
+        Returns a dict of {emoji: [users]}
+        """
+        return self.data['__reactions']
+
+    def get_reaction_counts(self) -> dict:
+        """
+        Count the number of reactions for each emoji on a message.
+
+        Returns a dict of {emoji: number_of_reacts}
+        """
+        reactions = self.get_reactions()
+        counts = {reaction: len(users)
+                  for reaction, users in reactions.items()}
+        return counts
 
 class Message(Object):
     """
@@ -201,6 +287,8 @@ class Message(Object):
     def react(self, emoji: str) -> None:
         """
         React to a message with an emoji, specified with the string name (e.g. "thumbsup").
+
+        Note that this method does send requests, so it may take some time.
         """
         url = self.cred.url_prefix + \
             "{chat_type}({chat_id})/Chat.React()".format(
@@ -213,13 +301,21 @@ class Message(Object):
         resp = requests.post(url, json=data, headers=self.cred.headers)
         resp.raise_for_status()
 
+    def get_reactions(self) -> dict:
+        """
+        Get the reactions on this message.
+
+        Returns a dict of {emoji: [users]}
+        """
+        return self.data['__reactions']
+
     def get_reaction_counts(self) -> dict:
         """
-        Count the number of reactions for each emoji on a message
+        Count the number of reactions for each emoji on a message.
 
         Returns a dict of {emoji: number_of_reacts}
         """
-        reactions = self.data['__reactions']
+        reactions = self.get_reactions()
         counts = {reaction: len(users)
                   for reaction, users in reactions.items()}
         return counts
