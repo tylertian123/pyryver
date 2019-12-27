@@ -129,6 +129,9 @@ class Message(Object):
         return self.cred.get_object(get_type_from_entity(self.get_chat_type()), self.get_chat_id())
 
     def react(self, emoji: str):
+        """
+        React to a message with an emoji, specified with the string name (e.g. "thumbsup").
+        """
         url = self.cred.url_prefix + \
             "{chat_type}({chat_id})/Chat.React()".format(chat_type=self.get_chat_type(),chat_id=self.get_chat_id())
         data = {
@@ -139,12 +142,20 @@ class Message(Object):
         resp = requests.post(url, json=data, headers=self.cred.headers)
         resp.raise_for_status()
 
-    def get_reaction_counts(self):
+    def get_reaction_counts(self) -> dict:
+        """
+        Count the number of reactions for each emoji on a message
+
+        Returns a dict of {emoji: number_of_reacts}
+        """
         reactions = self.data['__reactions']
         counts = {reaction: len(users) for reaction, users in reactions.items()}
         return counts
 
     def delete(self):
+        """
+        Deletes the message.
+        """
         url = self.cred.url_prefix + \
             "{chat_type}({chat_id})/Chat.DeleteMessage()?%24format=json".format(chat_type=self.get_chat_type(),chat_id=self.get_chat_id())
         data = {
