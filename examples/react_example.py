@@ -22,6 +22,8 @@ try:
 
         if text[0] == "+react" and len(text) >= 2:
             msgs[0].react(text[1])
+        elif text[0] == "+deletethis":
+            msgs[0].delete()
         time.sleep(3)
 except:
     pass
