@@ -278,14 +278,17 @@ class Chat(Object):
         resp.raise_for_status()
         return Topic(self.cred, TYPE_TOPIC, resp.json()["d"]["results"])
     
-    def get_topics(self, archived: bool = False) -> typing.List[Topic]:
+    def get_topics(self, archived: bool = False, top: int = -1, skip: int = 0) -> typing.List[Topic]:
         """
         Get all the topics in this chat.
+
+        top is the maximum number of results (-1 for unlimited), skip is how
+        many results to skip.
 
         Note that this method does send requests, so it may take some time.
         """
         url = self.cred.url_prefix + f"{self.obj_type}({self.id})/Post.Stream(archived={'true' if archived else 'false'})?$format=json"
-        topics = get_all(url, self.cred.headers, "&$skip")
+        topics = get_all(url, self.cred.headers, param="&$skip", top=top, skip=skip)
         return [Topic(self.cred, TYPE_TOPIC, data) for data in topics]
     
     def get_messages(self, count: int) -> typing.List[Message]:
@@ -393,21 +396,28 @@ class Ryver:
         resp.raise_for_status()
         return TYPES_DICT[obj_type](self, obj_type, resp.json()["d"]["results"])
 
-    def get_chats(self, obj_type: str) -> typing.List[Chat]:
+    def get_chats(self, obj_type: str, top: int = -1, skip: int = 0) -> typing.List[Chat]:
         """
         Get a list of chats (teams, forums, users, etc) from Ryver.
+
+        top is the maximum number of results (-1 for unlimited), skip is how
+        many results to skip.
 
         Note that this method does send requests, so it may take some time.
         Consider using get_cached_chats() to cache the data in a JSON file.
         """
         url = self.url_prefix + obj_type
-        chats = get_all(url, self.headers)
+        chats = get_all(url, self.headers, top=top, skip=skip)
         return [TYPES_DICT[obj_type](self, obj_type, chat) for chat in chats]
     
-    def get_cached_chats(self, obj_type: str, force_update: bool = False, name: str = None) -> typing.List[Chat]:
+    def get_cached_chats(self, obj_type: str, force_update: bool = False, name: str = None, top: int = -1, skip: int = 0) -> typing.List[Chat]:
         """
         Attempt to load a list of chats (teams, forums, users, etc) from JSON,
         and if not found, get them from Ryver.
+
+        top is the maximum number of results (-1 for unlimited), skip is how
+        many results to skip. (These arguments are not respected if reading
+        from a JSON file.)
 
         This method only performs new requests if the JSON file specified by
         name is not found. You can also force it to perform a request to update
@@ -419,7 +429,7 @@ class Ryver:
                 data = json.load(f)
                 return [TYPES_DICT[obj_type](self, obj_type, chat) for chat in data]
         else:
-            chats = self.get_chats(obj_type)
+            chats = self.get_chats(obj_type, top=top, skip=skip)
             with open(name, "w") as f:
                 json.dump([chat.data for chat in chats], f)
             return chats
@@ -473,23 +483,28 @@ def get_obj_by_field(objs: typing.List[Object], field: str, value: typing.Any) -
             return obj
     return None
 
-# TODO: Add param for top
-def get_all(url: str, headers: dict, param: str = "?$skip"):
+def get_all(url: str, headers: dict, top: int = -1, skip: int = 0, param: str = "?$skip"):
     """
     Because the REST API only gives 50 results at a time, this function is used
     to retrieve all objects.
 
     Intended for internal use only.
     """
+    # -1 means everything
+    if top == -1:
+        top = float("inf")
     result = []
-    skip = 0
     while True:
-        resp = requests.get(url + f"{param}={skip}", headers=headers)
+        # Respect the max specified
+        count = min(top, 50)
+        top -= count
+
+        resp = requests.get(url + f"{param}={skip}&$top={count}", headers=headers)
         resp.raise_for_status()
         page = resp.json()["d"]["results"]
-        if len(page) == 0:
-            break
         result.extend(page)
+        if len(page) == 0 or top == 0:
+            break
         skip += len(page)
     return result
 
