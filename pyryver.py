@@ -3,11 +3,12 @@ A simple Python library for Ryver's REST APIs.
 """
 
 import requests
-from base64 import b64encode
-from getpass import getpass
 import typing
 import os
 import json
+from abc import ABC, abstractmethod
+from base64 import b64encode
+from getpass import getpass
 
 
 class Creator:
@@ -33,7 +34,7 @@ class Creator:
         }
 
 
-class Object:
+class Object(ABC):
     """
     Base class for all Ryver objects.
     """
@@ -69,17 +70,16 @@ class Object:
         return self.data
 
 
-class TopicReply(Object):
+class Message(Object):
     """
-    A reply on a topic.
+    Any generic Ryver message, with an author, body, and reactions.
     """
+    @abstractmethod
+    def get_body(self) -> str:
+        """
+        Get the body of this message.
+        """
 
-    def get_message(self) -> str:
-        """
-        Get the message of this reply.
-        """
-        return self.data["comment"]
-    
     def get_creator(self) -> Creator:
         """
         Get the Creator of this message.
@@ -93,30 +93,31 @@ class TopicReply(Object):
         else:
             return None
 
+    @abstractmethod
     def get_author_id(self) -> int:
         """
-        Get the ID of the author of this reply.
+        Get the ID of the author of this message.
         """
-        return self.data["createUser"]["id"]
 
     def get_author(self) -> "User":
         """
-        Get the author of this reply, as a User object.
+        Get the author of this message, as a User object.
 
         Note that this method does send requests, so it may take some time.
         """
-        return self.cred.get_object(TYPE_USER, self.data["createUser"]["id"])
-    
+        return self.cred.get_object(TYPE_USER, self.get_author_id())
+
     def react(self, emoji: str) -> None:
         """
-        React to this topic with an emoji, specified with the string name (e.g. "thumbsup").
+        React to this message with an emoji, specified with the string name (e.g. "thumbsup").
 
         Note that this method does send requests, so it may take some time.
         """
-        url = self.cred.url_prefix + f"{self.obj_type}({self.get_id()})/React(reaction='{emoji}')"
+        url = self.cred.url_prefix + \
+            f"{self.get_type()}({self.get_id()})/React(reaction='{emoji}')"
         resp = requests.post(url, headers=self.cred.headers)
         resp.raise_for_status()
-    
+
     def get_reactions(self) -> dict:
         """
         Get the reactions on this message.
@@ -137,7 +138,35 @@ class TopicReply(Object):
         return counts
 
 
-class Topic(Object):
+class TopicReply(Message):
+    """
+    A reply on a topic.
+    """
+
+    def get_body(self) -> str:
+        """
+        Get the body of this message.
+        """
+        return self.data["comment"]
+    
+    # Overrides Message.get_author()
+    # These two methods aren't implemented here because a topic reply's data
+    # does not contain info about its creator.
+    # There is a "deferred" URL, but that always results in HTTP 500.
+    def get_author(self) -> "User":
+        """
+        Get the author of this reply, as a User object. DOES NOT WORK!
+        """
+        raise NotImplementedError
+
+    def get_author_id(self) -> int:
+        """
+        Get the ID of the author of this reply. DOES NOT WORK!
+        """
+        raise NotImplementedError
+
+
+class Topic(Message):
     """
     A Ryver topic in a chat.
     """
@@ -153,6 +182,12 @@ class Topic(Object):
         Get the body of this topic.
         """
         return self.data["body"]
+
+    def get_author_id(self) -> int:
+        """
+        Get the ID of the author of this topic.
+        """
+        return self.data["createUser"]["id"]
 
     def reply(self, message: str, creator: Creator = None) -> TopicReply:
         """
@@ -190,36 +225,8 @@ class Topic(Object):
                           skip=skip, param="&$skip")
         return [TopicReply(self.cred, TYPE_TOPIC_REPLY, data) for data in replies]
 
-    def react(self, emoji: str) -> None:
-        """
-        React to this topic with an emoji, specified with the string name (e.g. "thumbsup").
 
-        Note that this method does send requests, so it may take some time.
-        """
-        url = self.cred.url_prefix + f"{self.obj_type}({self.get_id()})/React(reaction='{emoji}')"
-        resp = requests.post(url, headers=self.cred.headers)
-        resp.raise_for_status()
-    
-    def get_reactions(self) -> dict:
-        """
-        Get the reactions on this message.
-
-        Returns a dict of {emoji: [users]}
-        """
-        return self.data['__reactions']
-
-    def get_reaction_counts(self) -> dict:
-        """
-        Count the number of reactions for each emoji on a message.
-
-        Returns a dict of {emoji: number_of_reacts}
-        """
-        reactions = self.get_reactions()
-        counts = {reaction: len(users)
-                  for reaction, users in reactions.items()}
-        return counts
-
-class Message(Object):
+class ChatMessage(Message):
     """
     A Ryver chat message.
     """
@@ -230,32 +237,11 @@ class Message(Object):
         """
         return self.data["body"]
 
-    def get_creator(self) -> Creator:
-        """
-        Get the Creator of this message.
-
-        Note that this is different from the author. Creators are used to
-        override the display name and avatar of a user. If the username and 
-        avatar were not overridden, this will return None.
-        """
-        if self.data["createSource"]:
-            return Creator(self.data["createSource"]["displayName"], self.data["createSource"]["avatar"])
-        else:
-            return None
-
     def get_author_id(self) -> int:
         """
         Get the ID of the author of this message.
         """
-        self.data["from"]["id"]
-
-    def get_author(self) -> "User":
-        """
-        Get the author of this message, as a User object.
-
-        Note that this method does send requests, so it may take some time.
-        """
-        return self.cred.get_object(TYPE_USER, self.data["from"]["id"])
+        return self.data["from"]["id"]
 
     def get_chat_type(self) -> str:
         """
@@ -284,6 +270,7 @@ class Message(Object):
         """
         return self.cred.get_object(get_type_from_entity(self.get_chat_type()), self.get_chat_id())
 
+    # Override Message.react() because a different URL is used
     def react(self, emoji: str) -> None:
         """
         React to a message with an emoji, specified with the string name (e.g. "thumbsup").
@@ -292,7 +279,7 @@ class Message(Object):
         """
         url = self.cred.url_prefix + \
             "{chat_type}({chat_id})/Chat.React()".format(
-                chat_type=self.get_chat_type(), chat_id=self.get_chat_id())
+                chat_type=get_type_from_entity(self.get_chat_type()), chat_id=self.get_chat_id())
         data = {
             "id": self.id,
             "reaction": emoji
@@ -301,32 +288,13 @@ class Message(Object):
         resp = requests.post(url, json=data, headers=self.cred.headers)
         resp.raise_for_status()
 
-    def get_reactions(self) -> dict:
-        """
-        Get the reactions on this message.
-
-        Returns a dict of {emoji: [users]}
-        """
-        return self.data['__reactions']
-
-    def get_reaction_counts(self) -> dict:
-        """
-        Count the number of reactions for each emoji on a message.
-
-        Returns a dict of {emoji: number_of_reacts}
-        """
-        reactions = self.get_reactions()
-        counts = {reaction: len(users)
-                  for reaction, users in reactions.items()}
-        return counts
-
     def delete(self) -> None:
         """
         Deletes the message.
         """
         url = self.cred.url_prefix + \
             "{chat_type}({chat_id})/Chat.DeleteMessage()?%24format=json".format(
-                chat_type=self.get_chat_type(), chat_id=self.get_chat_id())
+                chat_type=get_type_from_entity(self.get_chat_type()), chat_id=self.get_chat_id())
         data = {
             "id": self.id,
         }
@@ -404,7 +372,7 @@ class Chat(Object):
                          param="&$skip", top=top, skip=skip)
         return [Topic(self.cred, TYPE_TOPIC, data) for data in topics]
 
-    def get_messages(self, count: int) -> typing.List[Message]:
+    def get_messages(self, count: int) -> typing.List[ChatMessage]:
         """
         Get a number of messages (most recent first) in this chat.
 
@@ -415,7 +383,7 @@ class Chat(Object):
         resp = requests.get(url, headers=self.cred.headers)
         resp.raise_for_status()
         messages = resp.json()["d"]["results"]
-        return [Message(self.cred, TYPE_MESSAGE, data) for data in messages]
+        return [ChatMessage(self.cred, TYPE_MESSAGE, data) for data in messages]
 
 
 class User(Chat):
@@ -447,45 +415,39 @@ class User(Chat):
         resp.raise_for_status()
 
 
-class Forum(Chat):
+class GroupChat(Chat):
+    """
+    A Ryver team or forum.
+    """
+
+    def get_name(self) -> str:
+        """
+        Get the name of this chat.
+        """
+        return self.data["name"]
+
+    def get_nickname(self) -> str:
+        """
+        Get the nickname of this chat.
+        """
+        return self.data["nickname"]
+
+
+class Forum(GroupChat):
     """
     A Ryver forum.
     """
 
-    def get_name(self) -> str:
-        """
-        Get the name of this forum.
-        """
-        return self.data["name"]
 
-    def get_nickname(self) -> str:
-        """
-        Get the nickname of this forum.
-        """
-        return self.data["nickname"]
-
-
-class Team(Chat):
+class Team(GroupChat):
     """
     A Ryver team.
     """
 
-    def get_name(self) -> str:
-        """
-        Get the name of this team.
-        """
-        return self.data["name"]
-
-    def get_nickname(self) -> str:
-        """
-        Get the nickname of this team.
-        """
-        return self.data["nickname"]
-
 
 class Ryver:
     """
-    A Ryver object containing login credentials and organization information.
+    A Ryver object contains login credentials and organization information.
 
     This is the starting point for any application using pyryver.
 
@@ -583,7 +545,7 @@ TYPES_DICT = {
     TYPE_FORUM: Forum,
     TYPE_TEAM: Team,
     TYPE_TOPIC: Topic,
-    TYPE_MESSAGE: Message,
+    TYPE_MESSAGE: ChatMessage,
     TYPE_TOPIC_REPLY: TopicReply,
 }
 
