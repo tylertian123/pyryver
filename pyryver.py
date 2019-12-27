@@ -65,10 +65,65 @@ class Object:
         """
         return self.data
 
+class TopicReply(Object):
+    """
+    A reply on a topic.
+    """
+    def get_message(self) -> str:
+        """
+        Get the message of this reply.
+        """
+        return self.data["comment"]
+
+    def get_author_id(self) -> int:
+        """
+        Get the ID of the author of this reply.
+        """
+        return self.data["createUser"]["id"]
+
+    def get_author(self):
+        """
+        Get the author of this reply, as a User object.
+
+        Note that this method does send requests, so it may take some time.
+        """
+        return self.cred.get_object(TYPE_USER, self.data["createUser"]["id"])
+
 class Topic(Object):
     """
     A Ryver topic in a chat.
     """
+    # TODO: Add function to get replies
+    def get_subject(self) -> str:
+        """
+        Get the subject of this topic.
+        """
+        return self.data["subject"]
+    
+    def get_body(self) -> str:
+        """
+        Get the body of this topic.
+        """
+        return self.data["body"]
+
+    def reply(self, message: str) -> TopicReply:
+        """
+        Reply to the topic.
+
+        Note that this method does send requests, so it may take some time.
+
+        For unknown reasons, overriding the creator does not work for this.
+        """
+        url = self.cred.url_prefix + TYPE_TOPIC_REPLY + "?$format=json"
+        data = {
+            "comment": message,
+            "post": {
+                "id": self.get_id()
+            }
+        }
+        resp = requests.post(url, json=data, headers=self.cred.headers)
+        resp.raise_for_status()
+        return TopicReply(self.cred, TYPE_TOPIC_REPLY, resp.json()["d"]["results"])
 
 class Message(Object):
     """
@@ -93,6 +148,12 @@ class Message(Object):
         else:
             return None
     
+    def get_author_id(self) -> int:
+        """
+        Get the ID of the author of this message.
+        """
+        self.data["from"]["id"]
+
     def get_author(self):
         """
         Get the author of this message, as a User object.
@@ -304,6 +365,7 @@ TYPE_FORUM = "forums"
 TYPE_TEAM = "workrooms"
 
 TYPE_TOPIC = "posts"
+TYPE_TOPIC_REPLY = "postComments"
 
 # Note: messages aren't really a "real" type in the Ryver API
 # They're just here for the sake of completeness and to fit in with the rest of pyryver
@@ -315,6 +377,7 @@ ENTITY_TYPES = {
     TYPE_TEAM: "Entity.Workroom",
     TYPE_TOPIC: "Entity.Post",
     TYPE_MESSAGE: None,
+    TYPE_TOPIC_REPLY: "Entity.Post.Comment",
 }
 
 TYPES_DICT = {
@@ -323,6 +386,7 @@ TYPES_DICT = {
     TYPE_TEAM: Team,
     TYPE_TOPIC: Topic,
     TYPE_MESSAGE: Message,
+    TYPE_TOPIC_REPLY: TopicReply,
 }
 
 FIELD_USER_USERNAME = "username"
@@ -345,6 +409,7 @@ def get_obj_by_field(objs: typing.List[Object], field: str, value: typing.Any) -
             return obj
     return None
 
+# TODO: Add param for top
 def get_all(url: str, headers: dict, param: str = "?$skip"):
     """
     Because the REST API only gives 50 results at a time, this function is used
