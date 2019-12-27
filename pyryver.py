@@ -130,7 +130,7 @@ class Message(Object):
 
     def react(self, emoji: str):
         url = self.cred.url_prefix + \
-            "forums({forum_id})/Chat.React()".format(forum_id=self.get_chat_id())
+            "{chat_type}({chat_id})/Chat.React()".format(chat_type=self.get_chat_type(),chat_id=self.get_chat_id())
         data = {
             "id": self.id,
             "reaction": emoji
@@ -146,7 +146,7 @@ class Message(Object):
 
     def delete(self):
         url = self.cred.url_prefix + \
-            "forums({forum_id})/Chat.DeleteMessage()?%24format=json".format(forum_id=self.get_chat_id())
+            "{chat_type}({chat_id})/Chat.DeleteMessage()?%24format=json".format(chat_type=self.get_chat_type(),chat_id=self.get_chat_id())
         data = {
             "id": self.id,
         }
