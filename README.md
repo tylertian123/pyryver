@@ -7,6 +7,38 @@
 ## Setup
 As `pyryver` is not on pip yet, simply put `pyryver.py` inside your project. It also depends on the `requests` library.
 
+## Supported Actions
+  - All Chats (`Chat`, includes forums, teams, and user DMs)
+    - Send message (`Chat.send_message()`)
+    - Create topic (`Chat.create_topic()`)
+    - Get topics (`Chat.get_topics()`)
+    - Get messages (`Chat.get_messages()`)
+  - Users (`User`)
+    - Activate/Deactivate (`User.set_activated()`)
+  - Topics (`Topic`)
+    - Reply (`Topic.reply()`)
+    - Get replies (`Topic.get_replies()`)
+    - React (`Topic.react()`)
+    - Get reactions (`Topic.get_reactions()`)
+    - Get author (`Topic.get_author()`)
+  - Topic Replies (`TopicReply`)
+    - React (`TopicReply.react()`)
+    - Get reactions (`TopicReply.get_reactions()`)
+  - Chat Messages (`ChatMessage`)
+    - React (`ChatMessage.react()`)
+    - Get reactions (`ChatMessage.get_reactions()`)
+    - Get author (`ChatMessage.get_author()`)
+    - Delete (`ChatMessage.delete()`)
+    - Get chat (`ChatMessage.get_chat()`)
+  - Notifications (`Notification`)
+    - Get notifications (`Ryver.get_notifs()`)
+    - Mark all notifications as read (`Ryver.mark_all_notifs_read()`)
+    - Mark all notifications as seen (`Ryver.mark_all_notifs_seen()`)
+  - Miscellaneous
+    - List all forums/teams/users/etc (`Ryver.get_chats()`/`Ryver.get_cached_chats()`)
+
+More actions will be coming soon!
+
 ## Examples
 More examples can be found in the `examples` directory.
 
