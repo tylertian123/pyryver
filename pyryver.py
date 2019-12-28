@@ -148,7 +148,7 @@ class TopicReply(Message):
         Get the body of this message.
         """
         return self.data["comment"]
-    
+
     # Overrides Message.get_author()
     # These two methods aren't implemented here because a topic reply's data
     # does not contain info about its creator.
@@ -222,7 +222,7 @@ class Topic(Message):
         url = self.cred.url_prefix + TYPE_TOPIC_REPLY + \
             f"?$format=json&$filter=((post/id eq {self.get_id()}))"
         replies = get_all(url, self.cred.headers, top=top,
-                          skip=skip, param="&$skip")
+                          skip=skip, param="&")
         return [TopicReply(self.cred, TYPE_TOPIC_REPLY, data) for data in replies]
 
 
@@ -369,7 +369,7 @@ class Chat(Object):
         url = self.cred.url_prefix + \
             f"{self.obj_type}({self.id})/Post.Stream(archived={'true' if archived else 'false'})?$format=json"
         topics = get_all(url, self.cred.headers,
-                         param="&$skip", top=top, skip=skip)
+                         param="&", top=top, skip=skip)
         return [Topic(self.cred, TYPE_TOPIC, data) for data in topics]
 
     def get_messages(self, count: int) -> typing.List[ChatMessage]:
@@ -443,6 +443,81 @@ class Team(GroupChat):
     """
     A Ryver team.
     """
+
+
+class Notification(Object):
+    """
+    A Ryver user notification.
+    """
+
+    def get_predicate(self) -> str:
+        """
+        Get the "predicate" of this notification.
+
+        E.g.
+          - chat_mention - User was @mentioned
+          - group_mention - User was mentioned through @team or @here
+          - commented_on - A topic was commented on
+          - completed - A task was completed
+        """
+        return self.data["predicate"]
+
+    def get_source_entity_type(self) -> str:
+        """
+        Get the type of this notification's source as an entity type.
+        """
+        return self.data["viaType"]
+
+    def get_source_type(self) -> str:
+        """
+        Get the type of this notification's source (e.g. TYPE_MESSAGE).
+        """
+        return get_type_from_entity(self.get_source_entity_type())
+
+    def get_source_id(self) -> typing.Any:
+        """
+        Get the ID of this notification's source.
+
+        This is usually an integer, however for messages it is a string.
+        """
+        return self.data["via"]["id"]
+
+    def get_message(self) -> str:
+        """
+        Get the message of this notification.
+
+        Note: If the message is too long, this can be truncated.
+        """
+        return self.data["via"]["__descriptor"]
+
+    def get_source_location_type(self) -> str:
+        """
+        Get the type of the location of the source of this message.
+
+        E.g. if the source was a message sent to a forum, this would return
+        TYPE_FORUM.
+        """
+        entity_type = ""
+        source_type = self.get_source_type()
+        if source_type == TYPE_MESSAGE:
+            entity_type = self.data["via"]["workroom"]["__metadata"]["type"]
+        elif source_type == TYPE_TOPIC_REPLY:
+            entity_type = self.data["via"]["post"]["__metadata"]["type"]
+        else:
+            raise NotImplementedError("Not implemented for type " + source_type)
+        return get_type_from_entity(entity_type)
+    
+    def get_source_location_id(self) -> int:
+        """
+        Get the ID of the location of the source of this message.
+        """
+        source_type = self.get_source_type()
+        if source_type == TYPE_MESSAGE:
+            return self.data["via"]["workroom"]["id"]
+        elif source_type == TYPE_TOPIC_REPLY:
+            entity_type = self.data["via"]["post"]["id"]
+        else:
+            raise NotImplementedError("Not implemented for type " + source_type)
 
 
 class Ryver:
@@ -519,6 +594,52 @@ class Ryver:
                 json.dump([chat.data for chat in chats], f)
             return chats
 
+    def get_notifs(self, unread: bool = False, top: int = -1, skip: int = 0) -> typing.List[Notification]:
+        """
+        Get all the user's notifications. 
+
+        If unread is true, only unread notifications will be retrieved.
+
+        top is the maximum number of results (-1 for unlimited), skip is how
+        many results to skip.
+
+        Note that this method does send requests, so it may take some time.
+        """
+        url = self.url_prefix + TYPE_NOTIFICATION + \
+            "?$format=json&$orderby=modifyDate desc"
+        if unread:
+            url += "&$filter=((unread eq true))"
+        notifs = get_all(url, self.headers, top=top, skip=skip, param="&")
+        return [Notification(self, TYPE_NOTIFICATION, data) for data in notifs]
+
+    def mark_all_notifs_read(self) -> int:
+        """
+        Marks all the user's notifications as read.
+
+        Note that this method does send requests, so it may take some time.
+
+        Returns how many notifications were marked as read.
+        """
+        url = self.url_prefix + TYPE_NOTIFICATION + \
+            "/UserNotification.MarkAllRead()?$format=json"
+        resp = requests.post(url, headers=self.headers)
+        resp.raise_for_status()
+        return resp.json()["d"]["count"]
+
+    def mark_all_notifs_seen(self) -> int:
+        """
+        Marks all the user's notifications as seen.
+
+        Note that this method does send requests, so it may take some time.
+
+        Returns how many notifications were marked as seen.
+        """
+        url = self.url_prefix + TYPE_NOTIFICATION + \
+            "/UserNotification.MarkAllSeen()?$format=json"
+        resp = requests.post(url, headers=self.headers)
+        resp.raise_for_status()
+        return resp.json()["d"]["count"]
+
 
 TYPE_USER = "users"
 TYPE_FORUM = "forums"
@@ -526,6 +647,7 @@ TYPE_TEAM = "workrooms"
 
 TYPE_TOPIC = "posts"
 TYPE_TOPIC_REPLY = "postComments"
+TYPE_NOTIFICATION = "userNotifications"
 
 # Note: messages aren't really a "real" type in the Ryver API
 # They're just here for the sake of completeness and to fit in with the rest of pyryver
@@ -536,8 +658,9 @@ ENTITY_TYPES = {
     TYPE_FORUM: "Entity.Forum",
     TYPE_TEAM: "Entity.Workroom",
     TYPE_TOPIC: "Entity.Post",
-    TYPE_MESSAGE: None,
+    TYPE_MESSAGE: "Entity.ChatMessage",
     TYPE_TOPIC_REPLY: "Entity.Post.Comment",
+    TYPE_NOTIFICATION: "Entity.UserNotification",
 }
 
 TYPES_DICT = {
@@ -547,6 +670,7 @@ TYPES_DICT = {
     TYPE_TOPIC: Topic,
     TYPE_MESSAGE: ChatMessage,
     TYPE_TOPIC_REPLY: TopicReply,
+    TYPE_NOTIFICATION: Notification,
 }
 
 FIELD_USER_USERNAME = "username"
@@ -556,6 +680,10 @@ FIELD_USER_DISPLAY_NAME = "displayName"
 FIELD_NAME = "name"
 FIELD_NICKNAME = "nickname"
 FIELD_ID = "id"
+
+NOTIF_PREDICATE_MENTION = "chat_mention"
+NOTIF_PREDICATE_GROUP_MENTION = "group_mention"
+NOTIF_PREDICATE_COMMENT = "commented_on"
 
 
 def get_obj_by_field(objs: typing.List[Object], field: str, value: typing.Any) -> Object:
@@ -571,7 +699,7 @@ def get_obj_by_field(objs: typing.List[Object], field: str, value: typing.Any) -
     return None
 
 
-def get_all(url: str, headers: dict, top: int = -1, skip: int = 0, param: str = "?$skip") -> typing.List[dict]:
+def get_all(url: str, headers: dict, top: int = -1, skip: int = 0, param: str = "?") -> typing.List[dict]:
     """
     Because the REST API only gives 50 results at a time, this function is used
     to retrieve all objects.
@@ -588,7 +716,7 @@ def get_all(url: str, headers: dict, top: int = -1, skip: int = 0, param: str = 
         top -= count
 
         resp = requests.get(
-            url + f"{param}={skip}&$top={count}", headers=headers)
+            url + f"{param}$skip={skip}&$top={count}", headers=headers)
         resp.raise_for_status()
         page = resp.json()["d"]["results"]
         result.extend(page)
