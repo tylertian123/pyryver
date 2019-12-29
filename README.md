@@ -34,6 +34,7 @@ As `pyryver` is not on pip yet, simply put `pyryver.py` inside your project. It 
     - Get notifications (`Ryver.get_notifs()`)
     - Mark all notifications as read (`Ryver.mark_all_notifs_read()`)
     - Mark all notifications as seen (`Ryver.mark_all_notifs_seen()`)
+    - Mark a notification as read/unread/seen/unseen (`Notification.set_status()`)
   - Miscellaneous
     - List all forums/teams/users/etc (`Ryver.get_chats()`/`Ryver.get_cached_chats()`)
 

@@ -385,6 +385,21 @@ class Chat(Object):
         messages = resp.json()["d"]["results"]
         return [ChatMessage(self.cred, TYPE_MESSAGE, data) for data in messages]
 
+    def get_message_from_id(self, id: str, before: int = 0, after: int = 0) -> typing.List[Message]:
+        """
+        Get a message from an ID, optionally also messages before and after it too.
+
+        Note that this method does send requests, so it may take some time.
+
+        This method does not support top/skip.
+        """
+        url = self.cred.url_prefix + \
+            f"{self.obj_type}({self.id})/Chat.History.Message(id='{id}',before={before},after={after})?$format=json"
+        resp = requests.get(url, headers=self.cred.headers)
+        resp.raise_for_status()
+        messages = resp.json()["d"]["results"]
+        return [ChatMessage(self.cred, TYPE_MESSAGE, data) for data in messages]
+
 
 class User(Chat):
     """
@@ -452,7 +467,7 @@ class Notification(Object):
 
     def get_predicate(self) -> str:
         """
-        Get the "predicate" of this notification.
+        Get the "predicate", or type, of this notification.
 
         E.g.
           - chat_mention - User was @mentioned
@@ -462,62 +477,112 @@ class Notification(Object):
         """
         return self.data["predicate"]
 
-    def get_source_entity_type(self) -> str:
+    def get_subject_entity_type(self) -> str:
         """
-        Get the type of this notification's source as an entity type.
+        Get the entity type of the "subject" of this notification.
+
+        The exact nature of this field is not yet known, but it seems to be the
+        user that did the action which caused this notification.
+        """
+        return self.data["subjectType"]
+
+    def get_subject_id(self) -> int:
+        """
+        Get the ID of the "subject" of this notification.
+
+        The exact nature of this field is not yet known, but it seems to be the
+        user that did the action which caused this notification.
+        """
+        return self.data["subjectId"]
+
+    def get_subjects(self) -> typing.List[dict]:
+        """
+        Get the "subjects" of this notification.
+
+        The exact nature of this field is not yet known, but it seems to be the
+        user that did the action which caused this notification. It is also 
+        unknown why this is an array, as it seems to only ever contain one
+        element.
+        """
+        return self.data["subjects"]
+
+    def get_object_entity_type(self) -> str:
+        """
+        Get entity type of the "object" of this notification.
+
+        The exact nature of this field is not yet known, but it seems to be the
+        target of an @mention for mentions, the topic for topic comments, or the
+        task for task activities.
+        """
+        return self.data["objectType"]
+
+    def get_object_id(self) -> int:
+        """
+        Get the ID of the "object" of this notification.
+
+        The exact nature of this field is not yet known, but it seems to be the
+        target of an @mention for mentions, the topic for topic comments, or the
+        task for task activities.
+        """
+        return self.data["objectId"]
+
+    def get_object(self) -> dict:
+        """
+        Get the "object" of this notification.
+
+        The exact nature of this field is not yet known, but it seems to be the
+        target of an @mention for mentions, the topic for topic comments, or the
+        task for task activities.
+        """
+        return self.data["object"]
+
+    def get_via_entity_type(self) -> str:
+        """
+        Get the entity type of the "via" of this notification.
+
+        The exact nature of this field is not yet known, but it seems to
+        contain information about whatever caused this notification. For
+        example, the chat message of an @mention, the topic reply for a reply,
+        etc. Note that for task completions, there is NO via.
         """
         return self.data["viaType"]
 
-    def get_source_type(self) -> str:
+    def get_via_id(self) -> int:
         """
-        Get the type of this notification's source (e.g. TYPE_MESSAGE).
-        """
-        return get_type_from_entity(self.get_source_entity_type())
+        Get the ID of the "via" of this notification.
 
-    def get_source_id(self) -> typing.Any:
+        The exact nature of this field is not yet known, but it seems to
+        contain information about whatever caused this notification. For
+        example, the chat message of an @mention, the topic reply for a reply,
+        etc. Note that for task completions, there is NO via.
         """
-        Get the ID of this notification's source.
+        return self.data["viaId"]
 
-        This is usually an integer, however for messages it is a string.
+    def get_via(self) -> dict:
         """
-        return self.data["via"]["id"]
+        Get the "via" of this notification.
 
-    def get_message(self) -> str:
+        The exact nature of this field is not yet known, but it seems to
+        contain information about whatever caused this notification. For
+        example, the chat message of an @mention, the topic reply for a reply,
+        etc. Note that for task completions, there is NO via.
         """
-        Get the message of this notification.
+        return self.data["via"]
 
-        Note: If the message is too long, this can be truncated.
+    def set_status(self, unread: bool, new: bool) -> None:
         """
-        return self.data["via"]["__descriptor"]
+        Set the read/unread and seen/unseen (new) status of this notification.
 
-    def get_source_location_type(self) -> str:
+        Note that this method does send requests, so it may take some time.
         """
-        Get the type of the location of the source of this message.
-
-        E.g. if the source was a message sent to a forum, this would return
-        TYPE_FORUM.
-        """
-        entity_type = ""
-        source_type = self.get_source_type()
-        if source_type == TYPE_MESSAGE:
-            entity_type = self.data["via"]["workroom"]["__metadata"]["type"]
-        elif source_type == TYPE_TOPIC_REPLY:
-            entity_type = self.data["via"]["post"]["__metadata"]["type"]
-        else:
-            raise NotImplementedError("Not implemented for type " + source_type)
-        return get_type_from_entity(entity_type)
-    
-    def get_source_location_id(self) -> int:
-        """
-        Get the ID of the location of the source of this message.
-        """
-        source_type = self.get_source_type()
-        if source_type == TYPE_MESSAGE:
-            return self.data["via"]["workroom"]["id"]
-        elif source_type == TYPE_TOPIC_REPLY:
-            entity_type = self.data["via"]["post"]["id"]
-        else:
-            raise NotImplementedError("Not implemented for type " + source_type)
+        data = {
+            "unread": unread,
+            "new": new,
+        }
+        url = self.cred.url_prefix + f"{self.obj_type}({self.id})?$format=json"
+        # Patch not post!
+        resp = requests.patch(url, json=data, headers=self.cred.headers)
+        resp.raise_for_status()
 
 
 class Ryver:
@@ -684,6 +749,7 @@ FIELD_ID = "id"
 NOTIF_PREDICATE_MENTION = "chat_mention"
 NOTIF_PREDICATE_GROUP_MENTION = "group_mention"
 NOTIF_PREDICATE_COMMENT = "commented_on"
+NOTIF_PREDICATE_TASK_COMPLETED = "completed"
 
 
 def get_obj_by_field(objs: typing.List[Object], field: str, value: typing.Any) -> Object:
