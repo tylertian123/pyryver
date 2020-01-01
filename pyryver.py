@@ -34,7 +34,7 @@ class Creator:
         }
 
 
-class Object(ABC):
+class Object(metaclass = ABC):
     """
     Base class for all Ryver objects.
     """
