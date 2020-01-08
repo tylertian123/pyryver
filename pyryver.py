@@ -442,11 +442,19 @@ class User(Chat):
         """
         return self.data["emailAddress"]
     
+    def get_activated(self) -> bool:
+        """
+        Get whether this user's account is activated.
+        """
+        return self.data["active"]
+    
     def set_profile(self, display_name: str = None, role: str = None, about: str = None) -> None:
         """
         Update this user's profile.
 
         If any of the arguments are None, they will not be changed.
+
+        Note that this method does send requests, so it may take some time.
 
         Note: This also updates these properties in this object!
         """
@@ -468,11 +476,15 @@ class User(Chat):
         Activate or deactivate the user. Requires admin.
 
         Note that this method does send requests, so it may take some time.
+
+        Note: This also updates these properties in this object!
         """
         url = self.cred.url_prefix + \
             f"{self.obj_type}({self.id})/User.Active.Set(value='{'true' if activated else 'false'}')"
         resp = requests.post(url, headers=self.cred.headers)
         resp.raise_for_status()
+
+        self.data["active"] = activated
 
 
 class GroupChat(Chat):
@@ -613,12 +625,26 @@ class Notification(Object):
         etc. Note that for task completions, there is NO via.
         """
         return self.data["via"]
+    
+    def get_new(self) -> bool:
+        """
+        Get whether this notification is new.
+        """
+        return self.data["new"]
+    
+    def get_unread(self) -> bool:
+        """
+        Get whether this notification is unread.
+        """
+        return self.data["unread"]
 
     def set_status(self, unread: bool, new: bool) -> None:
         """
         Set the read/unread and seen/unseen (new) status of this notification.
 
         Note that this method does send requests, so it may take some time.
+
+        Note: This also updates these properties in this object!
         """
         data = {
             "unread": unread,
@@ -628,6 +654,9 @@ class Notification(Object):
         # Patch not post!
         resp = requests.patch(url, json=data, headers=self.cred.headers)
         resp.raise_for_status()
+        
+        self.data["unread"] = unread
+        self.data["new"] = new
 
 
 class Ryver:
