@@ -417,6 +417,51 @@ class User(Chat):
         Get the display name of this user.
         """
         return self.data["displayName"]
+    
+    def get_role(self) -> str:
+        """
+        Get this user's Role.
+        """
+        return self.data["description"]
+    
+    def get_about(self) -> str:
+        """
+        Get this user's About.
+        """
+        return self.data["aboutMe"]
+    
+    def get_time_zone(self) -> str:
+        """
+        Get this user's Time Zone.
+        """
+        return self.data["timeZone"]
+    
+    def get_email_address(self) -> str:
+        """
+        Get this user's Email Address.
+        """
+        return self.data["emailAddress"]
+    
+    def set_profile(self, display_name: str = None, role: str = None, about: str = None) -> None:
+        """
+        Update this user's profile.
+
+        If any of the arguments are None, they will not be changed.
+
+        Note: This also updates these properties in this object!
+        """
+        url = self.cred.url_prefix + f"/{self.get_type()}(id={self.get_id()})"
+        data = {
+            "aboutMe": about if about is not None else self.get_about(),
+            "description": role if role is not None else self.get_role(),
+            "displayName": display_name if display_name is not None else self.get_display_name(),
+        }
+        resp = requests.patch(url, json=data, headers=self.cred.headers)
+        resp.raise_for_status()
+
+        self.data["aboutMe"] = data["aboutMe"]
+        self.data["description"] = data["description"]
+        self.data["displayName"] = data["displayName"]
 
     def set_activated(self, activated: bool) -> None:
         """
