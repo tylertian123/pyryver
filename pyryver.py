@@ -410,6 +410,10 @@ class User(Chat):
     A Ryver user.
     """
 
+    ROLE_USER = "ROLE_USER"
+    ROLE_ADMIN = "ROLE_ADMIN"
+    ROLE_GUEST = "ROLE_GUEST"
+
     def get_username(self) -> str:
         """
         Get the username of this user.
@@ -424,7 +428,11 @@ class User(Chat):
 
     def get_role(self) -> str:
         """
-        Get this user's Role.
+        Get this user's Role in their profile.
+
+        Note this is different from get_roles(). While this one gets the "Role"
+        of the user from the profile, get_roles() gets the user's roles in the
+        organization (user, guest, admin).
         """
         return self.data["description"]
 
@@ -451,6 +459,22 @@ class User(Chat):
         Get whether this user's account is activated.
         """
         return self.data["active"]
+    
+    def get_roles(self) -> typing.List[str]:
+        """
+        Get this user's role in the organization.
+
+        Note this is different from get_role(). While this one gets the user's
+        roles in the organization (user, guest, admin), get_role() gets the
+        user's role from their profile.
+        """
+        return self.data["roles"]
+    
+    def is_admin(self) -> bool:
+        """
+        Get whether this user is an org admin.
+        """
+        return User.ROLE_ADMIN in self.get_roles()
 
     def set_profile(self, display_name: str = None, role: str = None, about: str = None) -> None:
         """
@@ -551,6 +575,14 @@ class GroupChatMember(Object):
         Get this member as a User object.
         """
         return User(self.cred, TYPE_USER, self.data["member"])
+    
+    def is_admin(self) -> bool:
+        """
+        Get whether this member is an admin of their forum.
+
+        Note that this does not check for org admins.
+        """
+        return GroupChatMember.ROLE_ADMIN == self.get_role()
 
 
 class GroupChat(Chat):
