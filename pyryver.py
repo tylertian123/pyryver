@@ -567,6 +567,11 @@ class Notification(Object):
     A Ryver user notification.
     """
 
+    PREDICATE_MENTION = "chat_mention"
+    PREDICATE_GROUP_MENTION = "group_mention"
+    PREDICATE_COMMENT = "commented_on"
+    PREDICATE_TASK_COMPLETED = "completed"
+
     def get_predicate(self) -> str:
         """
         Get the "predicate", or type, of this notification.
@@ -857,14 +862,20 @@ TYPES_DICT = {
     TYPE_NOTIFICATION: Notification,
 }
 
-FIELD_USER_USERNAME = "username"
-FIELD_USER_EMAIL_ADDR = "emailAddress"
-FIELD_USER_DISPLAY_NAME = "displayName"
-
+# Field names for get_obj_by_field
+FIELD_USERNAME = "username"
+FIELD_EMAIL_ADDR = "emailAddress"
+FIELD_DISPLAY_NAME = "displayName"
 FIELD_NAME = "name"
 FIELD_NICKNAME = "nickname"
 FIELD_ID = "id"
 
+# Here only for backwards compatibility, use the field names above
+FIELD_USER_USERNAME = "username"
+FIELD_USER_EMAIL_ADDR = "emailAddress"
+FIELD_USER_DISPLAY_NAME = "displayName"
+# Notification predicates
+# Here only for backwards compatibility, use the ones in the notification class
 NOTIF_PREDICATE_MENTION = "chat_mention"
 NOTIF_PREDICATE_GROUP_MENTION = "group_mention"
 NOTIF_PREDICATE_COMMENT = "commented_on"
