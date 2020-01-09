@@ -149,21 +149,25 @@ class TopicReply(Message):
         """
         return self.data["comment"]
 
-    # Overrides Message.get_author()
-    # These two methods aren't implemented here because a topic reply's data
-    # does not contain info about its creator.
-    # There is a "deferred" URL, but that always results in HTTP 500.
     def get_author(self) -> "User":
         """
-        Get the author of this reply, as a User object. DOES NOT WORK!
+        Get the author of this reply, as a User object.
+        
+        Unlike the other implementations, this does not send any requests.
         """
-        raise NotImplementedError
+        return User(self.cred, TYPE_USER, self.data["createUser"])
 
     def get_author_id(self) -> int:
         """
-        Get the ID of the author of this reply. DOES NOT WORK!
+        Get the ID of the author of this reply.
         """
-        raise NotImplementedError
+        return self.data["createUser"]["id"]
+    
+    def get_topic(self) -> "Topic":
+        """
+        Get the topic this reply was sent to.
+        """
+        return Topic(self.cred, TYPE_TOPIC, self.data["post"])
 
 
 class Topic(Message):
@@ -220,7 +224,7 @@ class Topic(Message):
         Note that this method does send requests, so it may take some time.
         """
         url = self.cred.url_prefix + TYPE_TOPIC_REPLY + \
-            f"?$format=json&$filter=((post/id eq {self.get_id()}))"
+            f"?$format=json&$filter=((post/id eq {self.get_id()}))&$expand=createUser,post"
         replies = get_all(url, self.cred.headers, top=top,
                           skip=skip, param="&")
         return [TopicReply(self.cred, TYPE_TOPIC_REPLY, data) for data in replies]
@@ -485,6 +489,47 @@ class User(Chat):
         resp.raise_for_status()
 
         self.data["active"] = activated
+    
+    def create_topic(self, from_user: "User", subject: str, body: str, creator: Creator = None) -> Topic:
+        """
+        Create a topic in this chat.
+
+        from_user must be the User object of the same user as in the Ryver
+        object. E.g. if the Ryver object was created with a username of foo,
+        from_user must be the User object of the user. (Don't blame me the API
+        is weird.)
+
+        Note that this method does send requests, so it may take some time.
+
+        Returns the topic created.
+        """
+        url = self.cred.url_prefix + "posts"
+        data = {
+            "body": body,
+            "subject": subject,
+            "outAssociations": {
+                "results": [
+                    {
+                        "inSecured": True,
+                        "inType": self.entity_type,
+                        "inId": self.id,
+                        "inName": self.get_display_name(),
+                    },
+                    {
+                        "inSecured": True,
+                        "inType": from_user.entity_type,
+                        "inId": from_user.id,
+                        "inName": from_user.get_display_name(),
+                    }
+                ]
+            },
+            "recordType": "note"
+        }
+        if creator:
+            data["createSource"] = creator.to_dict()
+        resp = requests.post(url, json=data, headers=self.cred.headers)
+        resp.raise_for_status()
+        return Topic(self.cred, TYPE_TOPIC, resp.json()["d"]["results"])
 
 
 class GroupChat(Chat):
