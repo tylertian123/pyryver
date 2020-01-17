@@ -508,11 +508,30 @@ class User(Chat):
         Note: This also updates these properties in this object!
         """
         url = self.cred.url_prefix + \
-            f"{self.obj_type}({self.id})/User.Active.Set(value='{'true' if activated else 'false'}')"
+            f"{self.get_type()}({self.get_id()})/User.Active.Set(value='{'true' if activated else 'false'}')"
         resp = requests.post(url, headers=self.cred.headers)
         resp.raise_for_status()
 
         self.data["active"] = activated
+    
+    def set_org_role(self, role: str) -> None:
+        """
+        Set a user's role in this organization.
+
+        This can be either ROLE_USER, ROLE_ADMIN or ROLE_GUEST.
+
+        Note that this method does send requests, so it may take some time.
+
+        Note: This also updates these properties in this object!
+        """
+        url = self.cred.url_prefix + \
+            f"{self.get_type()}({self.get_id()})/User.Role.Set(role='{role}')"
+        resp = requests.post(url, headers=self.cred.headers)
+        resp.raise_for_status()
+
+        self.data["roles"] = [role]
+        if role == User.ROLE_ADMIN:
+            self.data["roles"].append(User.ROLE_USER)
 
     def create_topic(self, from_user: "User", subject: str, body: str, creator: Creator = None) -> Topic:
         """

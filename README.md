@@ -15,6 +15,8 @@ As `pyryver` is not on pip yet, simply put `pyryver.py` inside your project. It 
     - Get messages (`Chat.get_messages()`)
   - Users (`User`)
     - Activate/Deactivate (`User.set_activated()`)
+    - Get roles (`User.get_roles()`)
+    - Set role (`User.set_org_role()`)
   - Topics (`Topic`)
     - Reply (`Topic.reply()`)
     - Get replies (`Topic.get_replies()`)
