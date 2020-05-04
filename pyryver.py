@@ -2,6 +2,9 @@
 A simple Python library for Ryver's REST APIs.
 """
 
+__author__ = "Tyler Tian, Moeez Muhammad"
+__version__ = "0.1.0"
+
 import requests
 import typing
 import os
@@ -392,6 +395,9 @@ class Chat(Object):
     def get_message_from_id(self, id: str, before: int = 0, after: int = 0) -> typing.List[Message]:
         """
         Get a message from an ID, optionally also messages before and after it too.
+
+        Note: Before and after cannot exceed 25 messages, otherwise an HTTPError will be raised
+        with the error code 400 Bad Request.
 
         Note that this method does send requests, so it may take some time.
 

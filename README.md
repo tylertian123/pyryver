@@ -44,6 +44,7 @@ More actions will be coming soon!
 
 ## Examples
 More examples can be found in the `examples` directory.
+To see an example of `pyryver` being used for a real project, check out [`tylertian123/ryver-latexbot`](https://github.com/tylertian123/ryver-latexbot).
 
 ### Sending a chat message
 ```py
