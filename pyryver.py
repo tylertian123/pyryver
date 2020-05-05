@@ -878,6 +878,14 @@ class File(Object):
         Get the MIME type of this file.
         """
         return self.data["type"]
+    
+    def delete(self) -> None:
+        """
+        Delete this file.
+        """
+        url = self.cred.url_prefix + f"{self.get_type()}({self.get_id()})?$format=json"
+        resp = requests.delete(url, headers=self.cred.headers)
+        resp.raise_for_status()
 
 
 class Storage(Object):
