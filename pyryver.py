@@ -465,7 +465,7 @@ class User(Chat):
         Get whether this user's account is activated.
         """
         return self.data["active"]
-    
+
     def get_roles(self) -> typing.List[str]:
         """
         Get this user's role in the organization.
@@ -475,7 +475,7 @@ class User(Chat):
         user's role from their profile.
         """
         return self.data["roles"]
-    
+
     def is_admin(self) -> bool:
         """
         Get whether this user is an org admin.
@@ -519,7 +519,7 @@ class User(Chat):
         resp.raise_for_status()
 
         self.data["active"] = activated
-    
+
     def set_org_role(self, role: str) -> None:
         """
         Set a user's role in this organization.
@@ -600,7 +600,7 @@ class GroupChatMember(Object):
         Get this member as a User object.
         """
         return User(self.cred, TYPE_USER, self.data["member"])
-    
+
     def is_admin(self) -> bool:
         """
         Get whether this member is an admin of their forum.
@@ -814,6 +814,87 @@ class Notification(Object):
         self.data["new"] = new
 
 
+class File(Object):
+    """
+    An uploaded file.
+
+    This class also contains constants for some common MIME types.
+    """
+
+    MIME_TYPE_TEXT = "text/plain"
+    MIME_TYPE_HTML = "text/html"
+    MIME_TYPE_CSS = "text/css"
+    MIME_TYPE_CSV = "text/csv"
+    MIME_TYPE_JAVASCRIPt = "text/javascript"
+    MIME_TYPE_XML = "text/xml"
+    MIME_TYPE_JSON = "application/json"
+    MIME_TYPE_BMP = "image/bmp"
+    MIME_TYPE_PNG = "image/png"
+    MIME_TYPE_GIF = "image/gif"
+    MIME_TYPE_JPEG = "image/jpeg"
+    MIME_TYPE_SVG = "image/svg+xml"
+    MIME_TYPE_TIFF = "image/tiff"
+    MIME_TYPE_PDF = "application/pdf"
+    MIME_TYPE_JAR = "application/java-archive"
+    MIME_TYPE_ZIP = "application/zip"
+    MIME_TYPE_7Z = "application/x-7z-compressed"
+    MIME_TYPE_GZ = "application/gzip"
+    MIME_TYPE_TAR = "application/x-tar"
+    MIME_TYPE_RTF = "application/rtf"
+    MIME_TYPE_DOC = "application/msword"
+    MIME_TYPE_DOCX = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    MIME_TYPE_PPT = "application/vnd.ms-powerpoint"
+    MIME_TYPE_PPTX = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+    MIME_TYPE_XLS = "application/vnd.ms-excel"
+    MIME_TYPE_XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    MIME_TYPE_BINARY = "application/octet-stream"
+
+    def get_title(self) -> str:
+        """
+        Get the title of this file.
+        """
+        return self.data["title"]
+    
+    def get_name(self) -> str:
+        """
+        Get the name of this file.
+        """
+        return self.data["fileName"]
+
+    def get_size(self) -> int:
+        """
+        Get the size of this file in bytes.
+        """
+        return self.data["fileSize"]
+
+    def get_url(self) -> str:
+        """
+        Get the URL of this file.
+        """
+        return self.data["url"]
+
+    def get_MIME_type(self) -> str:
+        """
+        Get the MIME type of this file.
+        """
+        return self.data["type"]
+
+
+class Storage(Object):
+    """
+    Generic storage, e.g. uploaded files.
+    
+    Note that while storage objects contain files, the File class does not
+    inherit from this class.
+    """
+    
+    def get_file(self) -> File:
+        """
+        Get the file stored.
+        """
+        return File(self.cred, TYPE_FILE, self.data["file"])
+
+
 class Ryver:
     """
     A Ryver object contains login credentials and organization information.
@@ -833,9 +914,7 @@ class Ryver:
         if not password:
             password = getpass()
         self.headers = {
-            "accept": "application/json",
-            "content-type": "application/json",
-            "authorization": "Basic " + b64encode((user + ":" + password).encode("ascii")).decode("ascii")
+            "Authorization": "Basic " + b64encode((user + ":" + password).encode("ascii")).decode("ascii")
         }
         self.url_prefix = "https://" + org + ".ryver.com/api/1/odata.svc/"
 
@@ -933,16 +1012,35 @@ class Ryver:
         resp = requests.post(url, headers=self.headers)
         resp.raise_for_status()
         return resp.json()["d"]["count"]
+    
+    def upload_file(self, filename: str, filedata: typing.Any, filetype: str = None) -> Storage:
+        """
+        Upload a file to Ryver.
+
+        Although this method uploads a file, the returned object is an instance of Storage.
+        Use Storage.get_file() to obtain the actual File object.
+
+        Note that this method does send requests, so it may take some time,
+        depending on file size.
+        """
+        url = self.url_prefix + TYPE_STORAGE + \
+            "/Storage.File.Create(createFile=true)?$expand=file&$format=json"
+        resp = requests.post(url, headers=self.headers, files={
+            "file": (filename, filedata, filetype) if filetype else (filename, filedata)
+        })
+        resp.raise_for_status()
+        return Storage(self, TYPE_STORAGE, resp.json())
 
 
 TYPE_USER = "users"
 TYPE_FORUM = "forums"
 TYPE_TEAM = "workrooms"
-
 TYPE_TOPIC = "posts"
 TYPE_TOPIC_REPLY = "postComments"
 TYPE_NOTIFICATION = "userNotifications"
 TYPE_GROUPCHAT_MEMBER = "workroomMembers"
+TYPE_FILE = "files"
+TYPE_STORAGE = "storage"
 
 # Note: messages aren't really a "real" type in the Ryver API
 # They're just here for the sake of completeness and to fit in with the rest of pyryver
@@ -957,6 +1055,8 @@ ENTITY_TYPES = {
     TYPE_TOPIC_REPLY: "Entity.Post.Comment",
     TYPE_NOTIFICATION: "Entity.UserNotification",
     TYPE_GROUPCHAT_MEMBER: "Entity.Workroom.Member",
+    TYPE_FILE: "Entity.File",
+    TYPE_STORAGE: "Entity.Storage",
 }
 
 TYPES_DICT = {
@@ -968,6 +1068,8 @@ TYPES_DICT = {
     TYPE_TOPIC_REPLY: TopicReply,
     TYPE_NOTIFICATION: Notification,
     TYPE_GROUPCHAT_MEMBER: GroupChatMember,
+    TYPE_FILE: File,
+    TYPE_STORAGE: Storage,
 }
 
 # Field names for get_obj_by_field
