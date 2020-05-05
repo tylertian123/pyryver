@@ -139,6 +139,22 @@ class Message(Object):
         counts = {reaction: len(users)
                   for reaction, users in reactions.items()}
         return counts
+    
+    def get_attached_file(self) -> "File":
+        """
+        Get the file attached to this message, if there is one.
+
+        Note that files obtained from this only have a limited amount of information,
+        including the ID, name, URL, size and type. Attempting to get any other info
+        will result in a KeyError. To obtain the full file info, use Ryver.get_object()
+        with TYPE_FILE and the ID.
+
+        Returns None otherwise.
+        """
+        if "extras" in self.data and "file" in self.data["extras"]:
+            return File(self.cred, TYPE_FILE, self.data["extras"]["file"])
+        else:
+            return None
 
 
 class TopicReply(Message):
@@ -318,6 +334,8 @@ class Chat(Object):
     def send_message(self, message: str, creator: Creator = None) -> str:
         """
         Send a message to this chat.
+
+        Specify a creator to override the username and profile of the message creator.
 
         Note that this method does send requests, so it may take some time.
 
@@ -877,7 +895,7 @@ class File(Object):
         """
         Get the MIME type of this file.
         """
-        return self.data["type"]
+        return self.data.get("type", self.data["fileType"])
     
     def delete(self) -> None:
         """
