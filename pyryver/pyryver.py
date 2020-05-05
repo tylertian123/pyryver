@@ -2,9 +2,6 @@
 A simple Python library for Ryver's REST APIs.
 """
 
-__author__ = "Tyler Tian, Moeez Muhammad"
-__version__ = "0.1.0"
-
 import requests
 import typing
 import os

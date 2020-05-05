@@ -4,8 +4,10 @@
 
 `pyryver` is still under development. More features are coming soon!
 
-## Setup
-As `pyryver` is not on pip yet, simply put `pyryver.py` inside your project. It also depends on the `requests` library.
+## Installation
+`pyryver` is now on PyPI! You can install it with `python3 -m pip install --user pyryver`.
+
+You can also simply put `pyryver/pyryver.py` inside your project. Note that `pyryver` depends on the `requests` library.
 
 ## Supported Actions
   - All Chats (`Chat`, includes forums, teams, and user DMs)
