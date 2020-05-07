@@ -333,8 +333,18 @@ class ChatMessage(Message):
 
 class Chat(Object):
     """
-    A Ryver chat (forum, team, user, etc).
+    Any Ryver chat you can send messages to.
+
+    E.g. Teams, forums, user DMs, etc.
     """
+
+    def get_jid(self) -> str:
+        """
+        Get the JID of this chat.
+
+        The JID is used in the websockets interface.
+        """
+        return self._data["jid"]
 
     async def send_message(self, message: str, creator: Creator = None) -> str:
         """
@@ -1068,6 +1078,28 @@ class Ryver:
                        content_type=filetype)
         async with self._session.post(url, data=data) as resp:
             return Storage(self, TYPE_STORAGE, await resp.json())
+    
+    async def get_info(self) -> typing.Dict[str, typing.Any]:
+        """
+        Get organization and user info.
+
+        This method returns an assortment of info. It is currently the only way
+        to get avatar URLs for users/teams/forums etc.
+        The results include:
+         - Basic user info - contains avatar URLs ("me")
+         - User UI preferences ("prefs")
+         - Ryver app info ("app")
+         - Basic info about all users - contains avatar URLs ("users")
+         - Basic info about all teams - contains avatar URLs ("teams")
+         - Basic info about all forums - contains avatar URLs ("forums")
+         - All available commands ("commands")
+         - "messages" and "prefixes", the purpose of which are currently unknown.
+
+        This method sends requests.
+        """
+        url = self._url_prefix + f"Ryver.Info()?$format=json"
+        async with self._session.get(url) as resp:
+            return (await resp.json())["d"]
 
 
 TYPE_USER = "users"
