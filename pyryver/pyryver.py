@@ -99,6 +99,8 @@ class Ryver:
         Load the data of all users.
 
         This refreshes the cached data if a cache is supplied.
+
+        This method sends requests.
         """
         self.users = await self._get_chats(TYPE_USER)
         if self._cache:
@@ -109,6 +111,8 @@ class Ryver:
         Load the data of all forums.
 
         This refreshes the cached data if a cache is supplied.
+
+        This method sends requests.
         """
         self.forums = await self._get_chats(TYPE_FORUM)
         if self._cache:
@@ -119,6 +123,8 @@ class Ryver:
         Load the data of all teams.
 
         This refreshes the cached data if a cache is supplied.
+
+        This method sends requests.
         """
         self.teams = await self._get_chats(TYPE_TEAM)
         if self._cache:
@@ -129,6 +135,8 @@ class Ryver:
         Load the data of all users/teams/forums. 
 
         This refreshes the cached data if a cache is supplied.
+
+        This method sends requests.
         """
         self.users = await self._get_chats(TYPE_USER)
         self.forums = await self._get_chats(TYPE_FORUM)
@@ -137,6 +145,95 @@ class Ryver:
             self._cache.save(TYPE_USER, self.users)
             self._cache.save(TYPE_FORUM, self.forums)
             self._cache.save(TYPE_TEAM, self.teams)
+    
+    async def load_missing_chats(self) -> None:
+        """
+        Load the data of all users/teams/forums if it does not exist.
+
+        Unlike load_chats(), this does not update the cache.
+        
+        This method could send requests.
+        """
+        if self.users is None:
+            await self.load_users()
+        if self.forums is None:
+            await self.load_forums()
+        if self.teams is None:
+            await self.load_teams()
+    
+    def get_user(self, **kwargs) -> User:
+        """
+        Get a specific user.
+
+        If no query parameters are supplied, more than one query parameters are
+        supplied or users are not loaded, raises ValueError.
+
+        Allowed query parameters are:
+        - id
+        - jid
+        - username
+        - display_name
+        - email
+
+        Returns none if not found.
+        """
+        if self.users is None:
+            raise ValueError("Users not loaded")
+        if len(kwargs.items()) != 1:
+            raise ValueError("Only 1 query parameter can be specified!")
+        field, value = list(kwargs.items())[0]
+        try:
+            return get_obj_by_field(self.users, FIELD_NAMES[field], value)
+        except KeyError:
+            raise ValueError("Invalid query parameter!")
+    
+    def get_groupchat(self, **kwargs) -> GroupChat:
+        """
+        Get a specific forum/team.
+
+        If no query parameters are supplied, more than one query parameters are
+        supplied or forums/teams are not loaded, raises ValueError.
+
+        Allowed query parameters are:
+        - id
+        - jid
+        - name
+        - nickname
+
+        Returns none if not found.
+        """
+        if self.forums is None or self.teams is None:
+            raise ValueError("Forums/teams not loaded")
+        if len(kwargs.items()) != 1:
+            raise ValueError("Only 1 query parameter can be specified!")
+        field, value = list(kwargs.items())[0]
+        try:
+            return get_obj_by_field(self.forums + self.teams, FIELD_NAMES[field], value)
+        except KeyError:
+            raise ValueError("Invalid query parameter!")
+    
+    def get_chat(self, **kwargs) -> Chat:
+        """
+        Get a specific forum/team/user.
+
+        If no query parameters are supplied, more than one query parameters are
+        supplied or forums/teams/users are not loaded, raises ValueError.
+
+        Allowed query parameters are:
+        - id
+        - jid
+
+        Returns none if not found.
+        """
+        if self.forums is None or self.teams is None or self.users is None:
+            raise ValueError("Forums/teams/users not loaded")
+        if len(kwargs.items()) != 1:
+            raise ValueError("Only 1 query parameter can be specified!")
+        field, value = list(kwargs.items())[0]
+        try:
+            return get_obj_by_field(self.forums + self.teams + self.users, FIELD_NAMES[field], value)
+        except KeyError:
+            raise ValueError("Invalid query parameter!")
 
     async def get_notifs(self, unread: bool = False, top: int = -1, skip: int = 0) -> typing.List[Notification]:
         """

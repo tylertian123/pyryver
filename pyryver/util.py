@@ -37,10 +37,16 @@ FIELD_NICKNAME = "nickname"
 FIELD_ID = "id"
 FIELD_JID = "jid"
 
-# Here only for backwards compatibility, use the field names above
-FIELD_USER_USERNAME = "username"
-FIELD_USER_EMAIL_ADDR = "emailAddress"
-FIELD_USER_DISPLAY_NAME = "displayName"
+FIELD_NAMES = {
+    "id": FIELD_ID,
+    "email": FIELD_EMAIL_ADDR,
+    "username": FIELD_USERNAME,
+    "display_name": FIELD_DISPLAY_NAME, 
+    "jid": FIELD_JID,
+    "nickname": FIELD_NICKNAME,
+    "name": FIELD_NAME,
+}
+
 # Notification predicates
 # Here only for backwards compatibility, use the ones in the notification class
 NOTIF_PREDICATE_MENTION = "chat_mention"
