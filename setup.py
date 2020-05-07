@@ -11,7 +11,7 @@ setuptools.setup(
     version="0.1.2",
     author="Tyler Tian",
     author_email="tylertian123@gmail.com",
-    description="Simple Python library for the Ryver REST API.",
+    description="An unofficial async Python library for Ryver.",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/tylertian123/pyryver",
