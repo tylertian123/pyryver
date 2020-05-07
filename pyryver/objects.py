@@ -337,6 +337,12 @@ class Chat(Object):
         The JID is used in the websockets interface.
         """
         return self._data["jid"]
+    
+    @abstractmethod
+    def get_name(self) -> str:
+        """
+        Get the name of this chat.
+        """
 
     async def send_message(self, message: str, creator: Creator = None) -> str:
         """
@@ -448,6 +454,12 @@ class User(Chat):
         return self._data["username"]
 
     def get_display_name(self) -> str:
+        """
+        Get the display name of this user.
+        """
+        return self._data["displayName"]
+    
+    def get_name(self) -> str:
         """
         Get the display name of this user.
         """
@@ -868,7 +880,7 @@ class File(Object):
         """
         Get the MIME type of this file.
         """
-        return self._data.get("type", self._data["fileType"])
+        return self._data.get("type", self._data.get("fileType", None))
 
     async def delete(self) -> None:
         """

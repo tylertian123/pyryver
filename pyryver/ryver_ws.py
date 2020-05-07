@@ -18,6 +18,11 @@ class RyverWS():
 
     _VALID_ID_CHARS = string.ascii_letters + string.digits
 
+    PRESENCE_AVAILABLE = "available"
+    PRESENCE_AWAY = "away"
+    PRESENCE_DO_NOT_DISTURB = "dnd"
+    PRESENCE_OFFLINE = "unavailable"
+
     def __init__(self, ryver):
         self._ryver = ryver
         self._ws = None
@@ -124,16 +129,38 @@ class RyverWS():
         """
         self._on_connection_loss = func
     
-    async def send_chat(self, to_jid: str, msg: str):
+    async def send_chat(self, to_chat: Chat, msg: str):
         """
-        Send a chat message to a chat identified by JID.
+        Send a chat message to a chat.
         """
         data = {
             "type": "chat",
-            "to": to_jid,
+            "to": to_chat.get_jid(),
             "text": msg
         }
         return await self._ws_send_msg(data)
+
+    async def send_presence_change(self, presence: str):
+        """
+        Send a presence change message.
+        """
+        return await self._ws_send_msg({
+            "type": "presence_change",
+            "presence": presence,
+        })
+    
+    async def send_typing(self, to_chat: Chat):
+        """
+        Send a typing indicator to a chat identified by JID.
+
+        The typing indicator automatically clears after a few seconds or when
+        a message is sent.
+        """
+        return await self._ws_send_msg({
+            "type": "user_typing",
+            "state": "composing",
+            "to": to_chat.get_jid()
+        })
     
     async def start(self):
         """
