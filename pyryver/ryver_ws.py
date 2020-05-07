@@ -4,6 +4,7 @@ import random
 import string
 import time
 import typing
+from pyryver.objects import *
 
 class ClosedError(Exception):
     """
@@ -53,7 +54,7 @@ class RyverWS():
 
         try:
             # Wait for the ack with a timeout
-            await asyncio.wait_for(self._msg_ack_table[key], timeout)
+            return await asyncio.wait_for(self._msg_ack_table[key], timeout)
         finally:
             # Remove the ack from the table if not already removed
             # This would only be true when the message timed out
@@ -122,6 +123,17 @@ class RyverWS():
         This coroutine will be started as a task when the connection is lost.
         """
         self._on_connection_loss = func
+    
+    async def send_chat(self, to_jid: str, msg: str):
+        """
+        Send a chat message to a chat identified by JID.
+        """
+        data = {
+            "type": "chat",
+            "to": to_jid,
+            "text": msg
+        }
+        return await self._ws_send_msg(data)
     
     async def start(self):
         """
