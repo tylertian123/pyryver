@@ -8,6 +8,8 @@ It provides a simple and sane way of automating tasks on Ryver and building bots
 
 `pyryver` is still under development. More features are coming soon!
 
+Special thanks to [@mincrmatt12](https://github.com/mincrmatt12)!
+
 ## Installation
 `pyryver` is now on PyPI! You can install it with `python3 -m pip install --user pyryver`.
 
