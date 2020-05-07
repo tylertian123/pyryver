@@ -8,9 +8,8 @@ import typing
 import os
 import json
 from abc import ABC, abstractmethod
-from base64 import b64encode
 from getpass import getpass
-
+from pyryver import ryver_ws
 
 class Creator:
     """
@@ -1101,6 +1100,24 @@ class Ryver:
         async with self._session.get(url) as resp:
             return (await resp.json())["d"]
 
+    async def start_live_session(self) -> ryver_ws.RyverWS:
+        """
+        Start a live session.
+
+        Live sessions can be used to send and respond messages in real-time.
+        """
+        url = self._url_prefix + "User.Login(client='pyryver')"
+        async with self._session.post(url) as resp:
+            login_info = (await resp.json())["d"]
+        # Get the session ID for auth and the endpoint url
+        session_id = login_info["sessionId"]
+        chat_url = login_info["services"]["chat"]
+        ws = await self._session.ws_connect(chat_url)
+        # Start the live session
+        rws = ryver_ws.RyverWS()
+        await rws.start(ws, session_id)
+        return rws
+
 
 TYPE_USER = "users"
 TYPE_FORUM = "forums"
@@ -1149,6 +1166,7 @@ FIELD_DISPLAY_NAME = "displayName"
 FIELD_NAME = "name"
 FIELD_NICKNAME = "nickname"
 FIELD_ID = "id"
+FIELD_JID = "jid"
 
 # Here only for backwards compatibility, use the field names above
 FIELD_USER_USERNAME = "username"
