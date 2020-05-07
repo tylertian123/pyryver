@@ -17,7 +17,8 @@ class RyverWS():
 
     _VALID_ID_CHARS = string.ascii_letters + string.digits
 
-    def __init__(self):
+    def __init__(self, ryver):
+        self._ryver = ryver
         self._ws = None
         self._msg_ack_table = {}
 
@@ -27,9 +28,10 @@ class RyverWS():
         self._on_chat = None
         self._on_connection_loss = None
 
-        self._closed = False
+        self._closed = True
     
     async def __aenter__(self):
+        await self.start()
         return self
     
     async def __aexit__(self, exc, *exc_info):
@@ -40,7 +42,7 @@ class RyverWS():
         Send a message through the websocket.
         """
         if self._closed:
-            raise ClosedError("Connection already closed!")
+            raise ClosedError("Connection not started or already closed!")
 
         msg["id"] = RyverWS._create_id()
         # Put the future in the table to wait for ack
@@ -121,13 +123,19 @@ class RyverWS():
         """
         self._on_connection_loss = func
     
-    async def start(self, ws: aiohttp.ClientWebSocketResponse, session_id: str):
+    async def start(self):
         """
         Start the session.
-
-        This method is intended for internal use only.
         """
-        self._ws = ws
+        url = self._ryver._url_prefix + "User.Login(client='pyryver')"
+        async with self._ryver._session.post(url) as resp:
+            login_info = (await resp.json())["d"]
+        # Get the session ID for auth and the endpoint url
+        session_id = login_info["sessionId"]
+        chat_url = login_info["services"]["chat"]
+        self._ws = await self._ryver._session.ws_connect(chat_url)
+
+        self._closed = False
         # Start the rx and ping tasks
         self._rx_task_handle = asyncio.ensure_future(self._rx_task())
         self._ping_task_handle = asyncio.ensure_future(self._ping_task())

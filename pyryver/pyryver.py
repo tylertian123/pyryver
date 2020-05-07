@@ -847,34 +847,6 @@ class File(Object):
     This class also contains constants for some common MIME types.
     """
 
-    MIME_TYPE_TEXT = "text/plain"
-    MIME_TYPE_HTML = "text/html"
-    MIME_TYPE_CSS = "text/css"
-    MIME_TYPE_CSV = "text/csv"
-    MIME_TYPE_JAVASCRIPt = "text/javascript"
-    MIME_TYPE_XML = "text/xml"
-    MIME_TYPE_JSON = "application/json"
-    MIME_TYPE_BMP = "image/bmp"
-    MIME_TYPE_PNG = "image/png"
-    MIME_TYPE_GIF = "image/gif"
-    MIME_TYPE_JPEG = "image/jpeg"
-    MIME_TYPE_SVG = "image/svg+xml"
-    MIME_TYPE_TIFF = "image/tiff"
-    MIME_TYPE_PDF = "application/pdf"
-    MIME_TYPE_JAR = "application/java-archive"
-    MIME_TYPE_ZIP = "application/zip"
-    MIME_TYPE_7Z = "application/x-7z-compressed"
-    MIME_TYPE_GZ = "application/gzip"
-    MIME_TYPE_TAR = "application/x-tar"
-    MIME_TYPE_RTF = "application/rtf"
-    MIME_TYPE_DOC = "application/msword"
-    MIME_TYPE_DOCX = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-    MIME_TYPE_PPT = "application/vnd.ms-powerpoint"
-    MIME_TYPE_PPTX = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
-    MIME_TYPE_XLS = "application/vnd.ms-excel"
-    MIME_TYPE_XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    MIME_TYPE_BINARY = "application/octet-stream"
-
     def get_title(self) -> str:
         """
         Get the title of this file.
@@ -1099,24 +1071,15 @@ class Ryver:
         url = self._url_prefix + f"Ryver.Info()?$format=json"
         async with self._session.get(url) as resp:
             return (await resp.json())["d"]
-
-    async def start_live_session(self) -> ryver_ws.RyverWS:
+    
+    def get_live_session(self) -> ryver_ws.RyverWS:
         """
-        Start a live session.
-
-        Live sessions can be used to send and respond messages in real-time.
+        Get a live session.
+        
+        The session is not started unless start() is called or if it is used as
+        a context manager.
         """
-        url = self._url_prefix + "User.Login(client='pyryver')"
-        async with self._session.post(url) as resp:
-            login_info = (await resp.json())["d"]
-        # Get the session ID for auth and the endpoint url
-        session_id = login_info["sessionId"]
-        chat_url = login_info["services"]["chat"]
-        ws = await self._session.ws_connect(chat_url)
-        # Start the live session
-        rws = ryver_ws.RyverWS()
-        await rws.start(ws, session_id)
-        return rws
+        return ryver_ws.RyverWS(self)
 
 
 TYPE_USER = "users"
