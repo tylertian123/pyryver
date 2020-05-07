@@ -2,7 +2,8 @@
 A simple Python library for Ryver's REST APIs.
 """
 
-import requests
+import aiohttp
+import asyncio
 import typing
 import os
 import json
@@ -103,7 +104,7 @@ class Message(Object):
         """
         Get the author of this message, as a User object.
 
-        Note that this method does send requests, so it may take some time.
+        This method sends requests.
         """
         return self.cred.get_object(TYPE_USER, self.get_author_id())
 
@@ -111,9 +112,9 @@ class Message(Object):
         """
         React to this message with an emoji, specified with the string name (e.g. "thumbsup").
 
-        Note that this method does send requests, so it may take some time.
+        This method sends requests.
         """
-        url = self.cred.url_prefix + \
+        url = self.cred._url_prefix + \
             f"{self.get_type()}({self.get_id()})/React(reaction='{emoji}')"
         resp = requests.post(url, headers=self.cred.headers)
         resp.raise_for_status()
@@ -213,11 +214,11 @@ class Topic(Message):
         """
         Reply to the topic.
 
-        Note that this method does send requests, so it may take some time.
+        This method sends requests.
 
         For unknown reasons, overriding the creator does not work for this.
         """
-        url = self.cred.url_prefix + TYPE_TOPIC_REPLY + "?$format=json"
+        url = self.cred._url_prefix + TYPE_TOPIC_REPLY + "?$format=json"
         data = {
             "comment": message,
             "post": {
@@ -237,12 +238,12 @@ class Topic(Message):
         top is the maximum number of results (-1 for unlimited), skip is how
         many results to skip.
 
-        Note that this method does send requests, so it may take some time.
+        This method sends requests.
         """
-        url = self.cred.url_prefix + TYPE_TOPIC_REPLY + \
+        url = self.cred._url_prefix + TYPE_TOPIC_REPLY + \
             f"?$format=json&$filter=((post/id eq {self.get_id()}))&$expand=createUser,post"
-        replies = get_all(url, self.cred.headers, top=top,
-                          skip=skip, param="&")
+        replies = _get_all(url, self.cred.headers, top=top,
+                          skip=skip, param_sep="&")
         return [TopicReply(self.cred, TYPE_TOPIC_REPLY, data) for data in replies]
 
 
@@ -286,20 +287,20 @@ class ChatMessage(Message):
         """
         Get the chat that this message was sent to, as a Chat object.
 
-        Note that this method does send requests, so it may take some time.
+        This method sends requests.
         """
-        return self.cred.get_object(get_type_from_entity(self.get_chat_type()), self.get_chat_id())
+        return self.cred.get_object(_get_type_from_entity(self.get_chat_type()), self.get_chat_id())
 
     # Override Message.react() because a different URL is used
     def react(self, emoji: str) -> None:
         """
         React to a message with an emoji, specified with the string name (e.g. "thumbsup").
 
-        Note that this method does send requests, so it may take some time.
+        This method sends requests.
         """
-        url = self.cred.url_prefix + \
+        url = self.cred._url_prefix + \
             "{chat_type}({chat_id})/Chat.React()".format(
-                chat_type=get_type_from_entity(self.get_chat_type()), chat_id=self.get_chat_id())
+                chat_type=_get_type_from_entity(self.get_chat_type()), chat_id=self.get_chat_id())
         data = {
             "id": self.id,
             "reaction": emoji
@@ -312,9 +313,9 @@ class ChatMessage(Message):
         """
         Deletes the message.
         """
-        url = self.cred.url_prefix + \
+        url = self.cred._url_prefix + \
             "{chat_type}({chat_id})/Chat.DeleteMessage()?%24format=json".format(
-                chat_type=get_type_from_entity(self.get_chat_type()), chat_id=self.get_chat_id())
+                chat_type=_get_type_from_entity(self.get_chat_type()), chat_id=self.get_chat_id())
         data = {
             "id": self.id,
         }
@@ -334,12 +335,12 @@ class Chat(Object):
 
         Specify a creator to override the username and profile of the message creator.
 
-        Note that this method does send requests, so it may take some time.
+        This method sends requests.
 
         Returns the ID of the chat message sent. Note that message IDs are
         strings.
         """
-        url = self.cred.url_prefix + \
+        url = self.cred._url_prefix + \
             f"{self.obj_type}({self.id})/Chat.PostMessage()"
         data = {
             "body": message
@@ -354,11 +355,11 @@ class Chat(Object):
         """
         Create a topic in this chat.
 
-        Note that this method does send requests, so it may take some time.
+        This method sends requests.
 
         Returns the topic created.
         """
-        url = self.cred.url_prefix + "posts"
+        url = self.cred._url_prefix + "posts"
         data = {
             "body": body,
             "subject": subject,
@@ -386,21 +387,21 @@ class Chat(Object):
         top is the maximum number of results (-1 for unlimited), skip is how
         many results to skip.
 
-        Note that this method does send requests, so it may take some time.
+        This method sends requests.
         """
-        url = self.cred.url_prefix + \
+        url = self.cred._url_prefix + \
             f"{self.obj_type}({self.id})/Post.Stream(archived={'true' if archived else 'false'})?$format=json"
-        topics = get_all(url, self.cred.headers,
-                         param="&", top=top, skip=skip)
+        topics = _get_all(url, self.cred.headers,
+                         param_sep="&", top=top, skip=skip)
         return [Topic(self.cred, TYPE_TOPIC, data) for data in topics]
 
     def get_messages(self, count: int) -> typing.List[ChatMessage]:
         """
         Get a number of messages (most recent first) in this chat.
 
-        Note that this method does send requests, so it may take some time.
+        This method sends requests.
         """
-        url = self.cred.url_prefix + \
+        url = self.cred._url_prefix + \
             f"{self.obj_type}({self.id})/Chat.History()?$format=json&$top={count}"
         resp = requests.get(url, headers=self.cred.headers)
         resp.raise_for_status()
@@ -414,11 +415,11 @@ class Chat(Object):
         Note: Before and after cannot exceed 25 messages, otherwise an HTTPError will be raised
         with the error code 400 Bad Request.
 
-        Note that this method does send requests, so it may take some time.
+        This method sends requests.
 
         This method does not support top/skip.
         """
-        url = self.cred.url_prefix + \
+        url = self.cred._url_prefix + \
             f"{self.obj_type}({self.id})/Chat.History.Message(id='{id}',before={before},after={after})?$format=json"
         resp = requests.get(url, headers=self.cred.headers)
         resp.raise_for_status()
@@ -503,11 +504,11 @@ class User(Chat):
 
         If any of the arguments are None, they will not be changed.
 
-        Note that this method does send requests, so it may take some time.
+        This method sends requests.
 
         Note: This also updates these properties in this object!
         """
-        url = self.cred.url_prefix + f"/{self.get_type()}(id={self.get_id()})"
+        url = self.cred._url_prefix + f"/{self.get_type()}(id={self.get_id()})"
         data = {
             "aboutMe": about if about is not None else self.get_about(),
             "description": role if role is not None else self.get_role(),
@@ -524,11 +525,11 @@ class User(Chat):
         """
         Activate or deactivate the user. Requires admin.
 
-        Note that this method does send requests, so it may take some time.
+        This method sends requests.
 
         Note: This also updates these properties in this object!
         """
-        url = self.cred.url_prefix + \
+        url = self.cred._url_prefix + \
             f"{self.get_type()}({self.get_id()})/User.Active.Set(value='{'true' if activated else 'false'}')"
         resp = requests.post(url, headers=self.cred.headers)
         resp.raise_for_status()
@@ -541,11 +542,11 @@ class User(Chat):
 
         This can be either ROLE_USER, ROLE_ADMIN or ROLE_GUEST.
 
-        Note that this method does send requests, so it may take some time.
+        This method sends requests.
 
         Note: This also updates these properties in this object!
         """
-        url = self.cred.url_prefix + \
+        url = self.cred._url_prefix + \
             f"{self.get_type()}({self.get_id()})/User.Role.Set(role='{role}')"
         resp = requests.post(url, headers=self.cred.headers)
         resp.raise_for_status()
@@ -563,11 +564,11 @@ class User(Chat):
         from_user must be the User object of the user. (Don't blame me the API
         is weird.)
 
-        Note that this method does send requests, so it may take some time.
+        This method sends requests.
 
         Returns the topic created.
         """
-        url = self.cred.url_prefix + "posts"
+        url = self.cred._url_prefix + "posts"
         data = {
             "body": body,
             "subject": subject,
@@ -646,23 +647,23 @@ class GroupChat(Chat):
         """
         Get all the members of this chat.
 
-        Note that this method does send requests, so it may take some time.
+        This method sends requests.
         """
-        url = self.cred.url_prefix + \
+        url = self.cred._url_prefix + \
             f"/{self.get_type()}({self.get_id()})/members?$expand=member"
-        members = get_all(url=url, headers=self.cred.headers,
-                          top=top, skip=skip, param="&")
+        members = _get_all(url=url, headers=self.cred.headers,
+                          top=top, skip=skip, param_sep="&")
         return [GroupChatMember(self.cred, TYPE_GROUPCHAT_MEMBER, data) for data in members]
 
     def get_member(self, id: int) -> GroupChatMember:
         """
         Get a member by user ID.
 
-        Note that this method does send requests, so it may take some time.
+        This method sends requests.
 
         If the user is not found, this method will return None.
         """
-        url = self.cred.url_prefix + \
+        url = self.cred._url_prefix + \
             f"/{self.get_type()}({self.get_id()})/members?$expand=member&$filter=((member/id eq {id}))"
         resp = requests.get(url, headers=self.cred.headers)
         resp.raise_for_status()
@@ -812,7 +813,7 @@ class Notification(Object):
         """
         Set the read/unread and seen/unseen (new) status of this notification.
 
-        Note that this method does send requests, so it may take some time.
+        This method sends requests.
 
         Note: This also updates these properties in this object!
         """
@@ -820,7 +821,7 @@ class Notification(Object):
             "unread": unread,
             "new": new,
         }
-        url = self.cred.url_prefix + f"{self.obj_type}({self.id})?$format=json"
+        url = self.cred._url_prefix + f"{self.obj_type}({self.id})?$format=json"
         # Patch not post!
         resp = requests.patch(url, json=data, headers=self.cred.headers)
         resp.raise_for_status()
@@ -898,7 +899,7 @@ class File(Object):
         """
         Delete this file.
         """
-        url = self.cred.url_prefix + f"{self.get_type()}({self.get_id()})?$format=json"
+        url = self.cred._url_prefix + f"{self.get_type()}({self.get_id()})?$format=json"
         resp = requests.delete(url, headers=self.cred.headers)
         resp.raise_for_status()
 
@@ -936,37 +937,49 @@ class Ryver:
             user = input("Username: ")
         if not password:
             password = getpass()
-        self.headers = {
-            "Authorization": "Basic " + b64encode((user + ":" + password).encode("ascii")).decode("ascii")
-        }
-        self.url_prefix = "https://" + org + ".ryver.com/api/1/odata.svc/"
+        
+        self._url_prefix = "https://" + org + ".ryver.com/api/1/odata.svc/"
+        self._session = aiohttp.ClientSession(auth=aiohttp.BasicAuth(user, password))
+    
+    async def __aenter__(self):
+        await self._session.__aenter__()
+        return self
+    
+    async def __aexit__(self, exc, *exc_info):
+        return await self._session.__aexit__(exc, *exc_info)
+    
+    async def close(self):
+        """
+        Close this session.
+        """
+        await self._session.close()
 
-    def get_object(self, obj_type: str, obj_id: int) -> Object:
+    async def get_object(self, obj_type: str, obj_id: int) -> Object:
         """
         Get an object from Ryver with a type and ID.
 
-        Note that this method does send requests, so it may take some time.
+        This method sends requests.
         """
-        url = self.url_prefix + f"{obj_type}({obj_id})"
-        resp = requests.get(url, headers=self.headers)
-        resp.raise_for_status()
-        return TYPES_DICT[obj_type](self, obj_type, resp.json()["d"]["results"])
+        url = self._url_prefix + f"{obj_type}({obj_id})"
+        async with self._session.get(url) as resp:
+            resp.raise_for_status()
+            return TYPES_DICT[obj_type](self, obj_type, (await resp.json())["d"]["results"])
 
-    def get_chats(self, obj_type: str, top: int = -1, skip: int = 0) -> typing.List[Chat]:
+    async def get_chats(self, obj_type: str, top: int = -1, skip: int = 0) -> typing.List[Chat]:
         """
         Get a list of chats (teams, forums, users, etc) from Ryver.
 
         top is the maximum number of results (-1 for unlimited), skip is how
         many results to skip.
 
-        Note that this method does send requests, so it may take some time.
+        This method sends requests.
         Consider using get_cached_chats() to cache the data in a JSON file.
         """
-        url = self.url_prefix + obj_type
-        chats = get_all(url, self.headers, top=top, skip=skip)
+        url = self._url_prefix + obj_type
+        chats = await _get_all(self._session, url, top=top, skip=skip)
         return [TYPES_DICT[obj_type](self, obj_type, chat) for chat in chats]
 
-    def get_cached_chats(self, obj_type: str, force_update: bool = False, name: str = None, top: int = -1, skip: int = 0) -> typing.List[Chat]:
+    async def get_cached_chats(self, obj_type: str, force_update: bool = False, name: str = None, top: int = -1, skip: int = 0) -> typing.List[Chat]:
         """
         Attempt to load a list of chats (teams, forums, users, etc) from JSON,
         and if not found, get them from Ryver.
@@ -985,12 +998,12 @@ class Ryver:
                 data = json.load(f)
                 return [TYPES_DICT[obj_type](self, obj_type, chat) for chat in data]
         else:
-            chats = self.get_chats(obj_type, top=top, skip=skip)
+            chats = await self.get_chats(obj_type, top=top, skip=skip)
             with open(name, "w") as f:
                 json.dump([chat.data for chat in chats], f)
             return chats
 
-    def get_notifs(self, unread: bool = False, top: int = -1, skip: int = 0) -> typing.List[Notification]:
+    async def get_notifs(self, unread: bool = False, top: int = -1, skip: int = 0) -> typing.List[Notification]:
         """
         Get all the user's notifications. 
 
@@ -999,44 +1012,44 @@ class Ryver:
         top is the maximum number of results (-1 for unlimited), skip is how
         many results to skip.
 
-        Note that this method does send requests, so it may take some time.
+        This method sends requests.
         """
-        url = self.url_prefix + TYPE_NOTIFICATION + \
+        url = self._url_prefix + TYPE_NOTIFICATION + \
             "?$format=json&$orderby=modifyDate desc"
         if unread:
             url += "&$filter=((unread eq true))"
-        notifs = get_all(url, self.headers, top=top, skip=skip, param="&")
+        notifs = await _get_all(url, self.headers, top=top, skip=skip, param_sep="&")
         return [Notification(self, TYPE_NOTIFICATION, data) for data in notifs]
 
-    def mark_all_notifs_read(self) -> int:
+    async def mark_all_notifs_read(self) -> int:
         """
         Marks all the user's notifications as read.
 
-        Note that this method does send requests, so it may take some time.
+        This method sends requests.
 
         Returns how many notifications were marked as read.
         """
-        url = self.url_prefix + TYPE_NOTIFICATION + \
+        url = self._url_prefix + TYPE_NOTIFICATION + \
             "/UserNotification.MarkAllRead()?$format=json"
-        resp = requests.post(url, headers=self.headers)
-        resp.raise_for_status()
-        return resp.json()["d"]["count"]
+        with self._session.post(url) as resp:
+            resp.raise_for_status()
+            return (await resp.json())["d"]["count"]
 
-    def mark_all_notifs_seen(self) -> int:
+    async def mark_all_notifs_seen(self) -> int:
         """
         Marks all the user's notifications as seen.
 
-        Note that this method does send requests, so it may take some time.
+        This method sends requests.
 
         Returns how many notifications were marked as seen.
         """
-        url = self.url_prefix + TYPE_NOTIFICATION + \
+        url = self._url_prefix + TYPE_NOTIFICATION + \
             "/UserNotification.MarkAllSeen()?$format=json"
-        resp = requests.post(url, headers=self.headers)
-        resp.raise_for_status()
-        return resp.json()["d"]["count"]
+        with self._session.post(url) as resp:
+            resp.raise_for_status()
+            return (await resp.json())["d"]["count"]
     
-    def upload_file(self, filename: str, filedata: typing.Any, filetype: str = None) -> Storage:
+    async def upload_file(self, filename: str, filedata: typing.Any, filetype: str = None) -> Storage:
         """
         Upload a file to Ryver.
 
@@ -1046,13 +1059,13 @@ class Ryver:
         Note that this method does send requests, so it may take some time,
         depending on file size.
         """
-        url = self.url_prefix + TYPE_STORAGE + \
+        url = self._url_prefix + TYPE_STORAGE + \
             "/Storage.File.Create(createFile=true)?$expand=file&$format=json"
-        resp = requests.post(url, headers=self.headers, files={
-            "file": (filename, filedata, filetype) if filetype else (filename, filedata)
-        })
-        resp.raise_for_status()
-        return Storage(self, TYPE_STORAGE, resp.json())
+        data = aiohttp.FormData()
+        data.add_field("file", filedata, filename=filename, content_type=filetype)
+        with self._session.post(url, data=data) as resp:
+            resp.raise_for_status()
+            return Storage(self, TYPE_STORAGE, await resp.json())
 
 
 TYPE_USER = "users"
@@ -1128,7 +1141,7 @@ def get_obj_by_field(objs: typing.List[Object], field: str, value: typing.Any) -
     return None
 
 
-def get_all(url: str, headers: dict, top: int = -1, skip: int = 0, param: str = "?") -> typing.List[dict]:
+async def _get_all(session: aiohttp.ClientSession, url: str, top: int = -1, skip: int = 0, param_sep: str = "?") -> typing.List[dict]:
     """
     Because the REST API only gives 50 results at a time, this function is used
     to retrieve all objects.
@@ -1144,10 +1157,11 @@ def get_all(url: str, headers: dict, top: int = -1, skip: int = 0, param: str = 
         count = min(top, 50)
         top -= count
 
-        resp = requests.get(
-            url + f"{param}$skip={skip}&$top={count}", headers=headers)
-        resp.raise_for_status()
-        page = resp.json()["d"]["results"]
+        request_url = url + f"{param_sep}$skip={skip}&$top={count}"
+        async with session.get(url) as resp:
+            resp.raise_for_status()
+            page = (await resp.json())["d"]["results"]
+        
         result.extend(page)
         if len(page) == 0 or top == 0:
             break
@@ -1155,11 +1169,11 @@ def get_all(url: str, headers: dict, top: int = -1, skip: int = 0, param: str = 
     return result
 
 
-def get_type_from_entity(entity_type: str) -> str:
+def _get_type_from_entity(entity_type: str) -> str:
     """
-    Gets the object type from the entity type
+    Gets the object type from the entity type.
 
-    Note that it doesn't actually return a class, just the string
+    Note that it doesn't actually return a class, just the string.
     """
     for t, e in ENTITY_TYPES.items():
         if e == entity_type:

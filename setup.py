@@ -3,6 +3,9 @@ import setuptools
 with open("README.md", "r") as fh:
     long_description = fh.read()
 
+with open("requirements.txt", "r") as fh:
+    install_requires = fh.read().splitlines()
+
 setuptools.setup(
     name="pyryver",
     version="0.1.2",
@@ -18,6 +21,7 @@ setuptools.setup(
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
     ],
+    install_requires=install_requires,
     python_requires=">=3.6",
     keywords="ryver"
 )
