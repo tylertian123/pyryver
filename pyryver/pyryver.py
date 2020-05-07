@@ -253,7 +253,7 @@ class Topic(Message):
         """
         url = self._ryver._url_prefix + TYPE_TOPIC_REPLY + \
             f"?$format=json&$filter=((post/id eq {self.get_id()}))&$expand=createUser,post"
-        replies = await _get_all(url, self._ryver.headers, top=top,
+        replies = await _get_all(session=self._ryver._session, url=url, top=top,
                                  skip=skip, param_sep="&")
         return [TopicReply(self._ryver, TYPE_TOPIC_REPLY, data) for data in replies]
 
@@ -396,7 +396,7 @@ class Chat(Object):
         """
         url = self._ryver._url_prefix + \
             f"{self.get_type()}({self.get_id()})/Post.Stream(archived={'true' if archived else 'false'})?$format=json"
-        topics = await _get_all(url, self._ryver.headers,
+        topics = await _get_all(session=self._ryver._session, url=url,
                                 param_sep="&", top=top, skip=skip)
         return [Topic(self._ryver, TYPE_TOPIC, data) for data in topics]
 
@@ -654,7 +654,7 @@ class GroupChat(Chat):
         """
         url = self._ryver._url_prefix + \
             f"/{self.get_type()}({self.get_id()})/members?$expand=member"
-        members = await _get_all(url=url, headers=self._ryver.headers,
+        members = await _get_all(session=self._ryver._session, url=url,
                                  top=top, skip=skip, param_sep="&")
         return [GroupChatMember(self._ryver, TYPE_GROUPCHAT_MEMBER, data) for data in members]
 
@@ -980,7 +980,7 @@ class Ryver:
         Consider using get_cached_chats() to cache the data in a JSON file.
         """
         url = self._url_prefix + obj_type
-        chats = await _get_all(self._session, url, top=top, skip=skip)
+        chats = await _get_all(session=self._session, url=url, top=top, skip=skip)
         return [TYPES_DICT[obj_type](self, obj_type, chat) for chat in chats]
 
     async def get_cached_chats(self, obj_type: str, force_update: bool = False, name: str = None, top: int = -1, skip: int = 0) -> typing.List[Chat]:
@@ -1004,7 +1004,7 @@ class Ryver:
         else:
             chats = await self.get_chats(obj_type, top=top, skip=skip)
             with open(name, "w") as f:
-                json.dump([chat.data for chat in chats], f)
+                json.dump([chat._data for chat in chats], f)
             return chats
 
     async def get_notifs(self, unread: bool = False, top: int = -1, skip: int = 0) -> typing.List[Notification]:
@@ -1022,7 +1022,7 @@ class Ryver:
             "?$format=json&$orderby=modifyDate desc"
         if unread:
             url += "&$filter=((unread eq true))"
-        notifs = await _get_all(url, self.headers, top=top, skip=skip, param_sep="&")
+        notifs = await _get_all(session=self._session, url=url, top=top, skip=skip, param_sep="&")
         return [Notification(self, TYPE_NOTIFICATION, data) for data in notifs]
 
     async def mark_all_notifs_read(self) -> int:
@@ -1138,7 +1138,7 @@ def get_obj_by_field(objs: typing.List[Object], field: str, value: typing.Any) -
     list of chats.
     """
     for obj in objs:
-        if obj.data[field] == value:
+        if obj._data[field] == value:
             return obj
     return None
 
@@ -1160,7 +1160,7 @@ async def _get_all(session: aiohttp.ClientSession, url: str, top: int = -1, skip
         top -= count
 
         request_url = url + f"{param_sep}$skip={skip}&$top={count}"
-        async with session.get(url) as resp:
+        async with session.get(request_url) as resp:
             page = (await resp.json())["d"]["results"]
 
         result.extend(page)
