@@ -23,6 +23,10 @@ class RyverWS():
     PRESENCE_DO_NOT_DISTURB = "dnd"
     PRESENCE_OFFLINE = "unavailable"
 
+    EVENT_REACTION_ADDED = "/api/reaction/added"
+    EVENT_REACTION_REMOVED = "/api/reaction/removed"
+    EVENT_ALL = ""
+
     def __init__(self, ryver):
         self._ryver = ryver
         self._ws = None
@@ -33,6 +37,7 @@ class RyverWS():
 
         self._on_chat = None
         self._on_connection_loss = None
+        self._on_event = {}
 
         self._closed = True
     
@@ -86,6 +91,10 @@ class RyverWS():
                     elif msg["type"] == "chat":
                         if self._on_chat:
                             asyncio.ensure_future(self._on_chat(msg))
+                    elif msg["type"] == "event":
+                        handler = self._on_event.get(msg["topic"], self._on_event.get("", None))
+                        if handler:
+                            asyncio.ensure_future(handler(msg))
                 except ValueError as e:
                     print(f"Error decoding JSON message: {e}")
                 except TypeError as e:
@@ -112,22 +121,37 @@ class RyverWS():
         except asyncio.CancelledError:
             return
     
-    def on_chat(self, func) -> None:
+    def on_chat(self, func):
         """
-        Set the on chat message coroutine.
+        The on chat message coroutine decorator.
 
         This coroutine will be started as a task when a new chat message arrives.
         It should take a single argument, the chat message data.
         """
         self._on_chat = func
     
-    def on_connection_loss(self, func) -> None:
+    def on_connection_loss(self, func):
         """
-        Set the on connection loss coroutine.
+        The on connection loss coroutine decorator.
 
         This coroutine will be started as a task when the connection is lost.
         """
         self._on_connection_loss = func
+    
+    def on_event(self, event_type):
+        """
+        The on event coroutine decorator for a specific event or all events.
+
+        This coroutine will be started as a task when a new event arrives with
+        the specified type. If the event_type is None or an empty string, it will
+        be called for all events that are unhandled.
+        It should take a single argument, the event data.
+        """
+        if event_type is None:
+            event_type = ""
+        def _on_event_inner(func):
+            self._on_event[event_type] = func
+        return _on_event_inner
     
     async def send_chat(self, to_chat: Chat, msg: str):
         """
