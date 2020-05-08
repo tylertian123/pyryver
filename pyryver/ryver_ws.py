@@ -144,6 +144,7 @@ class RyverWS():
         It should take a single argument, the chat message data.
         """
         self._on_chat = func
+        return func
 
     def on_chat_deleted(self, func):
         """
@@ -153,6 +154,7 @@ class RyverWS():
         It should take a single argument, the chat message data.
         """
         self._on_chat_deleted = func
+        return func
 
     def on_chat_updated(self, func):
         """
@@ -162,6 +164,7 @@ class RyverWS():
         It should take a single argument, the chat message data.
         """
         self._on_chat_updated = func
+        return func
     
     def on_connection_loss(self, func):
         """
@@ -170,6 +173,7 @@ class RyverWS():
         This coroutine will be started as a task when the connection is lost.
         """
         self._on_connection_loss = func
+        return func
     
     def on_event(self, event_type):
         """
@@ -185,6 +189,7 @@ class RyverWS():
             event_type = ""
         def _on_event_inner(func):
             self._on_event[event_type] = func
+            return func
         return _on_event_inner
     
     def on_msg_type(self, msg_type):
@@ -201,6 +206,7 @@ class RyverWS():
             msg_type = ""
         def _on_msg_type_inner(func):
             self._on_msg_type[msg_type] = func
+            return func
         return _on_msg_type_inner
     
     async def send_chat(self, to_chat: Chat, msg: str):

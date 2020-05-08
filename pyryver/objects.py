@@ -897,13 +897,25 @@ class File(Object):
         """
         return self._data.get("type", self._data.get("fileType", None))
     
-    def get_data(self) -> aiohttp.ClientResponse:
+    def request_data(self) -> aiohttp.ClientResponse:
         """
         Get the file data.
 
         Returns an aiohttp request response to the file URL.
         """
-        return self._ryver._session.get(self.get_url())
+        # Use aiohttp.request directly because we don't want to send the auth header
+        # Otherwise we'll get a 400
+        return aiohttp.request("GET", self.get_url())
+    
+    async def download_data(self) -> bytes:
+        """
+        Download the file data.
+
+        This method sends requests.
+        """
+        async with aiohttp.request("GET", self.get_url()) as resp:
+            resp.raise_for_status()
+            return await resp.content.read()
 
     async def delete(self) -> None:
         """
