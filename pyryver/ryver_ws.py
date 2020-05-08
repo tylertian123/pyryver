@@ -27,6 +27,8 @@ class RyverWS():
     EVENT_REACTION_REMOVED = "/api/reaction/removed"
     EVENT_ALL = ""
 
+    MSG_TYPE_ALL = ""
+
     def __init__(self, ryver):
         self._ryver = ryver
         self._ws = None
@@ -36,7 +38,10 @@ class RyverWS():
         self._ping_task_handle = None
 
         self._on_chat = None
+        self._on_chat_deleted = None
+        self._on_chat_updated = None
         self._on_connection_loss = None
+        self._on_msg_type = {}
         self._on_event = {}
 
         self._closed = True
@@ -91,8 +96,18 @@ class RyverWS():
                     elif msg["type"] == "chat":
                         if self._on_chat:
                             asyncio.ensure_future(self._on_chat(msg))
+                    elif msg["type"] == "chat_deleted":
+                        if self._on_chat_deleted:
+                            asyncio.ensure_future(self._on_chat_deleted(msg))
+                    elif msg["type"] == "chat_updated":
+                        if self._on_chat_updated:
+                            asyncio.ensure_future(self._on_chat_updated(msg))
                     elif msg["type"] == "event":
                         handler = self._on_event.get(msg["topic"], self._on_event.get("", None))
+                        if handler:
+                            asyncio.ensure_future(handler(msg))
+                    else:
+                        handler = self._on_msg_type.get(msg["type"], self._on_msg_type.get("", None))
                         if handler:
                             asyncio.ensure_future(handler(msg))
                 except ValueError as e:
@@ -129,6 +144,24 @@ class RyverWS():
         It should take a single argument, the chat message data.
         """
         self._on_chat = func
+
+    def on_chat_deleted(self, func):
+        """
+        The on chat message deleted coroutine decorator.
+
+        This coroutine will be started as a task when a chat message is deleted.
+        It should take a single argument, the chat message data.
+        """
+        self._on_chat_deleted = func
+
+    def on_chat_updated(self, func):
+        """
+        The on chat message updated coroutine decorator.
+
+        This coroutine will be started as a task when a chat message is updated.
+        It should take a single argument, the chat message data.
+        """
+        self._on_chat_updated = func
     
     def on_connection_loss(self, func):
         """
@@ -140,7 +173,8 @@ class RyverWS():
     
     def on_event(self, event_type):
         """
-        The on event coroutine decorator for a specific event or all events.
+        The on event coroutine decorator for a specific event or all unhandled
+        events.
 
         This coroutine will be started as a task when a new event arrives with
         the specified type. If the event_type is None or an empty string, it will
@@ -152,6 +186,22 @@ class RyverWS():
         def _on_event_inner(func):
             self._on_event[event_type] = func
         return _on_event_inner
+    
+    def on_msg_type(self, msg_type):
+        """
+        The on message type coroutine decorator for a specific message type or all 
+        unhandled messages.
+
+        This coroutine will be started as a task when a new message arrives with
+        the specified type. If the msg_type is None or an empty string, it will
+        be called for all messages that are unhandled.
+        It should take a single argument, the message data.
+        """
+        if msg_type is None:
+            msg_type = ""
+        def _on_msg_type_inner(func):
+            self._on_msg_type[msg_type] = func
+        return _on_msg_type_inner
     
     async def send_chat(self, to_chat: Chat, msg: str):
         """

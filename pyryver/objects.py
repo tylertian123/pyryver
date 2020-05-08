@@ -321,6 +321,21 @@ class ChatMessage(Message):
         }
         async with self._ryver._session.post(url, json=data) as resp:
             pass
+    
+    async def edit(self, body: str, creator: Creator = None) -> None:
+        """
+        Edit the message.
+        """
+        url = self._ryver._url_prefix + \
+            f"{get_type_from_entity(self.get_chat_type())}({self.get_chat_id()})/Chat.UpdateMessage()?$format=json"
+        data = {
+            "id": self.get_id(),
+            "body": body,
+        }
+        if creator:
+            data["createSource"] = creator.to_dict()
+        async with self._ryver._session.post(url, json=data) as resp:
+            pass
 
 
 class Chat(Object):
@@ -881,6 +896,14 @@ class File(Object):
         Get the MIME type of this file.
         """
         return self._data.get("type", self._data.get("fileType", None))
+    
+    def get_data(self) -> aiohttp.ClientResponse:
+        """
+        Get the file data.
+
+        Returns an aiohttp request response to the file URL.
+        """
+        return self._ryver._session.get(self.get_url())
 
     async def delete(self) -> None:
         """

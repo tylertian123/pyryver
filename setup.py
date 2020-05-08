@@ -8,7 +8,7 @@ with open("requirements.txt", "r") as fh:
 
 setuptools.setup(
     name="pyryver",
-    version="0.1.2",
+    version="0.2.0",
     author="Tyler Tian",
     author_email="tylertian123@gmail.com",
     description="An unofficial async Python library for Ryver.",
@@ -20,6 +20,7 @@ setuptools.setup(
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
+        "Development Status :: 3 - Alpha",
     ],
     install_requires=install_requires,
     python_requires=">=3.6",
