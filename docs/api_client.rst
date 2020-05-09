@@ -1,5 +1,5 @@
-Client
-======
+Session
+=======
 
 .. automodule:: pyryver.pyryver
    :members:

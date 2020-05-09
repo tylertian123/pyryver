@@ -48,8 +48,9 @@ exclude_patterns = []
 always_document_param_types = True
 
 # -- Intersphinx Setup --
-interspinx_mapping = {
-    'python': ('http://docs.python.org/3.6', None)
+intersphinx_mapping = {
+    'python': ('http://docs.python.org/3', None),
+    'aiohttp': ('https://aiohttp.readthedocs.io/en/latest/', None),
 }
 
 # -- Options for HTML output -------------------------------------------------
@@ -57,7 +58,7 @@ interspinx_mapping = {
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-html_theme = 'alabaster'
+html_theme = 'sphinx_rtd_theme'
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
@@ -67,7 +68,5 @@ html_static_path = ['_static']
 highlight_language = 'python3'
 
 html_theme_options = {
-    'github_user': 'tylertian123',
-    'github_repo': 'pyryver',
-    'sidebar_collapse': False
+    "style_nav_header_background": "#fc9a33"
 }
