@@ -1,7 +1,3 @@
-"""
-A simple Python library for Ryver's REST APIs.
-"""
-
 import aiohttp
 import asyncio
 import typing
@@ -18,23 +14,25 @@ class Ryver:
     A Ryver session contains login credentials and organization information.
 
     This is the starting point for any application using pyryver.
+
+    If the organization or username is not provided, it will be prompted 
+    using input(). If the password is not provided, it will be prompted 
+    using getpass().
+
+    The cache is used to load the chats data. If not provided, no caching
+    will occur.
+
+    If a valid cache is provided, the chats data will be loaded in the
+    constructor. Otherwise, it must be loaded through load_forums(),
+    load_teams() and load_users() or load_chats().
+
+    :param org: Your organization's name. (as seen in the URL)
+    :param user: The username to authenticate with.
+    :param password: The password to authenticate with.
+    :param cache: The aforementioned cache.
     """
 
     def __init__(self, org: str = None, user: str = None, password: str = None, cache: typing.Type[AbstractCacheStorage] = None):
-        """
-        Create a new session. 
-
-        If the organization or username is not provided, it will be prompted 
-        using input(). If the password is not provided, it will be prompted 
-        using getpass().
-
-        The cache is used to load the chats data. If not provided, no caching
-        will occur.
-
-        If a valid cache is provided, the chats data will be loaded in the
-        constructor. Otherwise, it must be loaded through load_forums(),
-        load_teams() and load_users() or load_chats().
-        """
         if not org:
             org = input("Organization: ")
         if not user:
@@ -89,6 +87,9 @@ class Ryver:
         Get an object from Ryver with a type and ID.
 
         This method sends requests.
+
+        :param obj_type: The type of the object to retrieve, a constant beginning with ``TYPE_`` in :py:mod:`pyryver.util`.
+        :param obj_id: The object's ID.
         """
         url = self._url_prefix + f"{obj_type}({obj_id})"
         async with self._session.get(url) as resp:
@@ -166,9 +167,10 @@ class Ryver:
         Get a specific user.
 
         If no query parameters are supplied, more than one query parameters are
-        supplied or users are not loaded, raises ValueError.
+        supplied or users are not loaded, raises :py:class:`ValueError`.
 
         Allowed query parameters are:
+
         - id
         - jid
         - username
@@ -192,9 +194,10 @@ class Ryver:
         Get a specific forum/team.
 
         If no query parameters are supplied, more than one query parameters are
-        supplied or forums/teams are not loaded, raises ValueError.
+        supplied or forums/teams are not loaded, raises :py:class:`ValueError`.
 
         Allowed query parameters are:
+
         - id
         - jid
         - name
@@ -217,9 +220,10 @@ class Ryver:
         Get a specific forum/team/user.
 
         If no query parameters are supplied, more than one query parameters are
-        supplied or forums/teams/users are not loaded, raises ValueError.
+        supplied or forums/teams/users are not loaded, raises :py:class:`ValueError`.
 
         Allowed query parameters are:
+
         - id
         - jid
 
@@ -239,18 +243,18 @@ class Ryver:
         """
         Get all the user's notifications. 
 
-        If unread is true, only unread notifications will be retrieved.
-
-        top is the maximum number of results (-1 for unlimited), skip is how
-        many results to skip.
-
         This method sends requests.
+
+        :param unread: If True, only return unread notifications.
+        :param top: Maximum number of results.
+        :param skip: Skip this many results.
         """
         url = self._url_prefix + TYPE_NOTIFICATION + \
             "?$format=json&$orderby=modifyDate desc"
         if unread:
             url += "&$filter=((unread eq true))"
         notifs = await get_all(session=self._session, url=url, top=top, skip=skip, param_sep="&")
+
         return [Notification(self, TYPE_NOTIFICATION, data) for data in notifs]
 
     async def mark_all_notifs_read(self) -> int:
@@ -286,8 +290,8 @@ class Ryver:
         Although this method uploads a file, the returned object is an instance of Storage.
         Use Storage.get_file() to obtain the actual File object.
 
-        Note that this method does send requests, so it may take some time,
-        depending on file size.
+        :param filename: The filename to send to Ryver. (this will show up in the UI if attached as an embed, for example)
+        :param filedata: The file's raw data, sent directly to :py:meth:`aiohttp.FormData.add_field`.
         """
         url = self._url_prefix + TYPE_STORAGE + \
             "/Storage.File.Create(createFile=true)?$expand=file&$format=json"
@@ -303,7 +307,8 @@ class Ryver:
 
         This method returns an assortment of info. It is currently the only way
         to get avatar URLs for users/teams/forums etc.
-        The results include:
+        The results (returned mostly verbatim from the Ryver API) include:
+
          - Basic user info - contains avatar URLs ("me")
          - User UI preferences ("prefs")
          - Ryver app info ("app")

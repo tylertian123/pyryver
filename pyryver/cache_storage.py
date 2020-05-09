@@ -1,7 +1,7 @@
 import json
 import os
 import typing
-from pyryver.objects import *
+from .objects import *
 from abc import ABC, abstractmethod
 
 class AbstractCacheStorage(ABC):
@@ -35,6 +35,9 @@ class FileCacheStorage(AbstractCacheStorage):
     def __init__(self, root_dir: str = ".", prefix: str = ""):
         """
         Create a file cache storage with an optional root directory and name prefix.
+
+        :param root_dir: All cache files will be stored relative to this directory, which itself is relative to the current directory.
+        :param prefix: All cache files will be prefixed with this string.
         """
         self._root_dir = root_dir
         self._prefix = prefix

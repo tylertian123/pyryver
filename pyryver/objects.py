@@ -9,6 +9,9 @@ class Creator:
     A message creator, with a name and an avatar.
 
     This can be used to override the sender's display name and avatar.
+
+    :param name: The overriden display name
+    :param avatar: The overriden avatar (a url to an image)
     """
 
     def __init__(self, name: str, avatar: str):
@@ -30,9 +33,12 @@ class Creator:
 class Object(ABC):
     """
     Base class for all Ryver objects.
+
+    :param ryver: The parent :py:class:`pyryver.pyryver.Ryver` instance.
+    :param obj_type: The object's type, a constant beginning with ``TYPE_`` in :py:mod::`pyryver.util`.
     """
 
-    def __init__(self, ryver, obj_type: str, data: dict):
+    def __init__(self, ryver: "Ryver", obj_type: str, data: dict):
         self._ryver = ryver
         self._data = data
         self._obj_type = obj_type
@@ -106,7 +112,7 @@ class Message(Object):
 
     async def get_author(self) -> "User":
         """
-        Get the author of this message, as a User object.
+        Get the author of this message, as a :py:class:`User` object.
 
         This method sends requests.
         """
@@ -114,14 +120,15 @@ class Message(Object):
 
     async def react(self, emoji: str) -> None:
         """
-        React to this message with an emoji, specified with the string name (e.g. "thumbsup").
+        React to a message with an emoji. 
 
         This method sends requests.
+
+        :param emoji: The string name of the reacji (e.g. "thumbsup").
         """
         url = self._ryver._url_prefix + \
             f"{self.get_type()}({self.get_id()})/React(reaction='{emoji}')"
-        async with self._ryver._session.post(url) as resp:
-            pass
+        await self._ryver._session.post(url)
 
     def get_reactions(self) -> dict:
         """
@@ -148,7 +155,7 @@ class Message(Object):
 
         Note that files obtained from this only have a limited amount of information,
         including the ID, name, URL, size and type. Attempting to get any other info
-        will result in a KeyError. To obtain the full file info, use Ryver.get_object()
+        will result in a KeyError. To obtain the full file info, use :py:meth:`Ryver.get_object()`
         with TYPE_FILE and the ID.
 
         Returns None otherwise.
@@ -172,7 +179,7 @@ class TopicReply(Message):
 
     def get_author(self) -> "User":
         """
-        Get the author of this reply, as a User object.
+        Get the author of this reply, as a :py:class:`User` object.
 
         Unlike the other implementations, this does not send any requests.
         """
@@ -221,6 +228,8 @@ class Topic(Message):
         This method sends requests.
 
         For unknown reasons, overriding the creator does not work for this method.
+
+        :param message: The reply content
         """
         url = self._ryver._url_prefix + TYPE_TOPIC_REPLY + "?$format=json"
         data = {
@@ -238,10 +247,10 @@ class Topic(Message):
         """
         Get all the replies to this topic.
 
-        top is the maximum number of results (-1 for unlimited), skip is how
-        many results to skip.
-
         This method sends requests.
+
+        :param top: Maximum number of results; optional, if unspecified return all results.
+        :param skip: Skip this many results.
         """
         url = self._ryver._url_prefix + TYPE_TOPIC_REPLY + \
             f"?$format=json&$filter=((post/id eq {self.get_id()}))&$expand=createUser,post"
@@ -279,8 +288,8 @@ class ChatMessage(Message):
         """
         Get the id of the chat that this message was sent to, as an integer.
 
-        Note that this is different from get_chat() as the id is stored in
-        the message data and is good for most API purposes while get_chat()
+        Note that this is different from :py:meth:`get_chat()` as the id is stored in
+        the message data and is good for most API purposes while ``get_chat()``
         returns an entire Chat object, which might not be necessary depending
         on what you're trying to do.
         """
@@ -288,7 +297,7 @@ class ChatMessage(Message):
 
     async def get_chat(self) -> "Chat":
         """
-        Get the chat that this message was sent to, as a Chat object.
+        Get the chat that this message was sent to, as a :py:class:`Chat` object.
 
         This method sends requests.
         """
@@ -297,9 +306,11 @@ class ChatMessage(Message):
     # Override Message.react() because a different URL is used
     async def react(self, emoji: str) -> None:
         """
-        React to a message with an emoji, specified with the string name (e.g. "thumbsup").
+        React to a message with an emoji. 
 
         This method sends requests.
+
+        :param emoji: The string name of the reacji (e.g. "thumbsup").
         """
         url = self._ryver._url_prefix + \
             f"{get_type_from_entity(self.get_chat_type())}({self.get_chat_id()})/Chat.React()"
@@ -307,8 +318,7 @@ class ChatMessage(Message):
             "id": self.get_id(),
             "reaction": emoji
         }
-        async with self._ryver._session.post(url, json=data) as resp:
-            pass
+        await self._ryver._session.post(url, json=data)
 
     async def delete(self) -> None:
         """
@@ -319,12 +329,14 @@ class ChatMessage(Message):
         data = {
             "id": self.get_id(),
         }
-        async with self._ryver._session.post(url, json=data) as resp:
-            pass
+        await self._ryver._session.post(url, json=data)
     
     async def edit(self, body: str, creator: Creator = None) -> None:
         """
         Edit the message.
+
+        :param body: The new message content.
+        :param creator: The new message creator; optional, if unset left as-is.
         """
         url = self._ryver._url_prefix + \
             f"{get_type_from_entity(self.get_chat_type())}({self.get_chat_id()})/Chat.UpdateMessage()?$format=json"
@@ -334,8 +346,7 @@ class ChatMessage(Message):
         }
         if creator:
             data["createSource"] = creator.to_dict()
-        async with self._ryver._session.post(url, json=data) as resp:
-            pass
+        await self._ryver._session.post(url, json=data)
 
 
 class Chat(Object):
@@ -347,7 +358,7 @@ class Chat(Object):
 
     def get_jid(self) -> str:
         """
-        Get the JID of this chat.
+        Get the JID (JabberID) of this chat.
 
         The JID is used in the websockets interface.
         """
@@ -369,6 +380,9 @@ class Chat(Object):
 
         Returns the ID of the chat message sent. Note that message IDs are
         strings.
+
+        :param message: The message contents.
+        :param creator: The overriden creator; optional, if unset uses the logged-in user's profile.
         """
         url = self._ryver._url_prefix + \
             f"{self.get_type()}({self.get_id()})/Chat.PostMessage()"
@@ -387,6 +401,10 @@ class Chat(Object):
         This method sends requests.
 
         Returns the topic created.
+
+        :param subject: The subject (or title) of the new topic.
+        :param body: The contents of the new topic.
+        :param creator: The overriden creator; optional, if unset uses the logged-in user's profile.
         """
         url = self._ryver._url_prefix + "posts"
         data = {
@@ -412,10 +430,11 @@ class Chat(Object):
         """
         Get all the topics in this chat.
 
-        top is the maximum number of results (-1 for unlimited), skip is how
-        many results to skip.
-
         This method sends requests.
+
+        :param archived: If True, only include archived topics in the results, otherwise, only include non-archived topics.
+        :param top: Maximum number of results; optional, if unspecified return all results.
+        :param skip: Skip this many results.
         """
         url = self._ryver._url_prefix + \
             f"{self.get_type()}({self.get_id()})/Post.Stream(archived={'true' if archived else 'false'})?$format=json"
@@ -428,6 +447,8 @@ class Chat(Object):
         Get a number of messages (most recent first) in this chat.
 
         This method sends requests.
+
+        :param count: Maximum number of results.
         """
         url = self._ryver._url_prefix + \
             f"{self.get_type()}({self.get_id()})/Chat.History()?$format=json&$top={count}"
@@ -439,12 +460,17 @@ class Chat(Object):
         """
         Get a message from an ID, optionally also messages before and after it too.
 
-        Note: Before and after cannot exceed 25 messages, otherwise an HTTPError will be raised
-        with the error code 400 Bad Request.
+        .. warning:: 
+           Before and after cannot exceed 25 messages, otherwise an HTTPError will be raised
+           with the error code 400 Bad Request.
 
         This method sends requests.
 
         This method does not support top/skip.
+
+        :param id: The ID of the message to retrieve, and the reference point for the ``before`` and ``after`` parameters.
+        :param before: How many extra messages to retrieve before the specified one.
+        :param after: How many extra messages to retrieve after the specified one.
         """
         url = self._ryver._url_prefix + \
             f"{self.get_type()}({self.get_id()})/Chat.History.Message(id='{id}',before={before},after={after})?$format=json"
@@ -482,11 +508,13 @@ class User(Chat):
 
     def get_role(self) -> str:
         """
-        Get this user's Role in their profile.
+        Get this user's role in their profile.
 
-        Note this is different from get_roles(). While this one gets the "Role"
-        of the user from the profile, get_roles() gets the user's roles in the
-        organization (user, guest, admin).
+        .. note:: 
+           This is different from :py:meth:`get_roles()`. While this one gets the "Role"
+           of the user from the profile, ``get_roles()`` gets the user's roles in the
+           organization (user, guest, admin).
+
         """
         return self._data["description"]
 
@@ -518,9 +546,11 @@ class User(Chat):
         """
         Get this user's role in the organization.
 
-        Note this is different from get_role(). While this one gets the user's
-        roles in the organization (user, guest, admin), get_role() gets the
-        user's role from their profile.
+        .. note:: 
+           This is different from :py:meth:`get_role()`. While this one gets the user's
+           roles in the organization (user, guest, admin), ``get_role()`` gets the
+           user's role from their profile.
+
         """
         return self._data["roles"]
 
@@ -538,7 +568,12 @@ class User(Chat):
 
         This method sends requests.
 
-        Note: This also updates these properties in this object!
+        .. note::
+           This also updates these properties in this object.
+
+        :param display_name: The user's new display_name.
+        :param role: The user's new role, as described in :py:meth:`get_role()`.
+        :param about: The user's new "about me" blurb.
         """
         url = self._ryver._url_prefix + \
             f"/{self.get_type()}(id={self.get_id()})"
@@ -547,8 +582,7 @@ class User(Chat):
             "description": role if role is not None else self.get_role(),
             "displayName": display_name if display_name is not None else self.get_display_name(),
         }
-        async with self._ryver._session.patch(url, json=data) as resp:
-            pass
+        await self._ryver._session.patch(url, json=data)
 
         self._data["aboutMe"] = data["aboutMe"]
         self._data["description"] = data["description"]
@@ -560,28 +594,28 @@ class User(Chat):
 
         This method sends requests.
 
-        Note: This also updates these properties in this object!
+        .. note::
+           This also updates these properties in this object.
         """
         url = self._ryver._url_prefix + \
             f"{self.get_type()}({self.get_id()})/User.Active.Set(value='{'true' if activated else 'false'}')"
-        async with self._ryver._session.post(url) as resp:
-            pass
+        await self._ryver._session.post(url)
         self._data["active"] = activated
 
     async def set_org_role(self, role: str) -> None:
         """
-        Set a user's role in this organization.
+        Set a user's role in this organization, as described in :py:meth:`get_roles()`.
 
         This can be either ROLE_USER, ROLE_ADMIN or ROLE_GUEST.
 
         This method sends requests.
 
-        Note: This also updates these properties in this object!
+        .. note::
+           This also updates these properties in this object.
         """
         url = self._ryver._url_prefix + \
             f"{self.get_type()}({self.get_id()})/User.Role.Set(role='{role}')"
-        async with self._ryver._session.post(url) as resp:
-            pass
+        await self._ryver._session.post(url)
 
         self._data["roles"] = [role]
         # Admins also have the normal user role
@@ -590,16 +624,15 @@ class User(Chat):
 
     async def create_topic(self, from_user: "User", subject: str, body: str, creator: Creator = None) -> Topic:
         """
-        Create a topic in this chat.
-
-        from_user must be the User object of the same user as in the Ryver
-        object. E.g. if the Ryver object was created with a username of foo,
-        from_user must be the User object of the user. (Don't blame me the API
-        is weird.)
+        Create a topic in this user's DMs.
 
         This method sends requests.
 
         Returns the topic created.
+
+        :param from_user: The user that will create the topic; must be the same as the logged-in user.
+        :param subject: The subject (or title) of the created topic.
+        :param body: The contents of the created topic.
         """
         url = self._ryver._url_prefix + "posts"
         data = {
@@ -645,7 +678,7 @@ class GroupChatMember(Object):
 
     def get_user(self) -> User:
         """
-        Get this member as a User object.
+        Get this member as a :py:class:`User` object.
         """
         return User(self._ryver, TYPE_USER, self._data["member"])
 
@@ -653,7 +686,9 @@ class GroupChatMember(Object):
         """
         Get whether this member is an admin of their forum.
 
-        Note that this does not check for org admins.
+        .. warning::
+           This method does not check for org admins.
+
         """
         return GroupChatMember.ROLE_ADMIN == self.get_role()
 
@@ -680,6 +715,9 @@ class GroupChat(Chat):
         Get all the members of this chat.
 
         This method sends requests.
+
+        :param top: Maximum number of results; optional, if unspecified return all results.
+        :param skip: Skip this many results.
         """
         url = self._ryver._url_prefix + \
             f"/{self.get_type()}({self.get_id()})/members?$expand=member"
@@ -802,7 +840,7 @@ class Notification(Object):
         The exact nature of this field is not yet known, but it seems to
         contain information about whatever caused this notification. For
         example, the chat message of an @mention, the topic reply for a reply,
-        etc. Note that for task completions, there is NO via.
+        etc. For task completions, there is NO via.
         """
         return self._data["viaType"]
 
@@ -813,7 +851,7 @@ class Notification(Object):
         The exact nature of this field is not yet known, but it seems to
         contain information about whatever caused this notification. For
         example, the chat message of an @mention, the topic reply for a reply,
-        etc. Note that for task completions, there is NO via.
+        etc. For task completions, there is NO via.
         """
         return self._data["viaId"]
 
@@ -824,7 +862,7 @@ class Notification(Object):
         The exact nature of this field is not yet known, but it seems to
         contain information about whatever caused this notification. For
         example, the chat message of an @mention, the topic reply for a reply,
-        etc. Note that for task completions, there is NO via.
+        etc. For task completions, there is NO via.
         """
         return self._data["via"]
 
@@ -846,7 +884,9 @@ class Notification(Object):
 
         This method sends requests.
 
-        Note: This also updates these properties in this object!
+        .. note:: 
+           This also updates these properties in this object.
+
         """
         data = {
             "unread": unread,
@@ -854,8 +894,7 @@ class Notification(Object):
         }
         url = self._ryver._url_prefix + \
             f"{self.get_type()}({self.get_id()})?$format=json"
-        async with self._ryver._session.patch(url, json=data) as resp:
-            pass
+        await self._ryver._session.patch(url, json=data)
         self._data["unread"] = unread
         self._data["new"] = new
 
@@ -913,8 +952,7 @@ class File(Object):
         """
         url = self._ryver._url_prefix + \
             f"{self.get_type()}({self.get_id()})?$format=json"
-        async with self._ryver._session.delete(url) as resp:
-            pass
+        await self._ryver._session.delete(url)
 
 
 class Storage(Object):
@@ -952,8 +990,14 @@ def get_obj_by_field(objs: typing.List[Object], field: str, value: typing.Any) -
 
     For example, this function can find a chat with a specific nickname in a
     list of chats.
+
+    :param objs: List of objects to search in.
+    :param field: The field's name (usually a constant beginning with ``FIELD_`` in :py:mod:`pyryver.util`) within the object's JSON data.
+    :param value: The value to look for.
     """
     for obj in objs:
         if obj._data[field] == value:
             return obj
     return None
+
+from pyryver.pyryver import Ryver

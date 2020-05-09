@@ -171,7 +171,7 @@ class RyverWS():
         """
         self._on_connection_loss = func
     
-    def on_event(self, event_type):
+    def on_event(self, event_type: str):
         """
         The on event coroutine decorator for a specific event or all unhandled
         events.
@@ -180,6 +180,9 @@ class RyverWS():
         the specified type. If the event_type is None or an empty string, it will
         be called for all events that are unhandled.
         It should take a single argument, the event data.
+
+        :param event_type: The event type to listen to, one of the constants in this class starting with ``EVENT_`` or :py:attr:`RyverWS.EVENT_ALL` to receieve all
+                           otherwise unhandled messages
         """
         if event_type is None:
             event_type = ""
@@ -206,6 +209,9 @@ class RyverWS():
     async def send_chat(self, to_chat: Chat, msg: str):
         """
         Send a chat message to a chat.
+
+        :param to_chat: The chat to send the message to.
+        :param msg: The message contents.
         """
         data = {
             "type": "chat",
@@ -217,6 +223,8 @@ class RyverWS():
     async def send_presence_change(self, presence: str):
         """
         Send a presence change message.
+
+        :param presence: The new presence, a constant in this class starting with ``PRESENCE_``
         """
         return await self._ws_send_msg({
             "type": "presence_change",
@@ -229,6 +237,8 @@ class RyverWS():
 
         The typing indicator automatically clears after a few seconds or when
         a message is sent.
+
+        :param to_chat: Where to send the presence message.
         """
         return await self._ws_send_msg({
             "type": "user_typing",
