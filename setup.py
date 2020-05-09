@@ -1,4 +1,5 @@
 import setuptools
+import pyryver
 
 with open("README.md", "r") as fh:
     long_description = fh.read()
@@ -8,7 +9,7 @@ with open("requirements.txt", "r") as fh:
 
 setuptools.setup(
     name="pyryver",
-    version="0.2.0",
+    version=pyryver.__version__,
     author="Tyler Tian",
     author_email="tylertian123@gmail.com",
     description="An unofficial async Python library for Ryver.",
