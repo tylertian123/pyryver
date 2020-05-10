@@ -45,11 +45,7 @@ Common Field Names
 ------------------
 
 .. data:: FIELD_USERNAME
-
-   The user/member's username.
 .. data:: FIELD_EMAIL_ADDR
-
-   The user/member's email address.
 .. data:: FIELD_DISPLAY_NAME
 
    The object's display name (friendly name)
