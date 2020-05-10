@@ -7,4 +7,4 @@ from .objects import *
 from .ryver import *
 from .ryver_ws import *
 
-__version__ = "0.2.0.4"
+__version__ = "0.2.0.5"

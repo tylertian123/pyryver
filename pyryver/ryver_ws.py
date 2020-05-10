@@ -11,6 +11,54 @@ class ClosedError(Exception):
     An exception raised to indicate that the session has been closed.
     """
 
+
+class RyverWSTyping():
+    """
+    A context manager returned by :py:class:`RyverWS` to keep sending a typing
+    indicator.
+    """
+
+    def __init__(self, rws: "RyverWS", to: Chat):
+        self._rws = rws
+        self._to = to
+        self._typing_task_handle = None
+    
+    async def _typing_task(self):
+        """
+        The task that keeps sending a typing indicator.
+        """
+        try:
+            while True:
+                await self._rws.send_typing(self._to)
+                # Typing indicators clear after about 3 seconds
+                await asyncio.sleep(2.5)
+        except asyncio.CancelledError:
+            pass
+    
+    def start(self):
+        """
+        Start sending the typing indicator.
+        """
+        self._typing_task_handle = asyncio.ensure_future(self._typing_task())
+    
+    async def stop(self):
+        """
+        Stop sending the typing indicator.
+
+        Note that the typing indicator doesn't clear immediately. It will clear
+        by itself after about 3 seconds, or when a message is sent. 
+        """
+        self._typing_task_handle.cancel()
+        await asyncio.gather(self._typing_task_handle)
+    
+    async def __aenter__(self) -> "RyverWSTyping":
+        self.start()
+        return self
+    
+    async def __aexit__(self, exc, *exc_info):
+        await self.stop()
+
+
 class RyverWS():
     """
     A live Ryver session using websockets. 
@@ -191,8 +239,10 @@ class RyverWS():
         be called for all events that are unhandled.
         It should take a single argument, the event data.
 
-        :param event_type: The event type to listen to, one of the constants in this class starting with ``EVENT_`` or :py:attr:`RyverWS.EVENT_ALL` to receieve all
-                           otherwise unhandled messages
+        :param event_type: The event type to listen to, one of the constants in 
+                           this class starting with ``EVENT_`` or 
+                           :py:attr:`RyverWS.EVENT_ALL` to receieve all otherwise 
+                           unhandled messages.
         """
         if event_type is None:
             event_type = ""
@@ -210,6 +260,11 @@ class RyverWS():
         the specified type. If the msg_type is None or an empty string, it will
         be called for all messages that are unhandled.
         It should take a single argument, the message data.
+
+        :param msg_type: The message type to listen to, one of the constants in 
+                         this class starting with ``MSG_TYPE_`` or 
+                         :py:attr:`RyverWS.MSG_TYPE_ALL` to receieve all otherwise
+                         unhandled messages.
         """
         if msg_type is None:
             msg_type = ""
@@ -250,13 +305,21 @@ class RyverWS():
         The typing indicator automatically clears after a few seconds or when
         a message is sent.
 
-        :param to_chat: Where to send the presence message.
+        :param to_chat: Where to send the typing message.
         """
         return await self._ws_send_msg({
             "type": "user_typing",
             "state": "composing",
             "to": to_chat.get_jid()
         })
+    
+    def start_typing(self, to_chat: Chat) -> RyverWSTyping:
+        """
+        Get a context manager that keeps sending a typing indicator to a chat.
+
+        :param to_chat: Where to send the typing message.
+        """
+        return RyverWSTyping(self, to_chat)
     
     async def start(self):
         """
