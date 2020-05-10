@@ -309,7 +309,7 @@ class RyverWS():
         The typing indicator automatically clears after a few seconds or when
         a message is sent.
 
-        :param to_chat: Where to send the typing message.
+        :param to_chat: Where to send the typing status.
         """
         return await self._ws_send_msg({
             "type": "user_typing",
@@ -321,7 +321,17 @@ class RyverWS():
         """
         Get a context manager that keeps sending a typing indicator to a chat.
 
-        :param to_chat: Where to send the typing message.
+        Useful for wrapping long running operations, like:
+
+        .. code:: python3
+
+           async with session.typing(chat):
+               print("do something silly")
+               await asyncio.sleep(4)
+               await session.send_chat(chat, "done") # or do it outside the with, doesn't matter
+                
+
+        :param to_chat: Where to send the typing status.
         """
         return RyverWSTyping(self, to_chat)
     
