@@ -33,9 +33,12 @@ release = pyryver.__version__
 # ones.
 extensions = [
         "sphinx.ext.autodoc",
-        "sphinx_autodoc_typehints",
+        "sphinxcontrib_trio",
+#        "sphinx_autodoc_typehints",
         "sphinx.ext.intersphinx"
 ]
+
+default_role = 'py:obj'
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -46,7 +49,9 @@ templates_path = ['_templates']
 exclude_patterns = []
 
 # -- Options for autodoc --
-always_document_param_types = True
+#always_document_param_types = True
+
+#autodoc_typehints = "description"
 
 # -- Intersphinx Setup --
 intersphinx_mapping = {

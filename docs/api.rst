@@ -4,7 +4,7 @@ API Reference
 This is the full reference of everything in pyryver.
 
 .. note::
-   In all cases where a fully qualified name to something is used, such as :py:class:`pyryver.pyryver.Ryver`, any submodule
+   In all cases where a fully qualified name to something is used, such as :py:class:`pyryver.ryver.Ryver`, any submodule
    can be ignored, as they are all imported into the global :py:mod:`pyryver` scope.
 
 .. toctree::
