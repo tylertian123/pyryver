@@ -14,6 +14,8 @@ class ClosedError(Exception):
 class RyverWS():
     """
     A live Ryver session using websockets. 
+
+    You can construct this manually, although it is recommended to use `Ryver.get_live_session()`.
     """
 
     _VALID_ID_CHARS = string.ascii_letters + string.digits

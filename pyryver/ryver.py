@@ -73,8 +73,10 @@ class Ryver:
         Consider using get_cached_chats() to cache the data in a JSON file.
         """
         url = self._url_prefix + obj_type
-        chats = await get_all(session=self._session, url=url, top=top, skip=skip)
-        return [TYPES_DICT[obj_type](self, obj_type, chat) for chat in chats]
+        chats = []
+        async for chat in get_all(session=self._session, url=url, top=top, skip=skip):
+            chats.append(TYPES_DICT[obj_type](self, obj_type, chat))
+        return chats
 
     async def close(self):
         """
@@ -239,7 +241,7 @@ class Ryver:
         except KeyError:
             raise ValueError("Invalid query parameter!")
 
-    async def get_notifs(self, unread: bool = False, top: int = -1, skip: int = 0) -> typing.List[Notification]:
+    async def get_notifs(self, unread: bool = False, top: int = -1, skip: int = 0) -> typing.AsyncIterator[Notification]:
         """
         Get all the user's notifications. 
 
@@ -253,9 +255,9 @@ class Ryver:
             "?$format=json&$orderby=modifyDate desc"
         if unread:
             url += "&$filter=((unread eq true))"
-        notifs = await get_all(session=self._session, url=url, top=top, skip=skip, param_sep="&")
 
-        return [Notification(self, TYPE_NOTIFICATION, data) for data in notifs]
+        async for notif in get_all(session=self._session, url=url, top=top, skip=skip, param_sep="&"):
+            yield Notification(self, TYPE_NOTIFICATION, notif)
 
     async def mark_all_notifs_read(self) -> int:
         """

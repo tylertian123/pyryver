@@ -243,7 +243,7 @@ class Topic(Message):
         async with self._ryver._session.post(url, json=data) as resp:
             return TopicReply(self._ryver, TYPE_TOPIC_REPLY, (await resp.json())["d"]["results"])
 
-    async def get_replies(self, top: int = -1, skip: int = 0) -> typing.List[TopicReply]:
+    async def get_replies(self, top: int = -1, skip: int = 0) -> typing.AsyncIterator[TopicReply]:
         """
         Get all the replies to this topic.
 
@@ -254,9 +254,8 @@ class Topic(Message):
         """
         url = self._ryver._url_prefix + TYPE_TOPIC_REPLY + \
             f"?$format=json&$filter=((post/id eq {self.get_id()}))&$expand=createUser,post"
-        replies = await get_all(session=self._ryver._session, url=url, top=top,
-                                 skip=skip, param_sep="&")
-        return [TopicReply(self._ryver, TYPE_TOPIC_REPLY, data) for data in replies]
+        async for reply in get_all(session=self._ryver._session, url=url, top=top, skip=skip, param_sep="&"):
+            yield TopicReply(self._ryver, TYPE_TOPIC_REPLY, reply)
 
 
 class ChatMessage(Message):
@@ -426,7 +425,7 @@ class Chat(Object):
         async with self._ryver._session.post(url, json=data) as resp:
             return Topic(self._ryver, TYPE_TOPIC, (await resp.json())["d"]["results"])
 
-    async def get_topics(self, archived: bool = False, top: int = -1, skip: int = 0) -> typing.List[Topic]:
+    async def get_topics(self, archived: bool = False, top: int = -1, skip: int = 0) -> typing.AsyncIterator[Topic]:
         """
         Get all the topics in this chat.
 
@@ -438,9 +437,8 @@ class Chat(Object):
         """
         url = self._ryver._url_prefix + \
             f"{self.get_type()}({self.get_id()})/Post.Stream(archived={'true' if archived else 'false'})?$format=json"
-        topics = await get_all(session=self._ryver._session, url=url,
-                                param_sep="&", top=top, skip=skip)
-        return [Topic(self._ryver, TYPE_TOPIC, data) for data in topics]
+        async for topic in get_all(session=self._ryver._session, url=url, param_sep="&", top=top, skip=skip):
+            yield Topic(self._ryver, TYPE_TOPIC, topic)
 
     async def get_messages(self, count: int) -> typing.List[ChatMessage]:
         """
@@ -710,7 +708,7 @@ class GroupChat(Chat):
         """
         return self._data["nickname"]
 
-    async def get_members(self, top: int = -1, skip: int = 0) -> typing.List[GroupChatMember]:
+    async def get_members(self, top: int = -1, skip: int = 0) -> typing.AsyncIterator[GroupChatMember]:
         """
         Get all the members of this chat.
 
@@ -721,9 +719,8 @@ class GroupChat(Chat):
         """
         url = self._ryver._url_prefix + \
             f"/{self.get_type()}({self.get_id()})/members?$expand=member"
-        members = await get_all(session=self._ryver._session, url=url,
-                                 top=top, skip=skip, param_sep="&")
-        return [GroupChatMember(self._ryver, TYPE_GROUPCHAT_MEMBER, data) for data in members]
+        async for member in get_all(session=self._ryver._session, url=url, top=top, skip=skip, param_sep="&"):
+            yield GroupChatMember(self._ryver, TYPE_GROUPCHAT_MEMBER, member)
 
     async def get_member(self, id: int) -> GroupChatMember:
         """

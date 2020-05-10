@@ -79,7 +79,6 @@ async def get_all(session: aiohttp.ClientSession, url: str, top: int = -1, skip:
     # -1 means everything
     if top == -1:
         top = float("inf")
-    result = []
     while True:
         # Respect the max specified
         count = min(top, 50)
@@ -89,11 +88,11 @@ async def get_all(session: aiohttp.ClientSession, url: str, top: int = -1, skip:
         async with session.get(request_url) as resp:
             page = (await resp.json())["d"]["results"]
 
-        result.extend(page)
+        for i in page:
+            yield i
         if len(page) == 0 or top == 0:
             break
         skip += len(page)
-    return result
 
 _T = typing.TypeVar("T")
 
