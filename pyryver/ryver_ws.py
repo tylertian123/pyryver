@@ -29,7 +29,7 @@ class RyverWS():
 
     MSG_TYPE_ALL = ""
 
-    def __init__(self, ryver):
+    def __init__(self, ryver: "Ryver"):
         self._ryver = ryver
         self._ws = None
         self._msg_ack_table = {}
@@ -46,12 +46,18 @@ class RyverWS():
 
         self._closed = True
     
-    async def __aenter__(self):
+    async def __aenter__(self) -> "RyverWS":
         await self.start()
         return self
     
     async def __aexit__(self, exc, *exc_info):
         await self.close()
+    
+    def get_ryver(self) -> "Ryver":
+        """
+        Get the Ryver session this live session was created from.
+        """
+        return self._ryver
     
     async def _ws_send_msg(self, msg: typing.Dict[str, typing.Any], timeout: float = None):
         """
@@ -305,3 +311,6 @@ class RyverWS():
         Create a random message ID.
         """
         return "".join(random.choice(RyverWS._VALID_ID_CHARS) for x in range(9))
+
+
+from pyryver.ryver import *

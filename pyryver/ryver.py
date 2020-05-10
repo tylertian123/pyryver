@@ -55,7 +55,7 @@ class Ryver:
             self.forums = None
             self.teams = None
 
-    async def __aenter__(self):
+    async def __aenter__(self) -> "Ryver":
         await self._session.__aenter__()
         return self
 

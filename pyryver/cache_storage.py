@@ -67,3 +67,6 @@ class FileCacheStorage(AbstractCacheStorage):
         obj_data = [obj.get_raw_data() for obj in data]
         with open(name, "w") as f:
             json.dump(obj_data, f)
+
+
+from pyryver.ryver import *
