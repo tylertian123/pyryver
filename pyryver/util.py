@@ -123,4 +123,4 @@ async def retry_until_available(coro: typing.Awaitable[_T], timeout: float = Non
         except asyncio.CancelledError:
             pass
     
-    return asyncio.wait_for(_retry_inner(), timeout)
+    return await asyncio.wait_for(_retry_inner(), timeout)
