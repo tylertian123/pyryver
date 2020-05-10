@@ -16,6 +16,8 @@ class RyverWSTyping():
     """
     A context manager returned by :py:class:`RyverWS` to keep sending a typing
     indicator.
+
+    You should not create this class yourself, rather use `RyverWS.start_typing()` instead.
     """
 
     def __init__(self, rws: "RyverWS", to: Chat):
@@ -315,7 +317,7 @@ class RyverWS():
             "to": to_chat.get_jid()
         })
     
-    def start_typing(self, to_chat: Chat) -> RyverWSTyping:
+    def typing(self, to_chat: Chat) -> RyverWSTyping:
         """
         Get a context manager that keeps sending a typing indicator to a chat.
 

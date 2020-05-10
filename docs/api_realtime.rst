@@ -28,6 +28,9 @@ Realtime Client
       :decorator:
 
    .. automethod:: send_chat
+
+   .. automethod:: typing
+      :async-with:
    .. automethod:: send_typing
 
    .. autoattribute:: PRESENCE_AVAILABLE
@@ -46,4 +49,10 @@ Realtime Client
 
    .. automethod:: run_forever
 
+.. autoclass:: RyverWSTyping
+   :members:
+   :undoc-members:
+
 .. autoclass:: ClosedError
+   :members:
+   :show-inheritance:
