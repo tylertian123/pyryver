@@ -58,7 +58,7 @@ within them.
 .. literalinclude:: _snippets/quickstart3.py
    :language: python3
 
-For more information on how to use `Chats <pyryver.objects.Chat>` and other Ryver data types, use the :doc:`ryver entities reference <api_data>`.
+For more information on how to use `Chats <pyryver.objects.Chat>` and other Ryver data types, use the :doc:`Ryver entities reference <api_data>`.
 
 Realtime Quickstart
 -------------------
@@ -80,7 +80,7 @@ the "to" field should be referring to our user's chat, since we're looking at a 
 In fact, you would expect the chat's **JID** here, since the websocket system uses JIDs to refer to chats. Using this information, we can complete our terrible little bot:
 
 .. note::
-   The reason for the separate IDs is because the "ratatoskr" chat system appears to be built on XMPP, which uses these "JabberID"s to refer to users and groups
+   The reason for the separate IDs is because the "ratatoskr" chat system appears to be built on XMPP, which uses these "JabberID"s to refer to users and groups.
 
 .. literalinclude:: _snippets/quickstart5.py
    :language: python3

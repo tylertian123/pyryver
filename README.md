@@ -19,6 +19,8 @@ You can also simply put `pyryver/pyryver.py` inside your project, and install ev
 `pyryver` requires Python >= 3.6 and the `aiohttp` library.
 
 ## Supported Actions
+Here is a list of most of the major actions supported by `pyryver`. 
+For a complete list of everything the API contains, head over to [the docs](https://pyryver.readthedocs.io/en/latest/index.html).
   - All Chats (`Chat`, includes forums, teams, and user DMs)
     - Send message (`Chat.send_message()`)
     - Create topic (`Chat.create_topic()`)
@@ -41,19 +43,27 @@ You can also simply put `pyryver/pyryver.py` inside your project, and install ev
     - Get topic (`TopicReply.get_topic()`)
   - Chat Messages (`ChatMessage`)
     - Delete (`ChatMessage.delete()`)
+    - Edit (`ChatMessage.edit()`)
     - Get chat (`ChatMessage.get_chat()`)
   - Notifications (`Notification`)
     - Get notifications (`Ryver.get_notifs()`)
     - Mark all notifications as read (`Ryver.mark_all_notifs_read()`)
     - Mark all notifications as seen (`Ryver.mark_all_notifs_seen()`)
     - Mark a notification as read/unread/seen/unseen (`Notification.set_status()`)
+  - Live Sessions (`RyverWS`)
+    - Respond to messages in real-time (`@RyverWS.on_chat`)
+    - Send typing indicators (`RyverWS.send_typing()`, `async with RyverWS.typing()`)
+    - Send messages (fast) (`RyverWS.send_chat()`)
+    - Respond to messages being edited (`@RyverWS.on_chat_updated`)
+    - Respond to messages being deleted (`@RyverWS.on_chat_deleted`)
+    - Respond to other misc. events (`@RyverWS.on_event()`)
   - Miscellaneous
     - List all forums/teams/users/etc (`Ryver.get_chats()`/`Ryver.get_cached_chats()`)
     - Uploading files (`Ryver.upload_file()`)
 
 More actions will be coming soon!
 
-## Examples
-Examples will be coming soon! The old examples no longer work as in version 0.2.0 `pyryver` switched to using `asyncio` instead.
-To see an example of `pyryver` being used for a real project, check out [`tylertian123/ryver-latexbot`](https://github.com/tylertian123/ryver-latexbot).
+## Documentation and Examples
+Documentation and examples can be found on [Read the Docs](https://pyryver.readthedocs.io/en/latest/index.html).
 
+If you want to see an example of `pyryver` being used in a real project, check out [LaTeX Bot](https://github.com/tylertian123/ryver-latexbot).
