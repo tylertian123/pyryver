@@ -96,7 +96,7 @@ async def get_all(session: aiohttp.ClientSession, url: str, top: int = -1, skip:
 
 _T = typing.TypeVar("T")
 
-async def retry_until_available(coro: typing.Awaitable[_T], timeout: float = None) -> _T:
+async def retry_until_available(coro: typing.Awaitable[_T], *args, timeout: float = None, **kwargs) -> _T:
     """
     Repeatedly tries to do some action (usually getting a resource) until the
     resource becomes available or a timeout elapses.
@@ -107,6 +107,8 @@ async def retry_until_available(coro: typing.Awaitable[_T], timeout: float = Non
 
     If it times out, an :py:exc:`asyncio.TimeoutError` will be raised.
 
+    args and kwargs are passed to the coroutine.
+
     :param coro: The coroutine to run
     :param timeout: The timeout in seconds, or None for no timeout
     """
@@ -114,7 +116,7 @@ async def retry_until_available(coro: typing.Awaitable[_T], timeout: float = Non
         try:
             while True:
                 try:
-                    return await coro
+                    return await coro(*args, **kwargs)
                 except aiohttp.ClientResponseError as e:
                     if e.status == 404:
                         await asyncio.sleep(0.5)
