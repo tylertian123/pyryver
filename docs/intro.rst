@@ -4,7 +4,7 @@ Introduction
 Prerequisites
 -------------
 
-``pyryver`` requires Python 3.5 or later, and is regularly tested against Python 3.6 & Python 3.8.
+``pyryver`` requires Python 3.6 or later, and is regularly tested against Python 3.6 & Python 3.8.
 Our only dependency is on :doc:`aiohttp <aiohttp:index>`.
 
 You may also wish to read :doc:`aiohttp <aiohttp:index>`'s information about optional prerequisites for high-performance workloads.
