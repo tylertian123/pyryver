@@ -3,6 +3,7 @@
 [![MIT License](https://img.shields.io/pypi/l/pyryver)](https://github.com/tylertian123/pyryver/blob/master/LICENSE)
 [![PyPI](https://img.shields.io/pypi/v/pyryver)](https://pypi.org/project/pyryver/)
 [![Read the Docs](https://img.shields.io/readthedocs/pyryver)](https://pyryver.readthedocs.io/en/latest/)
+[![Read the Docs (stable)](https://img.shields.io/readthedocs/pyryver/stable?label=docs%20%28stable%29)](https://pyryver.readthedocs.io/en/stable/)
 
 `pyryver` is an unofficial async Python library for Ryver.
 It provides a simple and sane way of automating tasks on Ryver and building bots, without the need to set up Hubot or Botkit.
