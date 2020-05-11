@@ -10,4 +10,5 @@ Welcome to pyryver!
    :name: global
    :maxdepth: 4
    
+   intro
    api

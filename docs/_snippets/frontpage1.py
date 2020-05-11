@@ -4,8 +4,7 @@ import asyncio
 async def main():
     # Connect to ryver
     async with pyryver.Ryver("myorg", "username", "password") as ryver:
-        # Load objects (users are chats because ryver is wack internally)
-        await ryver.load_missing_chats()
+        await ryver.load_users()
         
         # get a user by username
         my_friend = ryver.get_user(username="tylertian123")

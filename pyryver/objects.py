@@ -35,7 +35,7 @@ class Object(ABC):
     Base class for all Ryver objects.
 
     :param ryver: The parent :py:class:`pyryver.pyryver.Ryver` instance.
-    :param obj_type: The object's type, a constant beginning with ``TYPE_`` in :py:mod::`pyryver.util`.
+    :param obj_type: The object's type, a constant beginning with ``TYPE_`` in :ref:`pyryver.util <util-data-constants>`.
     """
 
     def __init__(self, ryver: "Ryver", obj_type: str, data: dict):
@@ -156,7 +156,7 @@ class Message(Object):
         Note that files obtained from this only have a limited amount of information,
         including the ID, name, URL, size and type. Attempting to get any other info
         will result in a KeyError. To obtain the full file info, use :py:meth:`Ryver.get_object()`
-        with TYPE_FILE and the ID.
+        with `TYPE_FILE <pyryver.util.TYPE_FILE>` and the ID.
 
         Returns None otherwise.
         """
@@ -1001,7 +1001,7 @@ def get_obj_by_field(objs: typing.List[Object], field: str, value: typing.Any) -
     list of chats.
 
     :param objs: List of objects to search in.
-    :param field: The field's name (usually a constant beginning with ``FIELD_`` in :py:mod:`pyryver.util`) within the object's JSON data.
+    :param field: The field's name (usually a constant beginning with ``FIELD_`` in :ref:`pyryver.util <util-data-constants>`) within the object's JSON data.
     :param value: The value to look for.
     """
     for obj in objs:
