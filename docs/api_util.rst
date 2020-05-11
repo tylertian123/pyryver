@@ -1,14 +1,22 @@
 Utilities
 =========
 
+Cache Data Storage
+------------------
+
 .. automodule:: pyryver.cache_storage
    :members:
    :undoc-members:
    :show-inheritance:
 
+API Helpers
+-----------
+
 .. automodule:: pyryver.util
    :members:
    :undoc-members:
+
+.. autofunction:: pyryver.objects.get_obj_by_field
 
 .. _util-data-constants:
 
