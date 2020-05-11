@@ -10,6 +10,8 @@ Utilities
    :members:
    :undoc-members:
 
+.. _util-data-constants:
+
 Entity Types
 ------------
 

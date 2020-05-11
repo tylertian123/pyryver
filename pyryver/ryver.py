@@ -90,7 +90,7 @@ class Ryver:
 
         This method sends requests.
 
-        :param obj_type: The type of the object to retrieve, a constant beginning with ``TYPE_`` in :py:mod:`pyryver.util`.
+        :param obj_type: The type of the object to retrieve, a constant beginning with ``TYPE_`` in :ref:`pyryver.util <util-data-constants>`.
         :param obj_id: The object's ID.
         """
         url = self._url_prefix + f"{obj_type}({obj_id})"

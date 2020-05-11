@@ -1001,7 +1001,7 @@ def get_obj_by_field(objs: typing.List[Object], field: str, value: typing.Any) -
     list of chats.
 
     :param objs: List of objects to search in.
-    :param field: The field's name (usually a constant beginning with ``FIELD_`` in :py:mod:`pyryver.util`) within the object's JSON data.
+    :param field: The field's name (usually a constant beginning with ``FIELD_`` in :ref:`pyryver.util <util-data-constants>`) within the object's JSON data.
     :param value: The value to look for.
     """
     for obj in objs:
