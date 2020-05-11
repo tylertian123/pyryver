@@ -1,2 +1,3 @@
 sphinxcontrib_trio
 aiohttp
+sphinx==3.0.3
