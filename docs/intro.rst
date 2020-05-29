@@ -85,6 +85,9 @@ In fact, you would expect the chat's **JID** here, since the websocket system us
 .. literalinclude:: _snippets/quickstart5.py
    :language: python3
 
+Here we also added a connection loss handler with the `pyryver.ryver_ws.RyverWS.on_connection_loss()` decorator. The connection loss handler closes the session, which causes ``run_forever()`` to terminate, allowing the program to
+exit on connection loss instead of waiting forever.
+
 It's important to note here that although the non-realtime API is perfectly accessible (and sometimes necessary) to use in event callbacks, it's often faster to use corresponding methods in the `pyryver.ryver_ws.RyverWS` instance
 whenever possible. For some ephemeral actions like typing indicators and presence statuses, the realtime API is the *only* way to accomplish certain tasks.
 

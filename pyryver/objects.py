@@ -519,7 +519,7 @@ class Chat(Object):
         """
         Get a message from an ID, optionally also messages before and after it too.
 
-        .. deprecated::
+        .. deprecated:: 0.3.0
            Use either :py:meth:`Chat.get_message()` or :py:meth:`Chat.get_messages_surrounding()`
            instead. ``get_message()`` returns a single message rather than a list, which
            is more fitting for its name. ``get_messages_surrounding`` can be used as a 

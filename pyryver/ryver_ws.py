@@ -339,7 +339,7 @@ class RyverWS():
         """
         Start the session.
         """
-        url = self._ryver._url_prefix + "User.Login(client='pyryver')"
+        url = self._ryver.get_api_url(action="User.Login(client='pyryver')")
         async with self._ryver._session.post(url) as resp:
             login_info = (await resp.json())["d"]
         # Get the session ID for auth and the endpoint url
@@ -363,7 +363,12 @@ class RyverWS():
         """
         Close the session.
 
-        Any future operation after closing will result in a ClosedError being raised.
+        Any future operation after closing will result in a :py:exc:`ClosedError` being raised.
+
+        .. note::
+           By default, when the connection is lost, the session is not automatically closed.
+           You should use the :py:meth:`RyverWS.on_connection_lost()` decorator if you want
+           to implement this.
         """
         self._closed = True
         # Cancel all tasks

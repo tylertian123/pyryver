@@ -119,6 +119,11 @@ async def retry_until_available(coro: typing.Awaitable[_T], *args, timeout: floa
 
     ``args`` and ``kwargs`` are passed to the coroutine.
 
+    For example, this snippet will try to get a message from a chat by ID with a timeout
+    of 5 seconds, retrying after 1 second if a 404 occurs:
+    .. code-block:: python
+       message = await pyryver.retry_until_available(chat.get_message, message_id, timeout=5.0, retry_delay=1.0)
+
     :param coro: The coroutine to run.
     :param timeout: The timeout in seconds, or None for no timeout (optional).
     :param retry_delay: The duration in seconds to wait before trying again (optional).

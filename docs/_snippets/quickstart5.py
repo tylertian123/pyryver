@@ -16,4 +16,8 @@ async with pyryver.Ryver("organization_url", "username", "password") as ryver:
                     # send a reply via the realtime system
                     await session.send_chat(a_user, "Hey, that ellipsis is _mean_!")
 
+        @session.on_connection_loss
+        async def on_connection_loss():
+            await session.close()
+
         await session.run_forever()
