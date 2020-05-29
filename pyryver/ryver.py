@@ -293,7 +293,7 @@ class Ryver:
         else:
             url = self.get_api_url(TYPE_NOTIFICATION, format="json", orderby="modifyDate desc")
 
-        async for notif in get_all(session=self._session, url=url, top=top, skip=skip, param_sep="&"):
+        async for notif in get_all(session=self._session, url=url, top=top, skip=skip):
             yield Notification(self, TYPE_NOTIFICATION, notif)
 
     async def mark_all_notifs_read(self) -> int:

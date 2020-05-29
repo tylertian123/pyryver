@@ -21,8 +21,6 @@ project = 'pyryver'
 copyright = '2020, pyryver authors'
 author = 'pyryver authors'
 
-# todo load me from version info
-
 # The full version, including alpha/beta/rc tags
 release = pyryver.__version__
 

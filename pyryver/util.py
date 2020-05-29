@@ -64,21 +64,28 @@ def get_type_from_entity(entity_type: str) -> str:
 
     .. warning::
        This function is intended for internal use only.
+    
+    :param entity_type: The entity type of the object.
     """
     for t, e in ENTITY_TYPES.items():
         if e == entity_type:
             return t
 
 
-async def get_all(session: aiohttp.ClientSession, url: str, top: int = -1, skip: int = 0, param_sep: str = "?") -> typing.AsyncIterator[dict]:
+async def get_all(session: aiohttp.ClientSession, url: str, top: int = -1, skip: int = 0) -> typing.AsyncIterator[dict]:
     """
     Because the REST API only gives 50 results at a time, this function is used
     to retrieve all objects.
 
     .. warning::
        This function is intended for internal use only.
+    
+    :param session: The aiohttp session used for the requests.
+    :param url: The url to request from.
+    :param top: The max number of results, or -1 for unlimited (optional).
+    :param skip: The number of results to skip (optional).
     """
-    # TODO: Make this smarter, param_sep should be automatic
+    param_sep = "&" if "?" in url else "?"
     # -1 means everything
     if top == -1:
         top = float("inf")
@@ -99,23 +106,23 @@ async def get_all(session: aiohttp.ClientSession, url: str, top: int = -1, skip:
 
 _T = typing.TypeVar("T")
 
-async def retry_until_available(coro: typing.Awaitable[_T], *args, timeout: float = None, **kwargs) -> _T:
+async def retry_until_available(coro: typing.Awaitable[_T], *args, timeout: float = None, retry_delay: float = 0.5, **kwargs) -> _T:
     """
     Repeatedly tries to do some action (usually getting a resource) until the
     resource becomes available or a timeout elapses.
 
-    This function will try to run the given coroutine once every 0.5 seconds. If
-    it results in a 404, the function tries again. Otherwise, the exception is
+    This function will try to run the given coroutine once every ``retry_delay`` seconds.
+    If it results in a 404, the function tries again. Otherwise, the exception is
     raised.
 
     If it times out, an :py:exc:`asyncio.TimeoutError` will be raised.
 
-    args and kwargs are passed to the coroutine.
+    ``args`` and ``kwargs`` are passed to the coroutine.
 
-    :param coro: The coroutine to run
-    :param timeout: The timeout in seconds, or None for no timeout
+    :param coro: The coroutine to run.
+    :param timeout: The timeout in seconds, or None for no timeout (optional).
+    :param retry_delay: The duration in seconds to wait before trying again (optional).
     """
-    # TODO: Add options for retry duration
     async def _retry_inner():
         try:
             while True:
@@ -123,7 +130,7 @@ async def retry_until_available(coro: typing.Awaitable[_T], *args, timeout: floa
                     return await coro(*args, **kwargs)
                 except aiohttp.ClientResponseError as e:
                     if e.status == 404:
-                        await asyncio.sleep(0.5)
+                        await asyncio.sleep(retry_delay)
                     else:
                         raise e
         except asyncio.CancelledError:

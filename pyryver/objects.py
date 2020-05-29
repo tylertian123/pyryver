@@ -265,7 +265,7 @@ class Topic(Message):
         :param skip: Skip this many results.
         """
         url = self._ryver.get_api_url(TYPE_TOPIC_REPLY, format="json", filter=f"((post/id eq {self.get_id()}))", expand="createUser,post")
-        async for reply in get_all(session=self._ryver._session, url=url, top=top, skip=skip, param_sep="&"):
+        async for reply in get_all(session=self._ryver._session, url=url, top=top, skip=skip):
             yield TopicReply(self._ryver, TYPE_TOPIC_REPLY, reply)
 
 
@@ -443,7 +443,7 @@ class Chat(Object):
         :param skip: Skip this many results.
         """
         url = self.get_api_url(f"Post.Stream(archived={'true' if archived else 'false'})", format="json")
-        async for topic in get_all(session=self._ryver._session, url=url, param_sep="&", top=top, skip=skip):
+        async for topic in get_all(session=self._ryver._session, url=url, top=top, skip=skip):
             yield Topic(self._ryver, TYPE_TOPIC, topic)
 
     async def get_messages(self, count: int, skip: int = 0) -> typing.List[ChatMessage]:
@@ -465,6 +465,16 @@ class Chat(Object):
         """
         Get a single message from this chat by its ID.
 
+        .. note::
+           There is a chance that this method might result in a 404 Not Found for
+           messages that were sent recently (such as when using the realtime
+           websocket API (:py:class:`pyryver.ryver_ws.RyverWS`) to respond to
+           messages), as those messages have not been fully added to Ryver's 
+           database yet.
+
+           You can use :py:func:`pyryver.util.retry_until_available()` to wrap
+           around this coroutine to get around this.
+
         This method sends requests.
 
         :param id: The ID of the chat message to get.
@@ -481,6 +491,16 @@ class Chat(Object):
         .. warning::
            Before and after cannot exceed 25 messages, otherwise a :py:exc:`aiohttp.ClientResponseError`
            will be raised with the code 400 Bad Request.
+        
+        .. note::
+           There is a chance that this method might result in a 404 Not Found for
+           messages that were sent recently (such as when using the realtime
+           websocket API (:py:class:`pyryver.ryver_ws.RyverWS`) to respond to
+           messages), as those messages have not been fully added to Ryver's 
+           database yet.
+
+           You can use :py:func:`pyryver.util.retry_until_available()` to wrap
+           around this coroutine to get around this.
 
         The message with the given ID is also included as a part of the result.
 
@@ -508,6 +528,16 @@ class Chat(Object):
         .. warning:: 
            Before and after cannot exceed 25 messages, otherwise an HTTPError will be raised
            with the error code 400 Bad Request.
+        
+        .. note::
+           There is a chance that this method might result in a 404 Not Found for
+           messages that were sent recently (such as when using the realtime
+           websocket API (:py:class:`pyryver.ryver_ws.RyverWS`) to respond to
+           messages), as those messages have not been fully added to Ryver's 
+           database yet.
+
+           You can use :py:func:`pyryver.util.retry_until_available()` to wrap
+           around this coroutine to get around this.
 
         This method sends requests.
 
@@ -761,7 +791,7 @@ class GroupChat(Chat):
         :param skip: Skip this many results.
         """
         url = self.get_api_url("members", expand="member")
-        async for member in get_all(session=self._ryver._session, url=url, top=top, skip=skip, param_sep="&"):
+        async for member in get_all(session=self._ryver._session, url=url, top=top, skip=skip):
             yield GroupChatMember(self._ryver, TYPE_GROUPCHAT_MEMBER, member)
 
     async def get_member(self, id: int) -> GroupChatMember:
