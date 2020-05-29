@@ -63,21 +63,22 @@ def get_type_from_entity(entity_type: str) -> str:
     Note that it doesn't actually return a class, just the string.
 
     .. warning::
-        This method is intended for internal use only.
+       This function is intended for internal use only.
     """
     for t, e in ENTITY_TYPES.items():
         if e == entity_type:
             return t
 
 
-async def get_all(session: aiohttp.ClientSession, url: str, top: int = -1, skip: int = 0, param_sep: str = "?") -> typing.List[dict]:
+async def get_all(session: aiohttp.ClientSession, url: str, top: int = -1, skip: int = 0, param_sep: str = "?") -> typing.AsyncIterator[dict]:
     """
     Because the REST API only gives 50 results at a time, this function is used
     to retrieve all objects.
 
     .. warning::
-        This method is intended for internal use only.
+       This function is intended for internal use only.
     """
+    # TODO: Make this smarter, param_sep should be automatic
     # -1 means everything
     if top == -1:
         top = float("inf")
@@ -114,6 +115,7 @@ async def retry_until_available(coro: typing.Awaitable[_T], *args, timeout: floa
     :param coro: The coroutine to run
     :param timeout: The timeout in seconds, or None for no timeout
     """
+    # TODO: Add options for retry duration
     async def _retry_inner():
         try:
             while True:

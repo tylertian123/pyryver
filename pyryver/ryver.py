@@ -88,7 +88,7 @@ class Ryver:
         Get the URL for making an API request.
 
         .. warning::
-            This method is intended for internal use only.
+           This method is intended for internal use only.
 
         The formatted url will have the form ``"{prefix}/{type}({id})/{action}?{additional_params}"``.
         If any parameter is unspecified, they will be omitted.

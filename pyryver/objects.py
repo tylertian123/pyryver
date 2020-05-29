@@ -23,7 +23,7 @@ class Creator:
         Convert this Creator object to a dictionary to be used in a request.
 
         .. warning::
-            This method is intended for internal use only.
+           This method is intended for internal use only.
         """
         return {
             "displayName": self.name,
@@ -86,7 +86,7 @@ class Object(ABC):
         Uses :py:meth:`Ryver.get_api_url()` to get a URL for working with the Ryver API.
 
         .. warning::
-            This method is intended for internal use only.
+           This method is intended for internal use only.
 
         This is equivalent to calling :py:meth:`Ryver.get_api_url()`, but with the first
         two parameters set to ``self.get_type()`` and ``self.get_id()``.
@@ -446,15 +446,51 @@ class Chat(Object):
         async for topic in get_all(session=self._ryver._session, url=url, param_sep="&", top=top, skip=skip):
             yield Topic(self._ryver, TYPE_TOPIC, topic)
 
-    async def get_messages(self, count: int) -> typing.List[ChatMessage]:
+    async def get_messages(self, count: int, skip: int = 0) -> typing.List[ChatMessage]:
         """
-        Get a number of messages (most recent first) in this chat.
+        Get a number of messages (most recent **first**) in this chat.
 
         This method sends requests.
 
         :param count: Maximum number of results.
+        :param skip: The number of results to skip (optional).
         """
-        url = self.get_api_url("Chat.History()", format="json", top=count)
+        # Interestingly, this does not have the same 50-result restriction as the other API methods...
+        url = self.get_api_url("Chat.History()", format="json", top=count, skip=skip)
+        async with self._ryver._session.get(url) as resp:
+            messages = (await resp.json())["d"]["results"]
+        return [ChatMessage(self._ryver, TYPE_MESSAGE, data) for data in messages]
+    
+    async def get_message(self, id: str) -> ChatMessage:
+        """
+        Get a single message from this chat by its ID.
+
+        This method sends requests.
+
+        :param id: The ID of the chat message to get.
+        """
+        url = self.get_api_url(f"Chat.History.Message(id='{id}')", format="json")
+        async with self._ryver._session.get(url) as resp:
+            messages = (await resp.json())["d"]["results"]
+        return ChatMessage(self._ryver, TYPE_MESSAGE, messages[0])
+    
+    async def get_messages_surrounding(self, id: str, before: int = 0, after: int = 0) -> typing.List[ChatMessage]:
+        """
+        Get a range of messages (most recent **last**) before and after a chat message (given by ID).
+
+        .. warning::
+           Before and after cannot exceed 25 messages, otherwise a :py:exc:`aiohttp.ClientResponseError`
+           will be raised with the code 400 Bad Request.
+
+        The message with the given ID is also included as a part of the result.
+
+        This method sends requests.
+
+        :param id: The ID of the message to use as the reference point.
+        :param before: How many messages to retrieve before the specified one (optional).
+        :param after: How many messages to retrieve after the specified one (optional).
+        """
+        url = self.get_api_url(f"Chat.History.Message(id='{id}',before={before},after={after})", format="json")
         async with self._ryver._session.get(url) as resp:
             messages = (await resp.json())["d"]["results"]
         return [ChatMessage(self._ryver, TYPE_MESSAGE, data) for data in messages]
@@ -462,6 +498,12 @@ class Chat(Object):
     async def get_message_from_id(self, id: str, before: int = 0, after: int = 0) -> typing.List[Message]:
         """
         Get a message from an ID, optionally also messages before and after it too.
+
+        .. deprecated::
+           Use either :py:meth:`Chat.get_message()` or :py:meth:`Chat.get_messages_surrounding()`
+           instead. ``get_message()`` returns a single message rather than a list, which
+           is more fitting for its name. ``get_messages_surrounding`` can be used as a 
+           drop-in replacement for this method.
 
         .. warning:: 
            Before and after cannot exceed 25 messages, otherwise an HTTPError will be raised
