@@ -62,7 +62,8 @@ def get_type_from_entity(entity_type: str) -> str:
 
     Note that it doesn't actually return a class, just the string.
 
-    Intended for internal use only.
+    .. warning::
+        This method is intended for internal use only.
     """
     for t, e in ENTITY_TYPES.items():
         if e == entity_type:
@@ -74,7 +75,8 @@ async def get_all(session: aiohttp.ClientSession, url: str, top: int = -1, skip:
     Because the REST API only gives 50 results at a time, this function is used
     to retrieve all objects.
 
-    Intended for internal use only.
+    .. warning::
+        This method is intended for internal use only.
     """
     # -1 means everything
     if top == -1:

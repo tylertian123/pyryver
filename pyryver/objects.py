@@ -22,7 +22,8 @@ class Creator:
         """
         Convert this Creator object to a dictionary to be used in a request.
 
-        Intended for internal use.
+        .. warning::
+            This method is intended for internal use only.
         """
         return {
             "displayName": self.name,
@@ -39,7 +40,7 @@ class Object(ABC):
     """
 
     def __init__(self, ryver: "Ryver", obj_type: str, data: dict):
-        self._ryver = ryver
+        self._ryver = ryver # type: Ryver
         self._data = data
         self._obj_type = obj_type
         self._entity_type = ENTITY_TYPES[obj_type]
@@ -79,6 +80,18 @@ class Object(ABC):
         response.
         """
         return self._data
+    
+    def get_api_url(self, *args, **kwargs) -> str:
+        """
+        Uses :py:meth:`Ryver.get_api_url()` to get a URL for working with the Ryver API.
+
+        .. warning::
+            This method is intended for internal use only.
+
+        This is equivalent to calling :py:meth:`Ryver.get_api_url()`, but with the first
+        two parameters set to ``self.get_type()`` and ``self.get_id()``.
+        """
+        return self._ryver.get_api_url(self.get_type(), self.get_id(), *args, **kwargs)
 
 
 class Message(Object):
@@ -126,8 +139,7 @@ class Message(Object):
 
         :param emoji: The string name of the reacji (e.g. "thumbsup").
         """
-        url = self._ryver._url_prefix + \
-            f"{self.get_type()}({self.get_id()})/React(reaction='{emoji}')"
+        url = self.get_api_url(f"React(reaction='{emoji}'")
         await self._ryver._session.post(url)
 
     def get_reactions(self) -> dict:
@@ -231,7 +243,7 @@ class Topic(Message):
 
         :param message: The reply content
         """
-        url = self._ryver._url_prefix + TYPE_TOPIC_REPLY + "?$format=json"
+        url = self._ryver.get_api_url(TYPE_TOPIC_REPLY, format="json")
         data = {
             "comment": message,
             "post": {
@@ -252,8 +264,7 @@ class Topic(Message):
         :param top: Maximum number of results; optional, if unspecified return all results.
         :param skip: Skip this many results.
         """
-        url = self._ryver._url_prefix + TYPE_TOPIC_REPLY + \
-            f"?$format=json&$filter=((post/id eq {self.get_id()}))&$expand=createUser,post"
+        url = self._ryver.get_api_url(TYPE_TOPIC_REPLY, format="json", filter=f"((post/id eq {self.get_id()}))", expand="createUser,post")
         async for reply in get_all(session=self._ryver._session, url=url, top=top, skip=skip, param_sep="&"):
             yield TopicReply(self._ryver, TYPE_TOPIC_REPLY, reply)
 
@@ -311,8 +322,7 @@ class ChatMessage(Message):
 
         :param emoji: The string name of the reacji (e.g. "thumbsup").
         """
-        url = self._ryver._url_prefix + \
-            f"{get_type_from_entity(self.get_chat_type())}({self.get_chat_id()})/Chat.React()"
+        url = self._ryver.get_api_url(get_type_from_entity(self.get_chat_type()), self.get_chat_id(), "Chat.React()", format="json")
         data = {
             "id": self.get_id(),
             "reaction": emoji
@@ -323,8 +333,7 @@ class ChatMessage(Message):
         """
         Deletes the message.
         """
-        url = self._ryver._url_prefix + \
-            f"{get_type_from_entity(self.get_chat_type())}({self.get_chat_id()})/Chat.DeleteMessage()?$format=json"
+        url = self._ryver.get_api_url(get_type_from_entity(self.get_chat_type()), self.get_chat_id(), "Chat.DeleteMessage()", format="json")
         data = {
             "id": self.get_id(),
         }
@@ -337,8 +346,7 @@ class ChatMessage(Message):
         :param body: The new message content.
         :param creator: The new message creator; optional, if unset left as-is.
         """
-        url = self._ryver._url_prefix + \
-            f"{get_type_from_entity(self.get_chat_type())}({self.get_chat_id()})/Chat.UpdateMessage()?$format=json"
+        url = self._ryver.get_api_url(get_type_from_entity(self.get_chat_type()), self.get_chat_id(), "Chat.UpdateMessage()", format="json")
         data = {
             "id": self.get_id(),
             "body": body,
@@ -383,8 +391,7 @@ class Chat(Object):
         :param message: The message contents.
         :param creator: The overriden creator; optional, if unset uses the logged-in user's profile.
         """
-        url = self._ryver._url_prefix + \
-            f"{self.get_type()}({self.get_id()})/Chat.PostMessage()"
+        url = self.get_api_url("Chat.PostMessage()", format="json")
         data = {
             "body": message
         }
@@ -405,7 +412,7 @@ class Chat(Object):
         :param body: The contents of the new topic.
         :param creator: The overriden creator; optional, if unset uses the logged-in user's profile.
         """
-        url = self._ryver._url_prefix + "posts"
+        url = self._ryver.get_api_url(TYPE_TOPIC)
         data = {
             "body": body,
             "subject": subject,
@@ -435,8 +442,7 @@ class Chat(Object):
         :param top: Maximum number of results; optional, if unspecified return all results.
         :param skip: Skip this many results.
         """
-        url = self._ryver._url_prefix + \
-            f"{self.get_type()}({self.get_id()})/Post.Stream(archived={'true' if archived else 'false'})?$format=json"
+        url = self.get_api_url(f"Post.Stream(archived={'true' if archived else 'false'})", format="json")
         async for topic in get_all(session=self._ryver._session, url=url, param_sep="&", top=top, skip=skip):
             yield Topic(self._ryver, TYPE_TOPIC, topic)
 
@@ -448,8 +454,7 @@ class Chat(Object):
 
         :param count: Maximum number of results.
         """
-        url = self._ryver._url_prefix + \
-            f"{self.get_type()}({self.get_id()})/Chat.History()?$format=json&$top={count}"
+        url = self.get_api_url("Chat.History()", format="json", top=count)
         async with self._ryver._session.get(url) as resp:
             messages = (await resp.json())["d"]["results"]
         return [ChatMessage(self._ryver, TYPE_MESSAGE, data) for data in messages]
@@ -470,8 +475,7 @@ class Chat(Object):
         :param before: How many extra messages to retrieve before the specified one.
         :param after: How many extra messages to retrieve after the specified one.
         """
-        url = self._ryver._url_prefix + \
-            f"{self.get_type()}({self.get_id()})/Chat.History.Message(id='{id}',before={before},after={after})?$format=json"
+        url = self.get_api_url(f"Chat.History.Message(id='{id}',before={before},after={after})", format="json")
         async with self._ryver._session.get(url) as resp:
             messages = (await resp.json())["d"]["results"]
         return [ChatMessage(self._ryver, TYPE_MESSAGE, data) for data in messages]
@@ -573,8 +577,7 @@ class User(Chat):
         :param role: The user's new role, as described in :py:meth:`get_role()`.
         :param about: The user's new "about me" blurb.
         """
-        url = self._ryver._url_prefix + \
-            f"/{self.get_type()}(id={self.get_id()})"
+        url = self.get_api_url()
         data = {
             "aboutMe": about if about is not None else self.get_about(),
             "description": role if role is not None else self.get_role(),
@@ -595,8 +598,7 @@ class User(Chat):
         .. note::
            This also updates these properties in this object.
         """
-        url = self._ryver._url_prefix + \
-            f"{self.get_type()}({self.get_id()})/User.Active.Set(value='{'true' if activated else 'false'}')"
+        url = self.get_api_url(f"User.Active.Set(value='{'true' if activated else 'false'}')")
         await self._ryver._session.post(url)
         self._data["active"] = activated
 
@@ -611,8 +613,7 @@ class User(Chat):
         .. note::
            This also updates these properties in this object.
         """
-        url = self._ryver._url_prefix + \
-            f"{self.get_type()}({self.get_id()})/User.Role.Set(role='{role}')"
+        url = self.get_api_url(f"User.Role.Set(role='{role}')")
         await self._ryver._session.post(url)
 
         self._data["roles"] = [role]
@@ -632,7 +633,7 @@ class User(Chat):
         :param subject: The subject (or title) of the created topic.
         :param body: The contents of the created topic.
         """
-        url = self._ryver._url_prefix + "posts"
+        url = self._ryver.get_url(TYPE_TOPIC)
         data = {
             "body": body,
             "subject": subject,
@@ -717,8 +718,7 @@ class GroupChat(Chat):
         :param top: Maximum number of results; optional, if unspecified return all results.
         :param skip: Skip this many results.
         """
-        url = self._ryver._url_prefix + \
-            f"/{self.get_type()}({self.get_id()})/members?$expand=member"
+        url = self.get_api_url("members", expand="member")
         async for member in get_all(session=self._ryver._session, url=url, top=top, skip=skip, param_sep="&"):
             yield GroupChatMember(self._ryver, TYPE_GROUPCHAT_MEMBER, member)
 
@@ -730,8 +730,7 @@ class GroupChat(Chat):
 
         If the user is not found, this method will return None.
         """
-        url = self._ryver._url_prefix + \
-            f"/{self.get_type()}({self.get_id()})/members?$expand=member&$filter=((member/id eq {id}))"
+        url = self.get_api_url("members", expand="member", filter=f"((member/id eq {id}))")
         async with self._ryver._session.get(url) as resp:
             member = (await resp.json())["d"]["results"]
         return GroupChatMember(self._ryver, TYPE_GROUPCHAT_MEMBER, member[0]) if member else None
@@ -889,8 +888,7 @@ class Notification(Object):
             "unread": unread,
             "new": new,
         }
-        url = self._ryver._url_prefix + \
-            f"{self.get_type()}({self.get_id()})?$format=json"
+        url = self.get_api_url(format=json)
         await self._ryver._session.patch(url, json=data)
         self._data["unread"] = unread
         self._data["new"] = new
@@ -959,8 +957,7 @@ class File(Object):
 
         This method sends requests.
         """
-        url = self._ryver._url_prefix + \
-            f"{self.get_type()}({self.get_id()})?$format=json"
+        url = self.get_api_url(format="json")
         await self._ryver._session.delete(url)
 
 

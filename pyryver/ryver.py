@@ -70,9 +70,8 @@ class Ryver:
         many results to skip.
 
         This method sends requests.
-        Consider using get_cached_chats() to cache the data in a JSON file.
         """
-        url = self._url_prefix + obj_type
+        url = self.get_api_url(obj_type)
         chats = []
         async for chat in get_all(session=self._session, url=url, top=top, skip=skip):
             chats.append(TYPES_DICT[obj_type](self, obj_type, chat))
@@ -83,18 +82,56 @@ class Ryver:
         Close this session.
         """
         await self._session.close()
+    
+    def get_api_url(self, obj_type: str, obj_id: int = None, action: str = None, **kwargs) -> str:
+        """
+        Get the URL for making an API request.
 
-    async def get_object(self, obj_type: str, obj_id: int) -> Object:
+        .. warning::
+            This method is intended for internal use only.
+
+        The formatted url will have the form ``"{prefix}/{type}({id})/{action}?{additional_params}"``.
+        If any parameter is unspecified, they will be omitted.
+
+        If extra keyword arguments are supplied, they are appended to the request
+        as additional query parameters. Possible values include ``top``, ``skip``, 
+        ``select``, ``expand`` and more. 
+        The `Ryver Developer Docs <https://api.ryver.com/ryvrest_api_examples.html>`_
+        contains documentation for some of these parameters.
+
+        :param obj_type: The type of the object to work with for this API request, a constant beginning with ``TYPE_`` in :ref:`pyryver.util <util-data-constants>` (optional).
+        :param obj_id: The object's ID (optional).
+        :param action: The action to take on the object (optional).
+        """
+        url = self._url_prefix
+        if obj_type is not None:
+            url += str(obj_type)
+        if obj_id is not None:
+            url += f"({obj_id})"
+        if action is not None:
+            if not url.endswith("/"):
+                url += "/"
+            url += str(action)
+        if kwargs:
+            url += "?" + "&".join(f"${k}={v}" for k, v in kwargs.items())
+        return url
+
+    async def get_object(self, obj_type: str, obj_id: int, **kwargs) -> Object:
         """
         Get an object from Ryver with a type and ID.
 
         This method sends requests.
 
+        If extra keyword arguments are supplied, they are appended to the request
+        as additional query parameters. Possible values include ``top``, ``skip``, 
+        ``select``, ``expand`` and more. 
+        The `Ryver Developer Docs <https://api.ryver.com/ryvrest_api_examples.html>`_
+        contains documentation for some of these parameters.
+
         :param obj_type: The type of the object to retrieve, a constant beginning with ``TYPE_`` in :ref:`pyryver.util <util-data-constants>`.
         :param obj_id: The object's ID.
         """
-        url = self._url_prefix + f"{obj_type}({obj_id})"
-        async with self._session.get(url) as resp:
+        async with self._session.get(self.get_api_url(obj_type, obj_id, action=None, **kwargs)) as resp:
             return TYPES_DICT[obj_type](self, obj_type, (await resp.json())["d"]["results"])
     
     async def load_users(self) -> None:
@@ -251,10 +288,10 @@ class Ryver:
         :param top: Maximum number of results.
         :param skip: Skip this many results.
         """
-        url = self._url_prefix + TYPE_NOTIFICATION + \
-            "?$format=json&$orderby=modifyDate desc"
         if unread:
-            url += "&$filter=((unread eq true))"
+            url = self.get_api_url(TYPE_NOTIFICATION, format="json", orderby="modifyDate desc", filter="((unread eq true))")
+        else:
+            url = self.get_api_url(TYPE_NOTIFICATION, format="json", orderby="modifyDate desc")
 
         async for notif in get_all(session=self._session, url=url, top=top, skip=skip, param_sep="&"):
             yield Notification(self, TYPE_NOTIFICATION, notif)
@@ -267,8 +304,7 @@ class Ryver:
 
         Returns how many notifications were marked as read.
         """
-        url = self._url_prefix + TYPE_NOTIFICATION + \
-            "/UserNotification.MarkAllRead()?$format=json"
+        url = self.get_api_url(TYPE_NOTIFICATION, action="UserNotification.MarkAllRead()", format="json")
         async with self._session.post(url) as resp:
             return (await resp.json())["d"]["count"]
 
@@ -280,8 +316,7 @@ class Ryver:
 
         Returns how many notifications were marked as seen.
         """
-        url = self._url_prefix + TYPE_NOTIFICATION + \
-            "/UserNotification.MarkAllSeen()?$format=json"
+        url = self.get_api_url(TYPE_NOTIFICATION, action="UserNotification.MarkAllSeen()", format="json")
         async with self._session.post(url) as resp:
             return (await resp.json())["d"]["count"]
 
@@ -295,8 +330,7 @@ class Ryver:
         :param filename: The filename to send to Ryver. (this will show up in the UI if attached as an embed, for example)
         :param filedata: The file's raw data, sent directly to :py:meth:`aiohttp.FormData.add_field`.
         """
-        url = self._url_prefix + TYPE_STORAGE + \
-            "/Storage.File.Create(createFile=true)?$expand=file&$format=json"
+        url = self.get_api_url(TYPE_STORAGE, action="Storage.File.Create(createFile=true)", expand="file", format="json")
         data = aiohttp.FormData()
         data.add_field("file", filedata, filename=filename,
                        content_type=filetype)
@@ -322,7 +356,7 @@ class Ryver:
 
         This method sends requests.
         """
-        url = self._url_prefix + f"Ryver.Info()?$format=json"
+        url = self.get_api_url(action="Ryver.Info()", format="json")
         async with self._session.get(url) as resp:
             return (await resp.json())["d"]
     
