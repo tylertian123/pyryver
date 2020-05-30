@@ -232,6 +232,37 @@ class Topic(Message):
         Get the ID of the author of this topic.
         """
         return self._data["createUser"]["id"]
+    
+    def is_stickied(self) -> bool:
+        """
+        Return whether this topic is stickied (pinned) to the top of the list.
+        """
+        return self._data["stickied"]
+    
+    def is_archived(self) -> bool:
+        """
+        Return whether this topic is archived.
+        """
+        return self._data["archived"]
+    
+    async def archive(self, archived: bool = True) -> None:
+        """
+        Archive or un-archive this topic.
+
+        :param archived: Whether the topic should be archived.
+        """
+        url = self.get_api_url(format="json")
+        data = {
+            "archived": True
+        }
+        await self._ryver._session.patch(url, json=data)
+
+    async def delete(self) -> None:
+        """
+        Delete this topic.
+        """
+        url = self.get_api_url(format="json")
+        await self._ryver._session.delete(url)
 
     async def reply(self, message: str, creator: Creator = None) -> TopicReply:
         """
@@ -400,7 +431,7 @@ class Chat(Object):
         async with self._ryver._session.post(url, json=data) as resp:
             return (await resp.json())["d"]["id"]
 
-    async def create_topic(self, subject: str, body: str, creator: Creator = None) -> Topic:
+    async def create_topic(self, subject: str, body: str, stickied: bool = False, attachments: typing.List["File"] = [], creator: Creator = None) -> Topic:
         """
         Create a topic in this chat.
 
@@ -408,8 +439,15 @@ class Chat(Object):
 
         Returns the topic created.
 
+        .. note::
+           To attach files to the topic, use :py:meth:`pyryver.ryver.Ryver.upload_file()`
+           to upload the files you wish to attach, and then use :py:meth:`Storage.get_file()`
+           to get the ``File`` object for use with this method.
+
         :param subject: The subject (or title) of the new topic.
         :param body: The contents of the new topic.
+        :param stickied: Whether to sticky (pin) this topic to the top of the list (optional, default False).
+        :param attachments: A number of files to attach to this topic (optional). Note: Use `File` objects, not `Storage` objects!
         :param creator: The overriden creator; optional, if unset uses the logged-in user's profile.
         """
         url = self._ryver.get_api_url(TYPE_TOPIC)
@@ -425,10 +463,15 @@ class Chat(Object):
                     }
                 ]
             },
-            "recordType": "note"
+            "recordType": "note",
+            "stickied": stickied
         }
         if creator:
             data["createSource"] = creator.to_dict()
+        if attachments:
+            data["attachments"] = {
+                "results": [file.get_raw_data() for file in attachments]
+            }
         async with self._ryver._session.post(url, json=data) as resp:
             return Topic(self._ryver, TYPE_TOPIC, (await resp.json())["d"]["results"])
 
@@ -969,8 +1012,6 @@ class Notification(Object):
 class File(Object):
     """
     An uploaded file.
-
-    This class also contains constants for some common MIME types.
     """
 
     def get_title(self) -> str:

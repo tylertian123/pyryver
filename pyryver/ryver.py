@@ -324,8 +324,9 @@ class Ryver:
         """
         Upload a file to Ryver.
 
-        Although this method uploads a file, the returned object is an instance of Storage.
-        Use Storage.get_file() to obtain the actual File object.
+        .. note::
+           Although this method uploads a file, the returned object is an instance of :py:class:`Storage`.
+           Use :py:meth:`Storage.get_file()` to obtain the actual ``File`` object.
 
         :param filename: The filename to send to Ryver. (this will show up in the UI if attached as an embed, for example)
         :param filedata: The file's raw data, sent directly to :py:meth:`aiohttp.FormData.add_field`.
