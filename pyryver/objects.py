@@ -10,8 +10,8 @@ class Creator:
 
     This can be used to override the sender's display name and avatar.
 
-    :param name: The overriden display name
-    :param avatar: The overriden avatar (a url to an image)
+    :param name: The overridden display name
+    :param avatar: The overridden avatar (a url to an image)
     """
 
     def __init__(self, name: str, avatar: str):
@@ -137,7 +137,7 @@ class Message(Object):
 
         This method sends requests.
 
-        :param emoji: The string name of the reacji (e.g. "thumbsup").
+        :param emoji: The string name of the reaction (e.g. "thumbsup").
         """
         url = self.get_api_url(f"React(reaction='{emoji}'")
         await self._ryver._session.post(url)
@@ -298,6 +298,57 @@ class Topic(Message):
         url = self._ryver.get_api_url(TYPE_TOPIC_REPLY, format="json", filter=f"((post/id eq {self.get_id()}))", expand="createUser,post")
         async for reply in get_all(session=self._ryver._session, url=url, top=top, skip=skip):
             yield TopicReply(self._ryver, TYPE_TOPIC_REPLY, reply)
+    
+    async def get_attachments(self) -> typing.List["File"]:
+        """
+        Get all the files attached to this topic.
+
+        This method sends requests.
+        """
+        # See if the attachments data is already present
+        if "__deferred" not in self._data["attachments"]:
+            return [File(self._ryver, TYPE_FILE, data) for data in self._data["attachments"]["results"]]
+        url = self.get_api_url(expand="attachments", select="attachments")
+        async with self._ryver._session.get(url) as resp:
+            attachments = (await resp.json())["d"]["results"]["attachments"]["results"]
+        return [File(self._ryver, TYPE_FILE, data) for data in attachments]
+    
+    async def edit(self, subject: str = None, body: str = None, stickied: bool = None, attachments: typing.List["File"] = None, creator: Creator = None) -> None:
+        """
+        Edit this topic.
+
+        This method sends requests.
+
+        If any parameters are unspecified, that property will remain unchanged.
+
+        .. note::
+           The file attachments (if specified) will **replace** all existing attachments.
+           Additionally, this method also updates these properties in this object.
+
+        :param subject: The subject (or title) of the topic (optional).
+        :param body: The contents of the topic (optional).
+        :param stickied: Whether to sticky (pin) this topic to the top of the list (optional).
+        :param attachments: A number of files to attach to this topic (optional). Note: Use `File` objects, not `Storage` objects!
+        :param creator: The overridden creator (optional).
+        """
+        url = self.get_api_url(format="json")
+        data = {}
+        if subject is not None:
+            data["subject"] = subject
+        if body is not None:
+            data["body"] = body
+        if stickied is not None:
+            data["stickied"] = stickied
+        if creator is not None:
+            data["createSource"] = creator.to_dict()
+        if attachments is not None:
+            data["attachments"] = {
+                "results": [file.get_raw_data() for file in attachments]
+            }
+        await self._ryver._session.patch(url, json=data)
+        # Update self
+        for k, v in data.items():
+            self._data[k] = v
 
 
 class ChatMessage(Message):
@@ -351,7 +402,7 @@ class ChatMessage(Message):
 
         This method sends requests.
 
-        :param emoji: The string name of the reacji (e.g. "thumbsup").
+        :param emoji: The string name of the reaction (e.g. "thumbsup").
         """
         url = self._ryver.get_api_url(get_type_from_entity(self.get_chat_type()), self.get_chat_id(), "Chat.React()", format="json")
         data = {
@@ -420,7 +471,7 @@ class Chat(Object):
         strings.
 
         :param message: The message contents.
-        :param creator: The overriden creator; optional, if unset uses the logged-in user's profile.
+        :param creator: The overridden creator; optional, if unset uses the logged-in user's profile.
         """
         url = self.get_api_url("Chat.PostMessage()", format="json")
         data = {
@@ -448,7 +499,7 @@ class Chat(Object):
         :param body: The contents of the new topic.
         :param stickied: Whether to sticky (pin) this topic to the top of the list (optional, default False).
         :param attachments: A number of files to attach to this topic (optional). Note: Use `File` objects, not `Storage` objects!
-        :param creator: The overriden creator; optional, if unset uses the logged-in user's profile.
+        :param creator: The overridden creator; optional, if unset uses the logged-in user's profile.
         """
         url = self._ryver.get_api_url(TYPE_TOPIC)
         data = {
@@ -736,7 +787,7 @@ class User(Chat):
         if role == User.ROLE_ADMIN:
             self._data["roles"].append(User.ROLE_USER)
 
-    async def create_topic(self, from_user: "User", subject: str, body: str, creator: Creator = None) -> Topic:
+    async def create_topic(self, from_user: "User", subject: str, body: str, stickied: bool = False, attachments: typing.List["File"] = [], creator: Creator = None) -> Topic:
         """
         Create a topic in this user's DMs.
 
@@ -744,9 +795,17 @@ class User(Chat):
 
         Returns the topic created.
 
+        .. note::
+           To attach files to the topic, use :py:meth:`pyryver.ryver.Ryver.upload_file()`
+           to upload the files you wish to attach, and then use :py:meth:`Storage.get_file()`
+           to get the ``File`` object for use with this method.
+
         :param from_user: The user that will create the topic; must be the same as the logged-in user.
-        :param subject: The subject (or title) of the created topic.
-        :param body: The contents of the created topic.
+        :param subject: The subject (or title) of the new topic.
+        :param body: The contents of the new topic.
+        :param stickied: Whether to sticky (pin) this topic to the top of the list (optional, default False).
+        :param attachments: A number of files to attach to this topic (optional). Note: Use `File` objects, not `Storage` objects!
+        :param creator: The overridden creator; optional, if unset uses the logged-in user's profile.
         """
         url = self._ryver.get_url(TYPE_TOPIC)
         data = {
@@ -768,10 +827,15 @@ class User(Chat):
                     }
                 ]
             },
-            "recordType": "note"
+            "recordType": "note",
+            "stickied": stickied
         }
         if creator:
             data["createSource"] = creator.to_dict()
+        if attachments:
+            data["attachments"] = {
+                "results": [file.get_raw_data() for file in attachments]
+            }
         async with self._ryver._session.post(url, json=data) as resp:
             return Topic(self._ryver, TYPE_TOPIC, (await resp.json())["d"]["results"])
 
