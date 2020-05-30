@@ -1160,17 +1160,51 @@ class File(Object):
 
 class Storage(Object):
     """
-    Generic storage, e.g. uploaded files.
-
-    Note that while storage objects contain files, the File class does not
-    inherit from this class.
+    Generic storage (message attachments), e.g. files and links.
     """
+
+    TYPE_FILE = "file"
+    TYPE_LINK = "link"
+
+    def get_type(self) -> str:
+        """
+        Get the type of this storage object.
+
+        Returns one of the ``TYPE_`` constants in this class.
+        """
+        return self._data["recordType"]
+    
+    def get_name(self) -> str:
+        """
+        Get the name of this storage object.
+        """
+        return self._data["name"]
+    
+    def get_size(self) -> str:
+        """
+        Get the size of the object stored.
+        """
+        return self._data["fileSize"]
 
     def get_file(self) -> File:
         """
         Get the file stored.
+
+        .. warning::
+           This method will raise a ``KeyError`` if the type of this storage is not
+           ``TYPE_FILE``!
         """
         return File(self._ryver, TYPE_FILE, self._data["file"])
+    
+    def get_url(self) -> str:
+        """
+        Get the URL of the link stored.
+
+        .. warning::
+           This method will raise a ``KeyError`` if the type of this storage is not
+           ``TYPE_LINK``!
+        """
+        return self._data["url"]
 
 
 TYPES_DICT = {

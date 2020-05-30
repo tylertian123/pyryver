@@ -322,10 +322,11 @@ class Ryver:
 
     async def upload_file(self, filename: str, filedata: typing.Any, filetype: str = None) -> Storage:
         """
-        Upload a file to Ryver.
+        Upload a file to Ryver (for attaching to messages).
 
         .. note::
-           Although this method uploads a file, the returned object is an instance of :py:class:`Storage`.
+           Although this method uploads a file, the returned object is an instance of :py:class:`Storage`,
+           with type :py:attr:`Storage.TYPE_FILE`.
            Use :py:meth:`Storage.get_file()` to obtain the actual ``File`` object.
 
         :param filename: The filename to send to Ryver. (this will show up in the UI if attached as an embed, for example)
@@ -335,6 +336,26 @@ class Ryver:
         data = aiohttp.FormData()
         data.add_field("file", filedata, filename=filename,
                        content_type=filetype)
+        async with self._session.post(url, data=data) as resp:
+            return Storage(self, TYPE_STORAGE, await resp.json())
+        
+    async def create_link(self, name: str, link_url: str) -> Storage:
+        """
+        Create a link on Ryver (for attaching to messages).
+
+        .. note::
+           The returned object is an instance of :py:class:`Storage` with type :py:attr:`Storage.TYPE_LINK`.
+        
+        :param name: The name of this link (its title).
+        :param url: The URL of this link.
+        """
+        url = self.get_api_url(TYPE_STORAGE, action="Storage.Link.Create()", format="json")
+        data = {
+            "description": False,
+            "fileName": name,
+            "showPreview": True,
+            "url": link_url,
+        }
         async with self._session.post(url, data=data) as resp:
             return Storage(self, TYPE_STORAGE, await resp.json())
     
