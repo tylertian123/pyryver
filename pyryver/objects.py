@@ -160,25 +160,27 @@ class Message(Object):
         counts = {reaction: len(users)
                   for reaction, users in reactions.items()}
         return counts
-
-    def get_attached_file(self) -> "File":
+    
+    @abstractmethod
+    async def delete(self) -> None:
         """
-        Get the file attached to this message, if there is one.
-
-        Note that files obtained from this only have a limited amount of information,
-        including the ID, name, URL, size and type. Attempting to get any other info
-        will result in a KeyError. To obtain the full file info, use :py:meth:`Ryver.get_object()`
-        with `TYPE_FILE <pyryver.util.TYPE_FILE>` and the ID.
-
-        Returns None otherwise.
+        Delete this message.
         """
-        if "extras" in self._data and "file" in self._data["extras"]:
-            return File(self._ryver, TYPE_FILE, self._data["extras"]["file"])
-        else:
-            return None
 
 
-class TopicReply(Message):
+class TopicMessage(Message):
+    """
+    A topic or a reply to a topic.
+    """
+    
+    async def delete(self) -> None:
+        """
+        Delete this message.
+        """
+        await self._ryver._session.delete(self.get_api_url(format="json"))
+
+
+class TopicReply(TopicMessage):
     """
     A reply on a topic.
     """
@@ -210,7 +212,7 @@ class TopicReply(Message):
         return Topic(self._ryver, TYPE_TOPIC, self._data["post"])
 
 
-class Topic(Message):
+class Topic(TopicMessage):
     """
     A Ryver topic in a chat.
     """
@@ -256,13 +258,6 @@ class Topic(Message):
             "archived": True
         }
         await self._ryver._session.patch(url, json=data)
-
-    async def delete(self) -> None:
-        """
-        Delete this topic.
-        """
-        url = self.get_api_url(format="json")
-        await self._ryver._session.delete(url)
 
     async def reply(self, message: str, creator: Creator = None) -> TopicReply:
         """
@@ -318,6 +313,10 @@ class Topic(Message):
         Edit this topic.
 
         This method sends requests.
+
+        .. note::
+           Unlike editing topic replies and chat messages, admins have permission to
+           edit any topic regardless of whether they created it.
 
         If any parameters are unspecified, that property will remain unchanged.
 
@@ -386,6 +385,22 @@ class ChatMessage(Message):
         on what you're trying to do.
         """
         return self._data["to"]["id"]
+    
+    def get_attached_file(self) -> "File":
+        """
+        Get the file attached to this message, if there is one.
+
+        Note that files obtained from this only have a limited amount of information,
+        including the ID, name, URL, size and type. Attempting to get any other info
+        will result in a KeyError. To obtain the full file info, use :py:meth:`Ryver.get_object()`
+        with `TYPE_FILE <pyryver.util.TYPE_FILE>` and the ID.
+
+        Returns None otherwise.
+        """
+        if "extras" in self._data and "file" in self._data["extras"]:
+            return File(self._ryver, TYPE_FILE, self._data["extras"]["file"])
+        else:
+            return None
 
     async def get_chat(self) -> "Chat":
         """
@@ -424,6 +439,11 @@ class ChatMessage(Message):
     async def edit(self, body: str, creator: Creator = None) -> None:
         """
         Edit the message.
+
+        .. note::
+           You can only edit a message if it was sent by you (even if you are an
+           admin). Attempting to edit another user's message will result in a 
+           :py:exc:`aiohttp.ClientResponseError`.
 
         :param body: The new message content.
         :param creator: The new message creator; optional, if unset left as-is.
