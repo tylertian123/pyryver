@@ -15,9 +15,11 @@ class Ryver:
 
     This is the starting point for any application using pyryver.
 
-    If the organization or username is not provided, it will be prompted 
-    using input(). If the password is not provided, it will be prompted 
-    using getpass().
+    If the organization, it will be prompted using input(). 
+    If the username or password are not provided, and the token is not provided,
+    the username and password will be prompted.
+    
+    If a token is specified, the username and password will be ignored.
 
     The cache is used to load the chats data. If not provided, no caching
     will occur.
@@ -26,23 +28,30 @@ class Ryver:
     constructor. Otherwise, it must be loaded through load_forums(),
     load_teams() and load_users() or load_chats().
 
-    :param org: Your organization's name. (as seen in the URL)
-    :param user: The username to authenticate with.
-    :param password: The password to authenticate with.
-    :param cache: The aforementioned cache.
+    :param org: Your organization's name (optional). (as seen in the URL)
+    :param user: The username to authenticate with (optional).
+    :param password: The password to authenticate with (optional).
+    :param token: The custom integration token to authenticate with (optional).
+    :param cache: The aforementioned cache (optional).
     """
 
-    def __init__(self, org: str = None, user: str = None, password: str = None, cache: typing.Type[AbstractCacheStorage] = None):
-        if not org:
+    def __init__(self, org: str = None, user: str = None, password: str = None, token: str = None, cache: typing.Type[AbstractCacheStorage] = None):
+        if org is None:
             org = input("Organization: ")
-        if not user:
+        if user is None and token is None:
             user = input("Username: ")
-        if not password:
+        if password is None and token is None:
             password = getpass()
 
         self._url_prefix = "https://" + org + ".ryver.com/api/1/odata.svc/"
-        self._session = aiohttp.ClientSession(
-            auth=aiohttp.BasicAuth(user, password), raise_for_status=True)
+        if token is None:
+            self._session = aiohttp.ClientSession(
+                auth=aiohttp.BasicAuth(user, password), raise_for_status=True)
+        else:
+            headers = {
+                "Authorization": f"Bearer {token}"
+            }
+            self._session = aiohttp.ClientSession(headers=headers, raise_for_status=True)
 
         self._cache = cache
         # Try to load from cache if it exists
@@ -80,7 +89,7 @@ class Ryver:
         """
         await self._session.close()
     
-    def get_api_url(self, obj_type: str, obj_id: int = None, action: str = None, **kwargs) -> str:
+    def get_api_url(self, obj_type: str = None, obj_id: int = None, action: str = None, **kwargs) -> str:
         """
         Get the URL for making an API request.
 
@@ -385,5 +394,8 @@ class Ryver:
         
         The session is not started unless start() is called or if it is used as
         a context manager.
+
+        .. warning::
+           Live sessions **do not work** when using a custom integration token.
         """
         return ryver_ws.RyverWS(self)

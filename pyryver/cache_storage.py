@@ -57,7 +57,7 @@ class FileCacheStorage(AbstractCacheStorage):
         except json.JSONDecodeError:
             print("Warning: Invalid JSON in cache")
             return []
-        return [TYPES_DICT[obj_type](ryver, obj_type, obj_data) for obj_data in data]
+        return [TYPES_DICT[obj_type](ryver, obj_data) for obj_data in data]
     
     def save(self, obj_type: str, data: typing.List[Object]) -> None:
         """

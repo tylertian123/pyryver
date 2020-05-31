@@ -66,6 +66,9 @@ class RyverWS():
     A live Ryver session using websockets. 
 
     You can construct this manually, although it is recommended to use `Ryver.get_live_session()`.
+
+    .. warning::
+       This **does not work** when using a custom integration token to sign in.
     """
 
     _VALID_ID_CHARS = string.ascii_letters + string.digits
