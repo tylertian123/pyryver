@@ -333,7 +333,7 @@ class Ryver:
         :param filedata: The file's raw data, sent directly to :py:meth:`aiohttp.FormData.add_field`.
         """
         url = self.get_api_url(TYPE_STORAGE, action="Storage.File.Create(createFile=true)", expand="file", format="json")
-        data = aiohttp.FormData()
+        data = aiohttp.FormData(quote_fields=False)
         data.add_field("file", filedata, filename=filename,
                        content_type=filetype)
         async with self._session.post(url, data=data) as resp:
@@ -356,7 +356,7 @@ class Ryver:
             "showPreview": True,
             "url": link_url,
         }
-        async with self._session.post(url, data=data) as resp:
+        async with self._session.post(url, json=data) as resp:
             return Storage(self, TYPE_STORAGE, await resp.json())
     
     async def get_info(self) -> typing.Dict[str, typing.Any]:

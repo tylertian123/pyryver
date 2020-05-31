@@ -259,7 +259,7 @@ class Topic(TopicMessage):
         }
         await self._ryver._session.patch(url, json=data)
 
-    async def reply(self, message: str, creator: Creator = None) -> TopicReply:
+    async def reply(self, message: str, attachments: typing.List["Storage"] = [], creator: Creator = None) -> TopicReply:
         """
         Reply to the topic.
 
@@ -268,6 +268,7 @@ class Topic(TopicMessage):
         For unknown reasons, overriding the creator does not work for this method.
 
         :param message: The reply content
+        :param attachments: A number of attachments for this topic (optional). Note: Use `Storage` objects, not `File` objects! These attachments could be links or files.
         """
         url = self._ryver.get_api_url(TYPE_TOPIC_REPLY, format="json")
         data = {
@@ -278,6 +279,10 @@ class Topic(TopicMessage):
         }
         if creator:
             data["createSource"] = creator.to_dict()
+        if attachments:
+            data["attachments"] = {
+                "results": [attachment.get_file().get_raw_data() if attachment.get_storage_type() == Storage.TYPE_FILE else attachment.get_raw_data() for attachment in attachments]
+            }
         async with self._ryver._session.post(url, json=data) as resp:
             return TopicReply(self._ryver, TYPE_TOPIC_REPLY, (await resp.json())["d"]["results"])
 
@@ -1166,12 +1171,16 @@ class Storage(Object):
     TYPE_FILE = "file"
     TYPE_LINK = "link"
 
-    def get_type(self) -> str:
+    def get_storage_type(self) -> str:
         """
         Get the type of this storage object.
 
         Returns one of the ``TYPE_`` constants in this class.
+
+        Not to be confused with :py:meth:`Object.get_type()`.
         """
+        if "file" in self._data:
+            return self._data["file"]["recordType"]
         return self._data["recordType"]
     
     def get_name(self) -> str:
@@ -1205,6 +1214,18 @@ class Storage(Object):
            ``TYPE_LINK``!
         """
         return self._data["url"]
+    
+    async def delete(self) -> None:
+        """
+        Delete this storage object and the file it contains if there is one.
+        """
+        # For files, we have to take the ID of the file...
+        if self.get_storage_type() == Storage.TYPE_FILE:
+            id = self.get_file().get_id()
+        else:
+            id = self.get_id()
+        url = self._ryver.get_api_url(TYPE_FILE, id, format="json")
+        await self._ryver._session.delete(url)
 
 
 TYPES_DICT = {
