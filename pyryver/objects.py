@@ -195,7 +195,7 @@ class TopicMessage(Message):
         results = []
         for attachment in attachments:
             # Check the type
-            if attachment["recordType"] == Storage.TYPE_FILE:
+            if attachment["recordType"] == Storage.STORAGE_TYPE_FILE:
                 # Make it so that the file can be retrieved
                 attachment["storage"]["file"] = attachment
                 results.append(Storage(self._ryver, TYPE_STORAGE, attachment["storage"]))
@@ -264,7 +264,7 @@ class TopicReply(TopicMessage):
             data["createSource"] = creator.to_dict()
         if attachments is not None:
             data["attachments"] = {
-                "results": [attachment.get_file().get_raw_data() if attachment.get_storage_type() == Storage.TYPE_FILE else attachment.get_raw_data() for attachment in attachments]
+                "results": [attachment.get_file().get_raw_data() if attachment.get_storage_type() == Storage.STORAGE_TYPE_FILE else attachment.get_raw_data() for attachment in attachments]
             }
         await self._ryver._session.patch(url, json=data)
         # Update self
@@ -326,7 +326,11 @@ class Topic(TopicMessage):
         This method sends requests.
 
         .. note::
-            For unknown reasons, overriding the creator does not seem to work for this method.
+           For unknown reasons, overriding the creator does not seem to work for this method.
+
+           To attach files to the reply, use :py:meth:`pyryver.ryver.Ryver.upload_file()`
+           to upload the files you wish to attach. Alternatively, use
+           :py:meth:`pyryver.ryver.Ryver.create_link()` for link attachments.
 
         :param message: The reply content
         :param creator: The overridden creator (optional). **Does not work.**
@@ -343,7 +347,7 @@ class Topic(TopicMessage):
             data["createSource"] = creator.to_dict()
         if attachments:
             data["attachments"] = {
-                "results": [attachment.get_file().get_raw_data() if attachment.get_storage_type() == Storage.TYPE_FILE else attachment.get_raw_data() for attachment in attachments]
+                "results": [attachment.get_file().get_raw_data() if attachment.get_storage_type() == Storage.STORAGE_TYPE_FILE else attachment.get_raw_data() for attachment in attachments]
             }
         async with self._ryver._session.post(url, json=data) as resp:
             return TopicReply(self._ryver, TYPE_TOPIC_REPLY, (await resp.json())["d"]["results"])
@@ -395,7 +399,7 @@ class Topic(TopicMessage):
             data["createSource"] = creator.to_dict()
         if attachments is not None:
             data["attachments"] = {
-                "results": [attachment.get_file().get_raw_data() if attachment.get_storage_type() == Storage.TYPE_FILE else attachment.get_raw_data() for attachment in attachments]
+                "results": [attachment.get_file().get_raw_data() if attachment.get_storage_type() == Storage.STORAGE_TYPE_FILE else attachment.get_raw_data() for attachment in attachments]
             }
         await self._ryver._session.patch(url, json=data)
         # Update self
@@ -532,19 +536,33 @@ class Chat(Object):
         Get the name of this chat.
         """
 
-    async def send_message(self, message: str, creator: Creator = None) -> str:
+    async def send_message(self, message: str, creator: Creator = None, attachment: "Storage" = None, from_user: "User" = None) -> str:
         """
         Send a message to this chat.
 
         Specify a creator to override the username and profile of the message creator.
 
+        .. note::
+           To attach a file to the message, use :py:meth:`pyryver.ryver.Ryver.upload_file()`
+           to upload the file you wish to attach. Alternatively, use
+           :py:meth:`pyryver.ryver.Ryver.create_link()` for a link attachment.
+        
+        .. warning::
+           ``from_user`` **must** be set when using attachments with private messages.
+           Otherwise, a ``ValueError`` will be raised. It should be set to the user that
+           is sending the message (the user currently logged in).
+
+           It is not required to be set if the message is being sent to a forum/team.
+
         This method sends requests.
 
-        Returns the ID of the chat message sent. Note that message IDs are
-        strings.
+        Returns the ID of the chat message sent (**not** the message object itself). 
+        Note that message IDs are strings.
 
         :param message: The message contents.
         :param creator: The overridden creator; optional, if unset uses the logged-in user's profile.
+        :param attachment: An attachment for this message, e.g. a file or a link (optional).
+        :param from_user: The user that is sending this message (the user currently logged in); **must** be set when using attachments in private messages (optional).
         """
         url = self.get_api_url("Chat.PostMessage()", format="json")
         data = {
@@ -552,52 +570,52 @@ class Chat(Object):
         }
         if creator:
             data["createSource"] = creator.to_dict()
-        async with self._ryver._session.post(url, json=data) as resp:
-            return (await resp.json())["d"]["id"]
-
-    async def create_topic(self, subject: str, body: str, stickied: bool = False, creator: Creator = None, attachments: typing.List["Storage"] = []) -> Topic:
-        """
-        Create a topic in this chat.
-
-        This method sends requests.
-
-        Returns the topic created.
-
-        .. note::
-           To attach files to the topic, use :py:meth:`pyryver.ryver.Ryver.upload_file()`
-           to upload the files you wish to attach, and then use :py:meth:`Storage.get_file()`
-           to get the ``File`` object for use with this method.
-
-        :param subject: The subject (or title) of the new topic.
-        :param body: The contents of the new topic.
-        :param stickied: Whether to sticky (pin) this topic to the top of the list (optional, default False).
-        :param creator: The overridden creator; optional, if unset uses the logged-in user's profile.
-        :param attachments: A number of attachments for this topic (optional). Note: Use `Storage` objects, not `File` objects! These attachments could be links or files.
-        """
-        url = self._ryver.get_api_url(TYPE_TOPIC)
-        data = {
-            "body": body,
-            "subject": subject,
-            "outAssociations": {
+        if attachment:
+            if from_user is None and isinstance(self, User):
+                raise ValueError("Message attachments in private messages require from_user to be set!")
+            # The Ryver API is weird
+            out_assoc = {
                 "results": [
                     {
+                        "inId": self.get_id(),
                         "inSecured": True,
                         "inType": self.get_entity_type(),
-                        "inId": self.get_id()
+                        "inName": self.get_name(),
                     }
                 ]
-            },
-            "recordType": "note",
-            "stickied": stickied
-        }
-        if creator:
-            data["createSource"] = creator.to_dict()
-        if attachments:
-            data["attachments"] = {
-                "results": [attachment.get_file().get_raw_data() if attachment.get_storage_type() == Storage.TYPE_FILE else attachment.get_raw_data() for attachment in attachments]
             }
+            if isinstance(self, User):
+                out_assoc["results"].insert(0, {
+                    "inId": from_user.get_id(),
+                    "inSecured": True,
+                    "inType": from_user.get_entity_type(),
+                    "inName": from_user.get_name(),
+                })
+            # PATCH to update the outAssociations of the file
+            patch_url = self._ryver.get_api_url(TYPE_FILE, attachment.get_content_id(), format="json")
+            await self._ryver._session.patch(patch_url, json={
+                "outAssociations": out_assoc
+            })
+            # Now GET to get the embeds
+            embeds_url = self._ryver.get_api_url(TYPE_FILE, attachment.get_content_id(), select="embeds")
+            async with self._ryver._session.get(embeds_url) as resp:
+                embeds = await resp.json()
+            data["extras"] = {
+                "file": {
+                    "fileName": attachment.get_name(),
+                    "fileSize": attachment.get_size(),
+                    "id": attachment.get_content_id(),
+                    "outAssociations": out_assoc,
+                    "url": attachment.get_content_url(),
+                    "fileType": attachment.get_content_MIME_type(),
+                    "chatBody": message
+                }
+            }
+            data["embeds"] = embeds["d"]["results"]["embeds"]
+            message += f"\n\n[{attachment.get_name()}]({attachment.get_content_url()})"
+            data["body"] = message
         async with self._ryver._session.post(url, json=data) as resp:
-            return Topic(self._ryver, TYPE_TOPIC, (await resp.json())["d"]["results"])
+            return (await resp.json())["d"]["id"]
 
     async def get_topics(self, archived: bool = False, top: int = -1, skip: int = 0) -> typing.AsyncIterator[Topic]:
         """
@@ -860,7 +878,7 @@ class User(Chat):
         if role == User.ROLE_ADMIN:
             self._data["roles"].append(User.ROLE_USER)
 
-    async def create_topic(self, from_user: "User", subject: str, body: str, stickied: bool = False, attachments: typing.List["File"] = [], creator: Creator = None) -> Topic:
+    async def create_topic(self, from_user: "User", subject: str, body: str, stickied: bool = False, attachments: typing.List["Storage"] = [], creator: Creator = None) -> Topic:
         """
         Create a topic in this user's DMs.
 
@@ -870,17 +888,17 @@ class User(Chat):
 
         .. note::
            To attach files to the topic, use :py:meth:`pyryver.ryver.Ryver.upload_file()`
-           to upload the files you wish to attach, and then use :py:meth:`Storage.get_file()`
-           to get the ``File`` object for use with this method.
+           to upload the files you wish to attach. Alternatively, use
+           :py:meth:`pyryver.ryver.Ryver.create_link()` for link attachments.
 
         :param from_user: The user that will create the topic; must be the same as the logged-in user.
         :param subject: The subject (or title) of the new topic.
         :param body: The contents of the new topic.
         :param stickied: Whether to sticky (pin) this topic to the top of the list (optional, default False).
-        :param attachments: A number of files to attach to this topic (optional). Note: Use `File` objects, not `Storage` objects!
+        :param attachments: A number of attachments for this topic (optional). Note: Use `Storage` objects, not `File` objects! These attachments could be links or files.
         :param creator: The overridden creator; optional, if unset uses the logged-in user's profile.
         """
-        url = self._ryver.get_url(TYPE_TOPIC)
+        url = self._ryver.get_api_url(TYPE_TOPIC)
         data = {
             "body": body,
             "subject": subject,
@@ -894,8 +912,8 @@ class User(Chat):
                     },
                     {
                         "inSecured": True,
-                        "inType": from_user.entity_type,
-                        "inId": from_user.id,
+                        "inType": from_user.get_entity_type(),
+                        "inId": from_user.get_id(),
                         "inName": from_user.get_display_name(),
                     }
                 ]
@@ -907,7 +925,7 @@ class User(Chat):
             data["createSource"] = creator.to_dict()
         if attachments:
             data["attachments"] = {
-                "results": [file.get_raw_data() for file in attachments]
+                "results": [attachment.get_file().get_raw_data() if attachment.get_storage_type() == Storage.STORAGE_TYPE_FILE else attachment.get_raw_data() for attachment in attachments]
             }
         async with self._ryver._session.post(url, json=data) as resp:
             return Topic(self._ryver, TYPE_TOPIC, (await resp.json())["d"]["results"])
@@ -986,6 +1004,50 @@ class GroupChat(Chat):
         async with self._ryver._session.get(url) as resp:
             member = (await resp.json())["d"]["results"]
         return GroupChatMember(self._ryver, TYPE_GROUPCHAT_MEMBER, member[0]) if member else None
+    
+    async def create_topic(self, subject: str, body: str, stickied: bool = False, creator: Creator = None, attachments: typing.List["Storage"] = []) -> Topic:
+        """
+        Create a topic in this chat.
+
+        This method sends requests.
+
+        Returns the topic created.
+
+        .. note::
+           To attach files to the topic, use :py:meth:`pyryver.ryver.Ryver.upload_file()`
+           to upload the files you wish to attach. Alternatively, use
+           :py:meth:`pyryver.ryver.Ryver.create_link()` for link attachments.
+
+        :param subject: The subject (or title) of the new topic.
+        :param body: The contents of the new topic.
+        :param stickied: Whether to sticky (pin) this topic to the top of the list (optional, default False).
+        :param creator: The overridden creator; optional, if unset uses the logged-in user's profile.
+        :param attachments: A number of attachments for this topic (optional). Note: Use `Storage` objects, not `File` objects! These attachments could be links or files.
+        """
+        url = self._ryver.get_api_url(TYPE_TOPIC)
+        data = {
+            "body": body,
+            "subject": subject,
+            "outAssociations": {
+                "results": [
+                    {
+                        "inSecured": True,
+                        "inType": self.get_entity_type(),
+                        "inId": self.get_id()
+                    }
+                ]
+            },
+            "recordType": "note",
+            "stickied": stickied
+        }
+        if creator:
+            data["createSource"] = creator.to_dict()
+        if attachments:
+            data["attachments"] = {
+                "results": [attachment.get_file().get_raw_data() if attachment.get_storage_type() == Storage.STORAGE_TYPE_FILE else attachment.get_raw_data() for attachment in attachments]
+            }
+        async with self._ryver._session.post(url, json=data) as resp:
+            return Topic(self._ryver, TYPE_TOPIC, (await resp.json())["d"]["results"])
 
 
 class Forum(GroupChat):
@@ -1216,14 +1278,14 @@ class Storage(Object):
     Generic storage (message attachments), e.g. files and links.
     """
 
-    TYPE_FILE = "file"
-    TYPE_LINK = "link"
+    STORAGE_TYPE_FILE = "file"
+    STORAGE_TYPE_LINK = "link"
 
     def get_storage_type(self) -> str:
         """
         Get the type of this storage object.
 
-        Returns one of the ``TYPE_`` constants in this class.
+        Returns one of the ``STORAGE_TYPE_`` constants in this class.
 
         Not to be confused with :py:meth:`Object.get_type()`.
         """
@@ -1235,13 +1297,33 @@ class Storage(Object):
         """
         Get the name of this storage object.
         """
-        return self._data.get("fileName", self._data.get("name", None))
+        return self._data.get("fileName", None) or self._data["name"]
     
     def get_size(self) -> str:
         """
         Get the size of the object stored.
         """
         return self._data["fileSize"]
+    
+    def get_content_id(self) -> int:
+        """
+        Get the ID of the **contents** of this storage object.
+
+        If a link is stored, then this will return the same value as ``get_id()``.
+        If a file is stored, then this will return the ID of the file instead.
+        """
+        if self.get_storage_type() == Storage.STORAGE_TYPE_FILE:
+            return self._data["file"]["id"]
+        else:
+            return self.get_id()
+    
+    def get_content_MIME_type(self) -> str:
+        """
+        Get the MIME type of the content.
+
+        For links, this will be "application/octet-stream".
+        """
+        return self._data.get("contentType", None) or self._data["type"]
 
     def get_file(self) -> File:
         """
@@ -1253,26 +1335,22 @@ class Storage(Object):
         """
         return File(self._ryver, TYPE_FILE, self._data["file"])
     
-    def get_url(self) -> str:
+    def get_content_url(self) -> str:
         """
-        Get the URL of the link stored.
+        Get the URL of the contents.
 
-        .. warning::
-           This method will raise a ``KeyError`` if the type of this storage is not
-           ``TYPE_LINK``!
+        If a link is stored, then this will be the URL of the link.
+        If a file is stored, then this will be the URL of the file contents.
         """
+        if self.get_storage_type() == Storage.STORAGE_TYPE_FILE:
+            return self._data["file"]["url"]
         return self._data["url"]
     
     async def delete(self) -> None:
         """
         Delete this storage object and the file it contains if there is one.
         """
-        # For files, we have to take the ID of the file...
-        if self.get_storage_type() == Storage.TYPE_FILE:
-            id = self.get_file().get_id()
-        else:
-            id = self.get_id()
-        url = self._ryver.get_api_url(TYPE_FILE, id, format="json")
+        url = self._ryver.get_api_url(Storage.STORAGE_TYPE_FILE, self.get_content_id(), format="json")
         await self._ryver._session.delete(url)
 
 
