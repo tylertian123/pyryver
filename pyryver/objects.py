@@ -235,7 +235,7 @@ class TopicReply(TopicMessage):
         """
         return Topic(self._ryver, TYPE_TOPIC, self._data["post"])
     
-    async def edit(self, message: str = None, attachments: typing.List["Storage"] = None, creator: Creator = None) -> None:
+    async def edit(self, message: str = None, creator: Creator = None, attachments: typing.List["Storage"] = None) -> None:
         """
         Edit this topic reply.
 
@@ -253,8 +253,8 @@ class TopicReply(TopicMessage):
         If any parameters are unspecified, that property will remain unchanged.
 
         :param message: The contents of the topic (optional).
-        :param attachments: A number of attachments for this topic (optional). Note: Use `Storage` objects, not `File` objects! These attachments could be links or files.
         :param creator: The overridden creator (optional).
+        :param attachments: A number of attachments for this topic (optional). Note: Use `Storage` objects, not `File` objects! These attachments could be links or files.
         """
         url = self.get_api_url(format="json")
         data = {}
@@ -319,15 +319,17 @@ class Topic(TopicMessage):
         }
         await self._ryver._session.patch(url, json=data)
 
-    async def reply(self, message: str, attachments: typing.List["Storage"] = [], creator: Creator = None) -> TopicReply:
+    async def reply(self, message: str, creator: Creator = None, attachments: typing.List["Storage"] = []) -> TopicReply:
         """
         Reply to the topic.
 
         This method sends requests.
 
-        For unknown reasons, overriding the creator does not work for this method.
+        .. note::
+            For unknown reasons, overriding the creator does not seem to work for this method.
 
         :param message: The reply content
+        :param creator: The overridden creator (optional). **Does not work.**
         :param attachments: A number of attachments for this reply (optional). Note: Use `Storage` objects, not `File` objects! These attachments could be links or files.
         """
         url = self._ryver.get_api_url(TYPE_TOPIC_REPLY, format="json")
@@ -359,7 +361,7 @@ class Topic(TopicMessage):
         async for reply in get_all(session=self._ryver._session, url=url, top=top, skip=skip):
             yield TopicReply(self._ryver, TYPE_TOPIC_REPLY, reply)
     
-    async def edit(self, subject: str = None, body: str = None, stickied: bool = None, attachments: typing.List["Storage"] = None, creator: Creator = None) -> None:
+    async def edit(self, subject: str = None, body: str = None, stickied: bool = None, creator: Creator = None, attachments: typing.List["Storage"] = None) -> None:
         """
         Edit this topic.
 
@@ -378,8 +380,8 @@ class Topic(TopicMessage):
         :param subject: The subject (or title) of the topic (optional).
         :param body: The contents of the topic (optional).
         :param stickied: Whether to sticky (pin) this topic to the top of the list (optional).
-        :param attachments: A number of attachments for this topic (optional). Note: Use `Storage` objects, not `File` objects! These attachments could be links or files.
         :param creator: The overridden creator (optional).
+        :param attachments: A number of attachments for this topic (optional). Note: Use `Storage` objects, not `File` objects! These attachments could be links or files.
         """
         url = self.get_api_url(format="json")
         data = {}
@@ -553,7 +555,7 @@ class Chat(Object):
         async with self._ryver._session.post(url, json=data) as resp:
             return (await resp.json())["d"]["id"]
 
-    async def create_topic(self, subject: str, body: str, stickied: bool = False, attachments: typing.List["Storage"] = [], creator: Creator = None) -> Topic:
+    async def create_topic(self, subject: str, body: str, stickied: bool = False, creator: Creator = None, attachments: typing.List["Storage"] = []) -> Topic:
         """
         Create a topic in this chat.
 
@@ -569,8 +571,8 @@ class Chat(Object):
         :param subject: The subject (or title) of the new topic.
         :param body: The contents of the new topic.
         :param stickied: Whether to sticky (pin) this topic to the top of the list (optional, default False).
-        :param attachments: A number of attachments for this topic (optional). Note: Use `Storage` objects, not `File` objects! These attachments could be links or files.
         :param creator: The overridden creator; optional, if unset uses the logged-in user's profile.
+        :param attachments: A number of attachments for this topic (optional). Note: Use `Storage` objects, not `File` objects! These attachments could be links or files.
         """
         url = self._ryver.get_api_url(TYPE_TOPIC)
         data = {
