@@ -72,10 +72,7 @@ class Ryver:
         This method sends requests.
         """
         url = self.get_api_url(obj_type)
-        chats = []
-        async for chat in get_all(session=self._session, url=url, top=top, skip=skip):
-            chats.append(TYPES_DICT[obj_type](self, obj_type, chat))
-        return chats
+        return [TYPES_DICT[obj_type](self, chat) async for chat in get_all(session=self._session, url=url, top=top, skip=skip)]
 
     async def close(self):
         """
@@ -132,7 +129,7 @@ class Ryver:
         :param obj_id: The object's ID.
         """
         async with self._session.get(self.get_api_url(obj_type, obj_id, action=None, **kwargs)) as resp:
-            return TYPES_DICT[obj_type](self, obj_type, (await resp.json())["d"]["results"])
+            return TYPES_DICT[obj_type](self, (await resp.json())["d"]["results"])
     
     async def load_users(self) -> None:
         """
@@ -294,7 +291,7 @@ class Ryver:
             url = self.get_api_url(TYPE_NOTIFICATION, format="json", orderby="modifyDate desc")
 
         async for notif in get_all(session=self._session, url=url, top=top, skip=skip):
-            yield Notification(self, TYPE_NOTIFICATION, notif)
+            yield Notification(self, notif)
 
     async def mark_all_notifs_read(self) -> int:
         """
@@ -337,7 +334,7 @@ class Ryver:
         data.add_field("file", filedata, filename=filename,
                        content_type=filetype)
         async with self._session.post(url, data=data) as resp:
-            return Storage(self, TYPE_STORAGE, await resp.json())
+            return Storage(self, await resp.json())
         
     async def create_link(self, name: str, link_url: str) -> Storage:
         """
@@ -357,7 +354,7 @@ class Ryver:
             "url": link_url,
         }
         async with self._session.post(url, json=data) as resp:
-            return Storage(self, TYPE_STORAGE, await resp.json())
+            return Storage(self, await resp.json())
     
     async def get_info(self) -> typing.Dict[str, typing.Any]:
         """

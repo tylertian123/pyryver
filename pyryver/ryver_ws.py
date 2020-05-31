@@ -319,7 +319,7 @@ class RyverWS():
     
     def typing(self, to_chat: Chat) -> RyverWSTyping:
         """
-        Get a context manager that keeps sending a typing indicator to a chat.
+        Get an async context manager that keeps sending a typing indicator to a chat.
 
         Useful for wrapping long running operations, like:
 

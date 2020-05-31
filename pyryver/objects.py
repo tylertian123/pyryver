@@ -36,15 +36,15 @@ class Object(ABC):
     Base class for all Ryver objects.
 
     :param ryver: The parent :py:class:`pyryver.pyryver.Ryver` instance.
-    :param obj_type: The object's type, a constant beginning with ``TYPE_`` in :ref:`pyryver.util <util-data-constants>`.
+    :param data: The object's data.
     """
 
-    # TODO: Make the obj_type automatic
-    def __init__(self, ryver: "Ryver", obj_type: str, data: dict):
+    # The _OBJ_TYPE of each class inheriting from Object is used during object creation to determine the type
+    _OBJ_TYPE = "__object"
+
+    def __init__(self, ryver: "Ryver", data: dict):
         self._ryver = ryver # type: Ryver
         self._data = data
-        self._obj_type = obj_type
-        self._entity_type = ENTITY_TYPES[obj_type]
         self._id = data["id"]
 
     def get_ryver(self) -> "Ryver":
@@ -65,13 +65,13 @@ class Object(ABC):
         """
         Get the type of this object.
         """
-        return self._obj_type
+        return self._OBJ_TYPE
 
     def get_entity_type(self) -> str:
         """
         Get the entity type of this object.
         """
-        return self._entity_type
+        return ENTITY_TYPES.get(self.get_type(), "<unknown>")
 
     def get_raw_data(self) -> dict:
         """
@@ -99,6 +99,9 @@ class Message(Object):
     """
     Any generic Ryver message, with an author, body, and reactions.
     """
+
+    _OBJ_TYPE = "__message"
+
     @abstractmethod
     def get_body(self) -> str:
         """
@@ -173,6 +176,8 @@ class TopicMessage(Message):
     """
     A topic or a reply to a topic.
     """
+
+    _OBJ_TYPE = "__topicMessage"
     
     async def delete(self) -> None:
         """
@@ -198,9 +203,9 @@ class TopicMessage(Message):
             if attachment["recordType"] == Storage.STORAGE_TYPE_FILE:
                 # Make it so that the file can be retrieved
                 attachment["storage"]["file"] = attachment
-                results.append(Storage(self._ryver, TYPE_STORAGE, attachment["storage"]))
+                results.append(Storage(self._ryver, attachment["storage"]))
             else:
-                results.append(Storage(self._ryver, TYPE_STORAGE, attachment))
+                results.append(Storage(self._ryver, attachment))
         return results
 
 
@@ -208,6 +213,8 @@ class TopicReply(TopicMessage):
     """
     A reply on a topic.
     """
+
+    _OBJ_TYPE = TYPE_TOPIC_REPLY
 
     def get_body(self) -> str:
         """
@@ -221,7 +228,7 @@ class TopicReply(TopicMessage):
 
         Unlike the other implementations, this does not send any requests.
         """
-        return User(self._ryver, TYPE_USER, self._data["createUser"])
+        return User(self._ryver, self._data["createUser"])
 
     def get_author_id(self) -> int:
         """
@@ -233,7 +240,7 @@ class TopicReply(TopicMessage):
         """
         Get the topic this reply was sent to.
         """
-        return Topic(self._ryver, TYPE_TOPIC, self._data["post"])
+        return Topic(self._ryver, self._data["post"])
     
     async def edit(self, message: str = None, creator: Creator = None, attachments: typing.List["Storage"] = None) -> None:
         """
@@ -276,6 +283,8 @@ class Topic(TopicMessage):
     """
     A Ryver topic in a chat.
     """
+
+    _OBJ_TYPE = TYPE_TOPIC
 
     def get_subject(self) -> str:
         """
@@ -350,7 +359,7 @@ class Topic(TopicMessage):
                 "results": [attachment.get_file().get_raw_data() if attachment.get_storage_type() == Storage.STORAGE_TYPE_FILE else attachment.get_raw_data() for attachment in attachments]
             }
         async with self._ryver._session.post(url, json=data) as resp:
-            return TopicReply(self._ryver, TYPE_TOPIC_REPLY, (await resp.json())["d"]["results"])
+            return TopicReply(self._ryver, (await resp.json())["d"]["results"])
 
     async def get_replies(self, top: int = -1, skip: int = 0) -> typing.AsyncIterator[TopicReply]:
         """
@@ -363,7 +372,7 @@ class Topic(TopicMessage):
         """
         url = self._ryver.get_api_url(TYPE_TOPIC_REPLY, format="json", filter=f"((post/id eq {self.get_id()}))", expand="createUser,post")
         async for reply in get_all(session=self._ryver._session, url=url, top=top, skip=skip):
-            yield TopicReply(self._ryver, TYPE_TOPIC_REPLY, reply)
+            yield TopicReply(self._ryver, reply)
     
     async def edit(self, subject: str = None, body: str = None, stickied: bool = None, creator: Creator = None, attachments: typing.List["Storage"] = None) -> None:
         """
@@ -412,6 +421,8 @@ class ChatMessage(Message):
     A Ryver chat message.
     """
 
+    _OBJ_TYPE = TYPE_MESSAGE
+
     def get_body(self) -> str:
         """
         Get the message body.
@@ -447,15 +458,20 @@ class ChatMessage(Message):
         """
         Get the file attached to this message, if there is one.
 
-        Note that files obtained from this only have a limited amount of information,
-        including the ID, name, URL, size and type. Attempting to get any other info
-        will result in a KeyError. To obtain the full file info, use :py:meth:`Ryver.get_object()`
-        with `TYPE_FILE <pyryver.util.TYPE_FILE>` and the ID.
+        .. note::
+           Files obtained from this only have a limited amount of information,
+           including the ID, name, URL, size and type. Attempting to get any other info
+           will result in a KeyError. To obtain the full file info, use :py:meth:`Ryver.get_object()`
+           with `TYPE_FILE <pyryver.util.TYPE_FILE>` and the ID.
+
+           Even if the attachment was a link and not a file, it will still be returned
+           as a ``File`` object, as there seems to be no way of telling the type of the
+           attachment just from the info provided in the message object.
 
         Returns None otherwise.
         """
         if "extras" in self._data and "file" in self._data["extras"]:
-            return File(self._ryver, TYPE_FILE, self._data["extras"]["file"])
+            return File(self._ryver, self._data["extras"]["file"])
         else:
             return None
 
@@ -521,6 +537,8 @@ class Chat(Object):
 
     E.g. Teams, forums, user DMs, etc.
     """
+
+    _OBJ_TYPE = "__chat"
 
     def get_jid(self) -> str:
         """
@@ -629,7 +647,7 @@ class Chat(Object):
         """
         url = self.get_api_url(f"Post.Stream(archived={'true' if archived else 'false'})", format="json")
         async for topic in get_all(session=self._ryver._session, url=url, top=top, skip=skip):
-            yield Topic(self._ryver, TYPE_TOPIC, topic)
+            yield Topic(self._ryver, topic)
 
     async def get_messages(self, count: int, skip: int = 0) -> typing.List[ChatMessage]:
         """
@@ -644,7 +662,7 @@ class Chat(Object):
         url = self.get_api_url("Chat.History()", format="json", top=count, skip=skip)
         async with self._ryver._session.get(url) as resp:
             messages = (await resp.json())["d"]["results"]
-        return [ChatMessage(self._ryver, TYPE_MESSAGE, data) for data in messages]
+        return [ChatMessage(self._ryver, data) for data in messages]
     
     async def get_message(self, id: str) -> ChatMessage:
         """
@@ -667,7 +685,7 @@ class Chat(Object):
         url = self.get_api_url(f"Chat.History.Message(id='{id}')", format="json")
         async with self._ryver._session.get(url) as resp:
             messages = (await resp.json())["d"]["results"]
-        return ChatMessage(self._ryver, TYPE_MESSAGE, messages[0])
+        return ChatMessage(self._ryver, messages[0])
     
     async def get_messages_surrounding(self, id: str, before: int = 0, after: int = 0) -> typing.List[ChatMessage]:
         """
@@ -698,7 +716,7 @@ class Chat(Object):
         url = self.get_api_url(f"Chat.History.Message(id='{id}',before={before},after={after})", format="json")
         async with self._ryver._session.get(url) as resp:
             messages = (await resp.json())["d"]["results"]
-        return [ChatMessage(self._ryver, TYPE_MESSAGE, data) for data in messages]
+        return [ChatMessage(self._ryver, data) for data in messages]
 
     async def get_message_from_id(self, id: str, before: int = 0, after: int = 0) -> typing.List[Message]:
         """
@@ -735,13 +753,15 @@ class Chat(Object):
         url = self.get_api_url(f"Chat.History.Message(id='{id}',before={before},after={after})", format="json")
         async with self._ryver._session.get(url) as resp:
             messages = (await resp.json())["d"]["results"]
-        return [ChatMessage(self._ryver, TYPE_MESSAGE, data) for data in messages]
+        return [ChatMessage(self._ryver, data) for data in messages]
 
 
 class User(Chat):
     """
     A Ryver user.
     """
+
+    _OBJ_TYPE = TYPE_USER
 
     ROLE_USER = "ROLE_USER"
     ROLE_ADMIN = "ROLE_ADMIN"
@@ -928,13 +948,15 @@ class User(Chat):
                 "results": [attachment.get_file().get_raw_data() if attachment.get_storage_type() == Storage.STORAGE_TYPE_FILE else attachment.get_raw_data() for attachment in attachments]
             }
         async with self._ryver._session.post(url, json=data) as resp:
-            return Topic(self._ryver, TYPE_TOPIC, (await resp.json())["d"]["results"])
+            return Topic(self._ryver, (await resp.json())["d"]["results"])
 
 
 class GroupChatMember(Object):
     """
     A member in a forum or team.
     """
+
+    _OBJ_TYPE = TYPE_GROUPCHAT_MEMBER
 
     ROLE_MEMBER = "ROLE_TEAM_MEMBER"
     ROLE_ADMIN = "ROLE_TEAM_ADMIN"
@@ -949,7 +971,7 @@ class GroupChatMember(Object):
         """
         Get this member as a :py:class:`User` object.
         """
-        return User(self._ryver, TYPE_USER, self._data["member"])
+        return User(self._ryver, self._data["member"])
 
     def is_admin(self) -> bool:
         """
@@ -957,7 +979,6 @@ class GroupChatMember(Object):
 
         .. warning::
            This method does not check for org admins.
-
         """
         return GroupChatMember.ROLE_ADMIN == self.get_role()
 
@@ -966,6 +987,8 @@ class GroupChat(Chat):
     """
     A Ryver team or forum.
     """
+
+    _OBJ_TYPE = "__groupChat"
 
     def get_name(self) -> str:
         """
@@ -990,11 +1013,14 @@ class GroupChat(Chat):
         """
         url = self.get_api_url("members", expand="member")
         async for member in get_all(session=self._ryver._session, url=url, top=top, skip=skip):
-            yield GroupChatMember(self._ryver, TYPE_GROUPCHAT_MEMBER, member)
+            yield GroupChatMember(self._ryver, member)
 
     async def get_member(self, id: int) -> GroupChatMember:
         """
         Get a member by user ID.
+
+        .. note::
+           The ID should be the **user** ID of this member, not the groupchat member ID.
 
         This method sends requests.
 
@@ -1003,7 +1029,7 @@ class GroupChat(Chat):
         url = self.get_api_url("members", expand="member", filter=f"((member/id eq {id}))")
         async with self._ryver._session.get(url) as resp:
             member = (await resp.json())["d"]["results"]
-        return GroupChatMember(self._ryver, TYPE_GROUPCHAT_MEMBER, member[0]) if member else None
+        return GroupChatMember(self._ryver, member[0]) if member else None
     
     async def create_topic(self, subject: str, body: str, stickied: bool = False, creator: Creator = None, attachments: typing.List["Storage"] = []) -> Topic:
         """
@@ -1047,7 +1073,7 @@ class GroupChat(Chat):
                 "results": [attachment.get_file().get_raw_data() if attachment.get_storage_type() == Storage.STORAGE_TYPE_FILE else attachment.get_raw_data() for attachment in attachments]
             }
         async with self._ryver._session.post(url, json=data) as resp:
-            return Topic(self._ryver, TYPE_TOPIC, (await resp.json())["d"]["results"])
+            return Topic(self._ryver, (await resp.json())["d"]["results"])
 
 
 class Forum(GroupChat):
@@ -1055,17 +1081,23 @@ class Forum(GroupChat):
     A Ryver forum.
     """
 
+    _OBJ_TYPE = TYPE_FORUM
+
 
 class Team(GroupChat):
     """
     A Ryver team.
     """
 
+    _OBJ_TYPE = TYPE_TEAM
+
 
 class Notification(Object):
     """
     A Ryver user notification.
     """
+
+    _OBJ_TYPE = TYPE_NOTIFICATION
 
     PREDICATE_MENTION = "chat_mention"
     PREDICATE_GROUP_MENTION = "group_mention"
@@ -1213,6 +1245,8 @@ class File(Object):
     An uploaded file.
     """
 
+    _OBJ_TYPE = TYPE_FILE
+
     def get_title(self) -> str:
         """
         Get the title of this file.
@@ -1241,7 +1275,7 @@ class File(Object):
         """
         Get the MIME type of this file.
         """
-        return self._data.get("type", self._data.get("fileType", None))
+        return self._data.get("type", None) or self._data["fileType"]
     
     def request_data(self) -> aiohttp.ClientResponse:
         """
@@ -1277,6 +1311,8 @@ class Storage(Object):
     """
     Generic storage (message attachments), e.g. files and links.
     """
+
+    _OBJ_TYPE = TYPE_STORAGE
 
     STORAGE_TYPE_FILE = "file"
     STORAGE_TYPE_LINK = "link"
@@ -1333,7 +1369,7 @@ class Storage(Object):
            This method will raise a ``KeyError`` if the type of this storage is not
            ``TYPE_FILE``!
         """
-        return File(self._ryver, TYPE_FILE, self._data["file"])
+        return File(self._ryver, self._data["file"])
     
     def get_content_url(self) -> str:
         """
