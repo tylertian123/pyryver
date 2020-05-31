@@ -39,6 +39,11 @@ The core of the ``pyryver`` API is the `pyryver.ryver.Ryver` object, which repre
 .. literalinclude:: _snippets/quickstart1.py
    :language: python3
 
+As the snippet above demonstrates, you can log in as a normal user, or using a token for a custom integration.
+
+.. warning::
+   While both normal users and custom integrations can perform most actions, the Realtime API currently does not function when logging in with a token.
+
 The `Ryver` object also stores (and can cache) some information about the Ryver organization, specifically lists of all chats.
 
 These can be loaded either with the type-specific `pyryver.ryver.Ryver.load_users`, `pyryver.ryver.Ryver.load_teams` and `pyryver.ryver.Ryver.load_forums` or with `pyryver.ryver.Ryver.load_chats`. 
@@ -65,6 +70,9 @@ Realtime Quickstart
 
 Building on the previous example, what if we want our terrible ellipsis counting bot to give live updates? We can use the **realtime** API! The realtime interface is centred around the `pyryver.ryver_ws.RyverWS` object, which
 can be obtained with `Ryver.get_live_session()`. Unlike the rest of the API, the realtime API is largely event driven. For example:
+
+.. warning::
+   The Realtime API currently does not work when logging in with a token.
 
 .. literalinclude:: _snippets/quickstart4.py
    :language: python3

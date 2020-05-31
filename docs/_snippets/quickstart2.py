@@ -1,4 +1,4 @@
-async with pyryver.Ryver("organization_url", "username", "password") as ryver:
+async with pyryver.Ryver("organization_name", "username", "password") as ryver:
     await ryver.load_chats()
 
     a_user = ryver.get_user(username="tylertian123")
