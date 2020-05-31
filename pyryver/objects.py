@@ -39,6 +39,7 @@ class Object(ABC):
     :param obj_type: The object's type, a constant beginning with ``TYPE_`` in :ref:`pyryver.util <util-data-constants>`.
     """
 
+    # TODO: Make the obj_type automatic
     def __init__(self, ryver: "Ryver", obj_type: str, data: dict):
         self._ryver = ryver # type: Ryver
         self._data = data
@@ -178,6 +179,29 @@ class TopicMessage(Message):
         Delete this message.
         """
         await self._ryver._session.delete(self.get_api_url(format="json"))
+    
+    async def get_attachments(self) -> typing.List["Storage"]:
+        """
+        Get all the attachments of this topic.
+
+        This method sends requests.
+
+        As the attachments could be files, links or otherwise, :py:class:`Storage`
+        objects are returned instead of :py:class:`File` objects.
+        """
+        url = self.get_api_url(expand="attachments,attachments/storage", select="attachments")
+        async with self._ryver._session.get(url) as resp:
+            attachments = (await resp.json())["d"]["results"]["attachments"]["results"]
+        results = []
+        for attachment in attachments:
+            # Check the type
+            if attachment["recordType"] == Storage.TYPE_FILE:
+                # Make it so that the file can be retrieved
+                attachment["storage"]["file"] = attachment
+                results.append(Storage(self._ryver, TYPE_STORAGE, attachment["storage"]))
+            else:
+                results.append(Storage(self._ryver, TYPE_STORAGE, attachment))
+        return results
 
 
 class TopicReply(TopicMessage):
@@ -210,6 +234,42 @@ class TopicReply(TopicMessage):
         Get the topic this reply was sent to.
         """
         return Topic(self._ryver, TYPE_TOPIC, self._data["post"])
+    
+    async def edit(self, message: str = None, attachments: typing.List["Storage"] = None, creator: Creator = None) -> None:
+        """
+        Edit this topic reply.
+
+        This method sends requests.
+
+        .. note::
+           You can only edit a reply if it was sent by you (even if you are an
+           admin). Attempting to edit another user's reply will result in a 
+           :py:exc:`aiohttp.ClientResponseError`.
+
+           The file attachments (if specified) will **replace** all existing attachments.
+
+           Additionally, this method also updates these properties in this object.
+
+        If any parameters are unspecified, that property will remain unchanged.
+
+        :param message: The contents of the topic (optional).
+        :param attachments: A number of attachments for this topic (optional). Note: Use `Storage` objects, not `File` objects! These attachments could be links or files.
+        :param creator: The overridden creator (optional).
+        """
+        url = self.get_api_url(format="json")
+        data = {}
+        if message is not None:
+            data["comment"] = message
+        if creator is not None:
+            data["createSource"] = creator.to_dict()
+        if attachments is not None:
+            data["attachments"] = {
+                "results": [attachment.get_file().get_raw_data() if attachment.get_storage_type() == Storage.TYPE_FILE else attachment.get_raw_data() for attachment in attachments]
+            }
+        await self._ryver._session.patch(url, json=data)
+        # Update self
+        for k, v in data.items():
+            self._data[k] = v
 
 
 class Topic(TopicMessage):
@@ -268,7 +328,7 @@ class Topic(TopicMessage):
         For unknown reasons, overriding the creator does not work for this method.
 
         :param message: The reply content
-        :param attachments: A number of attachments for this topic (optional). Note: Use `Storage` objects, not `File` objects! These attachments could be links or files.
+        :param attachments: A number of attachments for this reply (optional). Note: Use `Storage` objects, not `File` objects! These attachments could be links or files.
         """
         url = self._ryver.get_api_url(TYPE_TOPIC_REPLY, format="json")
         data = {
@@ -299,21 +359,7 @@ class Topic(TopicMessage):
         async for reply in get_all(session=self._ryver._session, url=url, top=top, skip=skip):
             yield TopicReply(self._ryver, TYPE_TOPIC_REPLY, reply)
     
-    async def get_attachments(self) -> typing.List["File"]:
-        """
-        Get all the files attached to this topic.
-
-        This method sends requests.
-        """
-        # See if the attachments data is already present
-        if "__deferred" not in self._data["attachments"]:
-            return [File(self._ryver, TYPE_FILE, data) for data in self._data["attachments"]["results"]]
-        url = self.get_api_url(expand="attachments", select="attachments")
-        async with self._ryver._session.get(url) as resp:
-            attachments = (await resp.json())["d"]["results"]["attachments"]["results"]
-        return [File(self._ryver, TYPE_FILE, data) for data in attachments]
-    
-    async def edit(self, subject: str = None, body: str = None, stickied: bool = None, attachments: typing.List["File"] = None, creator: Creator = None) -> None:
+    async def edit(self, subject: str = None, body: str = None, stickied: bool = None, attachments: typing.List["Storage"] = None, creator: Creator = None) -> None:
         """
         Edit this topic.
 
@@ -323,16 +369,16 @@ class Topic(TopicMessage):
            Unlike editing topic replies and chat messages, admins have permission to
            edit any topic regardless of whether they created it.
 
-        If any parameters are unspecified, that property will remain unchanged.
-
-        .. note::
            The file attachments (if specified) will **replace** all existing attachments.
+
            Additionally, this method also updates these properties in this object.
+        
+        If any parameters are unspecified, that property will remain unchanged.
 
         :param subject: The subject (or title) of the topic (optional).
         :param body: The contents of the topic (optional).
         :param stickied: Whether to sticky (pin) this topic to the top of the list (optional).
-        :param attachments: A number of files to attach to this topic (optional). Note: Use `File` objects, not `Storage` objects!
+        :param attachments: A number of attachments for this topic (optional). Note: Use `Storage` objects, not `File` objects! These attachments could be links or files.
         :param creator: The overridden creator (optional).
         """
         url = self.get_api_url(format="json")
@@ -347,7 +393,7 @@ class Topic(TopicMessage):
             data["createSource"] = creator.to_dict()
         if attachments is not None:
             data["attachments"] = {
-                "results": [file.get_raw_data() for file in attachments]
+                "results": [attachment.get_file().get_raw_data() if attachment.get_storage_type() == Storage.TYPE_FILE else attachment.get_raw_data() for attachment in attachments]
             }
         await self._ryver._session.patch(url, json=data)
         # Update self
@@ -507,7 +553,7 @@ class Chat(Object):
         async with self._ryver._session.post(url, json=data) as resp:
             return (await resp.json())["d"]["id"]
 
-    async def create_topic(self, subject: str, body: str, stickied: bool = False, attachments: typing.List["File"] = [], creator: Creator = None) -> Topic:
+    async def create_topic(self, subject: str, body: str, stickied: bool = False, attachments: typing.List["Storage"] = [], creator: Creator = None) -> Topic:
         """
         Create a topic in this chat.
 
@@ -523,7 +569,7 @@ class Chat(Object):
         :param subject: The subject (or title) of the new topic.
         :param body: The contents of the new topic.
         :param stickied: Whether to sticky (pin) this topic to the top of the list (optional, default False).
-        :param attachments: A number of files to attach to this topic (optional). Note: Use `File` objects, not `Storage` objects!
+        :param attachments: A number of attachments for this topic (optional). Note: Use `Storage` objects, not `File` objects! These attachments could be links or files.
         :param creator: The overridden creator; optional, if unset uses the logged-in user's profile.
         """
         url = self._ryver.get_api_url(TYPE_TOPIC)
@@ -546,7 +592,7 @@ class Chat(Object):
             data["createSource"] = creator.to_dict()
         if attachments:
             data["attachments"] = {
-                "results": [file.get_raw_data() for file in attachments]
+                "results": [attachment.get_file().get_raw_data() if attachment.get_storage_type() == Storage.TYPE_FILE else attachment.get_raw_data() for attachment in attachments]
             }
         async with self._ryver._session.post(url, json=data) as resp:
             return Topic(self._ryver, TYPE_TOPIC, (await resp.json())["d"]["results"])
@@ -1187,7 +1233,7 @@ class Storage(Object):
         """
         Get the name of this storage object.
         """
-        return self._data["name"]
+        return self._data.get("fileName", self._data.get("name", None))
     
     def get_size(self) -> str:
         """
