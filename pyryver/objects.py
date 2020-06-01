@@ -1166,12 +1166,31 @@ class TaskBoard(Object):
         Even if this task board has no categories (a list), this method will still
         return a single category, "Uncategorized".
         """
-        if "__deferred" in self._data["categories"]:
+        if "categories" not in self._data or "__deferred" in self._data["categories"]:
             url = self.get_api_url(action="categories")
             async with self._ryver._session.get(url) as resp:
                 return [TaskCategory(self._ryver, data) for data in (await resp.json())["d"]["results"]]
         else:
             return [TaskCategory(self._ryver, data) for data in self._data["categories"]["results"]]
+    
+    async def create_category(self, name: str, done: bool = False) -> "TaskCategory":
+        """
+        Create a new task category in this task board.
+
+        :param name: The name of this category.
+        :param done: Whether tasks moved to this category should be marked as done.
+        """
+        url = self._ryver.get_api_url(TYPE_TASK_CATEGORY)
+        data = {
+            "board": {
+                "id": self.get_id()
+            },
+            "name": name,
+        }
+        if done:
+            data["categoryType"] = "done"
+        async with self._ryver._session.post(url, json=data) as resp:
+            return TaskCategory(self._ryver, (await resp.json())["d"]["results"])
 
 
 class TaskCategory(Object):
@@ -1179,13 +1198,15 @@ class TaskCategory(Object):
     A category in a task board.
 
     :cvar CATEGORY_TYPE_UNCATEGORIZED: The "Uncategorized" category, created by the system (present in all task boards regardless of whether it is shown).
-    :cvar CATEGORY_TYPE_USER_CREATED: A user-created category (any category besides the "Uncategorized" category).
+    :cvar CATEGORY_TYPE_DONE: A user-created category in which all tasks are marked as done.
+    :cvar CATEGORY_TYPE_OTHER: Other categories (user-created and not marked as done).
     """
 
     _OBJ_TYPE = TYPE_TASK_CATEGORY
 
     CATEGORY_TYPE_UNCATEGORIZED = "uncategorized"
-    CATEGORY_TYPE_USER_CREATED = "user"
+    CATEGORY_TYPE_DONE = "done"
+    CATEGORY_TYPE_OTHER = "user"
 
     def get_name(self) -> str:
         """
@@ -1212,10 +1233,6 @@ class TaskCategory(Object):
         Get the type of this task category.
 
         Returns one of the ``CATEGORY_TYPE_`` constants in this class.
-
-        This can be used to differentiate between the "Uncategorized" category, which is
-        created by the system and present in all task boards, and regular user-created
-        task categories.
         """
         return self._data["categoryType"]
     
@@ -1223,12 +1240,102 @@ class TaskCategory(Object):
         """
         Get the task board that contains this category.
         """
-        if "__deferred" in self._data["board"]:
+        if "board" not in self._data or "__deferred" in self._data["board"]:
             url = self.get_api_url(expand="board", select="board")
             async with self._ryver._session.get(url) as resp:
                 return TaskBoard(self._ryver, (await resp.json())["d"]["results"]["board"])
         else:
             return TaskBoard(self._ryver, self._data["board"])
+    
+    async def edit(self, name: str = None, done: bool = None) -> None:
+        """
+        Edit this category.
+
+        .. note::
+           This method also updates these properties in this object.
+        
+        .. warning::
+           ``done`` should **never** be set for the "Uncategorized" category, as its
+           type cannot be modified. If set, a ``ValueError`` will be raised.
+
+        If any parameters are unspecified, that property will remain unchanged.
+
+        :param name: The name of this category (optional).
+        :param done: Whether tasks moved to this category should be marked as done (optional).
+        """
+        url = self.get_api_url()
+        data = {}
+        if name is not None:
+            data["name"] = name
+        if done is not None:
+            if self.get_category_type() == TaskCategory.CATEGORY_TYPE_UNCATEGORIZED:
+                raise ValueError("Cannot modify type of the 'Uncategorized' category!")
+            if done:
+                data["categoryType"] = TaskCategory.CATEGORY_TYPE_DONE
+            else:
+                data["categoryType"] = TaskCategory.CATEGORY_TYPE_OTHER
+        await self._ryver._session.patch(url, json=data)
+        self._data["name"] = data.get("name", self._data["name"])
+        self._data["categoryType"] = data.get("categoryType", self._data["categoryType"])
+    
+    async def delete(self, move_to: "TaskCategory" = None) -> None:
+        """
+        Delete this category.
+
+        If ``move_to`` is specified, the tasks that are in this category will be moved
+        into the specified category and not archived. Otherwise, the tasks will be
+        archived.
+
+        :param move_to: Another category to move the tasks in this category to (optional).
+        """
+        if move_to is None:
+            url = self.get_api_url(action="TaskCategory.Delete(archive=true)")
+        else:
+            url = self.get_api_url(action=f"TaskCategory.Delete(moveTo={move_to.get_id()},archive=true)")
+        await self._ryver._session.post(url)
+    
+    async def archive(self, completed_only: bool = False) -> None:
+        """
+        Archive either all or only completed tasks in this category.
+
+        .. note::
+           This archives the tasks in this category, not the category itself.
+
+        :param completed_only: Whether to only archive completed tasks (optional).
+        """
+        url = self.get_api_url(action=f"TaskCategory.Archive(completeOnly={'true' if completed_only else 'false'})")
+        await self._ryver._session.post(url)
+    
+    async def move_position(self, position: int) -> None:
+        """
+        Move this category's display position in the UI.
+
+        .. note::
+           This also updates the position property of this object.
+
+           The first user-created category that is shown in the UI has a position of 1.
+           This is because the "Uncategorized" category, which is present in all task
+           boards, always has a position of 0, even when it's not shown (when there are
+           no uncategorized tasks). 
+
+           Therefore, no user-created task category can ever be moved to position 0,
+           and the "Uncategorized" category should never be moved.
+        
+        :param position: The new display position.
+        """
+        url = self.get_api_url(action=f"TaskCategory.Move(position={position})")
+        await self._ryver._session.post(url)
+        self._data["position"] = position
+    
+    async def move_tasks(self, category: "TaskCategory", completed_only: bool = False) -> None:
+        """
+        Move either all or only completed tasks in this category to another category.
+
+        :param category: The category to move to.
+        :param completed_only: Whether to only move completed tasks (optional).
+        """
+        url = self.get_api_url(action=f"TaskCategory.MoveTasks(moveTo={category.get_id()},completeOnly={'true' if completed_only else 'false'})")
+        await self._ryver._session.post(url)
 
 
 class Notification(Object):
