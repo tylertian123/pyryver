@@ -26,22 +26,22 @@ Chats
    :undoc-members:
    :show-inheritance:
 
-User
-----
+Users
+-----
 .. autoclass:: User 
    :members:
    :undoc-members:
    :show-inheritance:
 
-Group Chat Member
------------------
+Group Chat Members
+------------------
 .. autoclass:: GroupChatMember
    :members:
    :undoc-members:
    :show-inheritance:
 
-Messages
---------
+Messages (Including Topics)
+---------------------------
 .. autoclass:: Message
    :members:
    :undoc-members:
@@ -59,6 +59,13 @@ Messages
    :undoc-members:
    :show-inheritance:
 
+Tasks
+-----
+.. autoclass:: TaskBoard
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 Files
 -----
 .. autoclass:: Storage
@@ -70,15 +77,15 @@ Files
    :undoc-members:
    :show-inheritance:
 
-Notification
-------------
+Notifications
+-------------
 .. autoclass:: Notification
    :members:
    :undoc-members:
    :show-inheritance:
 
-Creator
--------
+Creators
+--------
 .. autoclass:: Creator
    :members:
    :undoc-members:

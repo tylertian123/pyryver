@@ -776,6 +776,10 @@ class Chat(Object):
 class User(Chat):
     """
     A Ryver user.
+
+    :cvar ROLE_USER: Regular organization member. Admins also have this role in addition to ``ROLE_ADMIN``.
+    :cvar ROLE_ADMIN: An org admin.
+    :cvar ROLE_GUEST: A guest.
     """
 
     _OBJ_TYPE = TYPE_USER
@@ -971,6 +975,9 @@ class User(Chat):
 class GroupChatMember(Object):
     """
     A member in a forum or team.
+
+    :cvar ROLE_MEMBER: Regular chat member. Note: This member could also be an org admin.
+    :cvar ROLE_ADMIN: Forum/team admin.
     """
 
     _OBJ_TYPE = TYPE_GROUPCHAT_MEMBER
@@ -1112,6 +1119,9 @@ class Team(GroupChat):
 class TaskBoard(Object):
     """
     A Ryver task board.
+
+    :cvar BOARD_TYPE_BOARD: A task board with categories.
+    :cvar BOARD_TYPE_LIST: A task list (i.e. a task board without categories).
     """
 
     _OBJ_TYPE = TYPE_TASK_BOARD
@@ -1153,6 +1163,11 @@ class TaskBoard(Object):
 class Notification(Object):
     """
     A Ryver user notification.
+
+    :cvar PREDICATE_MENTION: The user was directly mentioned with an @mention.
+    :cvar PREDICATE_GROUP_MENTION: The user was mentioned through @team or @here.
+    :cvar PREDICATE_COMMENT: A topic was commented on.
+    :cvar PREDICATE_TASK_COMPLETED: A task was completed.
     """
 
     _OBJ_TYPE = TYPE_NOTIFICATION
@@ -1166,11 +1181,9 @@ class Notification(Object):
         """
         Get the "predicate", or type, of this notification.
 
-        E.g.
-          - chat_mention - User was @mentioned
-          - group_mention - User was mentioned through @team or @here
-          - commented_on - A topic was commented on
-          - completed - A task was completed
+        This usually returns one of the ``PREDICATE_`` constants in this class.
+        Note that the list currently provided is not exhaustive; this method may
+        return a value that isn't one of the constants.
         """
         return self._data["predicate"]
 
@@ -1368,6 +1381,9 @@ class File(Object):
 class Storage(Object):
     """
     Generic storage (message attachments), e.g. files and links.
+
+    :cvar STORAGE_TYPE_FILE: An uploaded file.
+    :cvar STORAGE_TYPE_LINK: A link.
     """
 
     _OBJ_TYPE = TYPE_STORAGE

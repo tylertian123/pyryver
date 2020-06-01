@@ -69,6 +69,17 @@ class RyverWS():
 
     .. warning::
        This **does not work** when using a custom integration token to sign in.
+    
+    :cvar PRESENCE_AVAILABLE: "Available" presence (green).
+    :cvar PRESENCE_AWAY: "Away" presence (yellow clock).
+    :cvar PRESENCE_DO_NOT_DISTURB: "Do Not Disturb" presence (red stop sign).
+    :cvar PRESENCE_OFFLINE: "Offline" presence (grey).
+
+    :cvar EVENT_REACTION_ADDED: A reaction was added to a message.
+    :cvar EVENT_REACTION_REMOVED: A reaction was removed from a message.
+    :cvar EVENT_ALL: All unhandled events.
+
+    :cvar MSG_TYPE_ALL: All unhandled message types.
     """
 
     _VALID_ID_CHARS = string.ascii_letters + string.digits
