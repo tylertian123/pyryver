@@ -1158,6 +1158,77 @@ class TaskBoard(Object):
         If a task board does not have task IDs set up, this will return None.
         """
         return self._data["shortPrefix"]
+    
+    async def get_categories(self) -> typing.List["TaskCategory"]:
+        """
+        Get all the categories in this task board.
+
+        Even if this task board has no categories (a list), this method will still
+        return a single category, "Uncategorized".
+        """
+        if "__deferred" in self._data["categories"]:
+            url = self.get_api_url(action="categories")
+            async with self._ryver._session.get(url) as resp:
+                return [TaskCategory(self._ryver, data) for data in (await resp.json())["d"]["results"]]
+        else:
+            return [TaskCategory(self._ryver, data) for data in self._data["categories"]["results"]]
+
+
+class TaskCategory(Object):
+    """
+    A category in a task board.
+
+    :cvar CATEGORY_TYPE_UNCATEGORIZED: The "Uncategorized" category, created by the system (present in all task boards regardless of whether it is shown).
+    :cvar CATEGORY_TYPE_USER_CREATED: A user-created category (any category besides the "Uncategorized" category).
+    """
+
+    _OBJ_TYPE = TYPE_TASK_CATEGORY
+
+    CATEGORY_TYPE_UNCATEGORIZED = "uncategorized"
+    CATEGORY_TYPE_USER_CREATED = "user"
+
+    def get_name(self) -> str:
+        """
+        Get the name of this category.
+        """
+        return self._data["name"]
+    
+    def get_position(self) -> int:
+        """
+        Get the position of this category in this task board.
+
+        Positions are numbered from left to right.
+
+        .. note::
+           The first user-created category that is shown in the UI has a position of 1.
+           This is because the "Uncategorized" category, which is present in all task
+           boards, always has a position of 0, even when it's not shown (when there are
+           no uncategorized tasks).
+        """
+        return self._data["position"]
+    
+    def get_category_type(self) -> str:
+        """
+        Get the type of this task category.
+
+        Returns one of the ``CATEGORY_TYPE_`` constants in this class.
+
+        This can be used to differentiate between the "Uncategorized" category, which is
+        created by the system and present in all task boards, and regular user-created
+        task categories.
+        """
+        return self._data["categoryType"]
+    
+    async def get_task_board(self) -> TaskBoard:
+        """
+        Get the task board that contains this category.
+        """
+        if "__deferred" in self._data["board"]:
+            url = self.get_api_url(expand="board", select="board")
+            async with self._ryver._session.get(url) as resp:
+                return TaskBoard(self._ryver, (await resp.json())["d"]["results"]["board"])
+        else:
+            return TaskBoard(self._ryver, self._data["board"])
 
 
 class Notification(Object):
