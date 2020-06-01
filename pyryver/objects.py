@@ -754,6 +754,23 @@ class Chat(Object):
         async with self._ryver._session.get(url) as resp:
             messages = (await resp.json())["d"]["results"]
         return [ChatMessage(self._ryver, data) for data in messages]
+    
+    async def get_task_board(self) -> typing.Union["TaskBoard", None]:
+        """
+        Get the task board of this chat.
+
+        If tasks are not set up for this chat, this will return None.
+
+        This method works on users too. If used on a user, it will get their personal
+        task board.
+        """
+        url = self.get_api_url(action="board")
+        async with self._ryver._session.get(url, raise_for_status=False) as resp:
+            # No task board
+            if resp.status == 404:
+                return None
+            resp.raise_for_status()
+            return TaskBoard(self._ryver, (await resp.json())["d"]["results"])
 
 
 class User(Chat):
@@ -1090,6 +1107,47 @@ class Team(GroupChat):
     """
 
     _OBJ_TYPE = TYPE_TEAM
+
+
+class TaskBoard(Object):
+    """
+    A Ryver task board.
+    """
+
+    _OBJ_TYPE = TYPE_TASK_BOARD
+
+    BOARD_TYPE_BOARD = "board"
+    BOARD_TYPE_LIST = "list"
+
+    def get_name(self) -> str:
+        """
+        Get the name of this task board.
+        """
+        return self._data["name"]
+    
+    def get_board_type(self) -> str:
+        """
+        Get the type of this task board.
+
+        Returns one of the ``BOARD_TYPE_`` constants in this class.
+
+        ``BOARD_TYPE_BOARD`` is a task board with categories, while ``BOARD_TYPE_LIST``
+        is a task list without categories.
+
+        Not to be confused with :py:meth:`Object.get_type()`.
+        """
+        return self._data["type"]
+    
+    def get_prefix(self) -> typing.Union[str, None]:
+        """
+        Get the prefix for this task board.
+
+        The prefix can be used to reference tasks across Ryver using the #PREFIX-ID
+        syntax.
+
+        If a task board does not have task IDs set up, this will return None.
+        """
+        return self._data["shortPrefix"]
 
 
 class Notification(Object):

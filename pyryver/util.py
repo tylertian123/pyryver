@@ -11,6 +11,7 @@ TYPE_NOTIFICATION = "userNotifications"
 TYPE_GROUPCHAT_MEMBER = "workroomMembers"
 TYPE_FILE = "files"
 TYPE_STORAGE = "storage"
+TYPE_TASK_BOARD = "taskBoards"
 
 # Note: messages aren't really a "real" type in the Ryver API
 # They're just here for the sake of completeness and to fit in with the rest of pyryver
@@ -27,6 +28,7 @@ ENTITY_TYPES = {
     TYPE_GROUPCHAT_MEMBER: "Entity.Workroom.Member",
     TYPE_FILE: "Entity.File",
     TYPE_STORAGE: "Entity.Storage",
+    TYPE_TASK_BOARD: "Entity.Tasks.TaskBoard",
 }
 
 # Field names for get_obj_by_field
