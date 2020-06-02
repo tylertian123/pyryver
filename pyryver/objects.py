@@ -30,6 +30,80 @@ class Creator:
             "displayName": self.name,
             "avatar": self.avatar
         }
+    
+
+class TaskTag:
+    """
+    A tag for tasks.
+
+    .. note::
+       This class does not inherit from :py:class:`Object`. It is a helper created to
+       work with task tag definitions in chats.
+
+       All colours are in RGBA hex.
+
+    :param name: The tag name.
+    :param text_color: The text colour.
+    :param background_color: The background color.
+    :param border_color: The border color.
+    """
+
+    def __init__(self, name: str, text_color: str, background_color: str, border_color: str):
+        self._data = {
+            "name": name,
+            "colors": {
+                "text": text_color,
+                "background": background_color,
+                "border": border_color,
+            }
+        }
+    
+    @classmethod
+    def from_data(cls, data: dict) -> "TaskTag":
+        """
+        Construct a instance from raw data.
+
+        .. warning::
+           This method is intended for internal use only.
+
+        :param data: The instance data.
+        """
+        inst = cls(None, None, None, None)
+        inst._data = data
+        return inst
+    
+    def to_dict(self) -> dict:
+        """
+        Convert this ``TaskTag`` object to a dictionary to be used in a request.
+
+        .. warning::
+           This method is intended for internal use only.
+        """
+        return self._data
+    
+    def get_name(self) -> str:
+        """
+        Get the name of this tag.
+        """
+        return self._data["name"]
+    
+    def get_text_color(self) -> str:
+        """
+        Get the text colour of this tag, as an RGBA hex colour code.
+        """
+        return self._data["colors"]["text"]
+    
+    def get_background_color(self) -> str:
+        """
+        Get the background colour of this tag, as an RGBA hex colour code.
+        """
+        return self._data["colors"]["background"]
+    
+    def get_border_color(self) -> str:
+        """
+        Get the border colour of this tag, as an RGBA hex colour code.
+        """
+        return self._data["colors"]["border"]
 
 
 class Object(ABC):
@@ -418,6 +492,7 @@ class Topic(TopicMessage):
         .. note::
            For unknown reasons, overriding the creator does not seem to work for this method.
 
+        .. tip::
            To attach files to the reply, use :py:meth:`pyryver.ryver.Ryver.upload_file()`
            to upload the files you wish to attach. Alternatively, use
            :py:meth:`pyryver.ryver.Ryver.create_link()` for link attachments.
@@ -662,6 +737,30 @@ class Chat(Object):
         """
         Get the name of this chat.
         """
+    
+    def get_task_tags(self) -> typing.List[TaskTag]:
+        """
+        Get a list of task tags defined in this chat, as ``TaskTag`` objects.
+        """
+        return [TaskTag.from_data(data) for data in self._data["tagDefs"]]
+    
+    async def set_task_tags(self, tags: typing.List[TaskTag]):
+        """
+        Set the task tags defined in this chat.
+
+        .. note::
+           This will erase any existing tags.
+
+           This method also updates the task tags property of this object.
+        
+        :param tags: The new tags as a list of ``TaskTag``s.
+        """
+        data = {
+            "tagDefs": [tag.to_dict() for tag in tags]
+        }
+        url = self.get_api_url()
+        await self._ryver._session.patch(url, json=data)
+        self._data["tagDefs"] = data["tagDefs"]
 
     async def send_message(self, message: str, creator: Creator = None, attachment: "Storage" = None, from_user: "User" = None) -> str:
         """
@@ -669,7 +768,7 @@ class Chat(Object):
 
         Specify a creator to override the username and profile of the message creator.
 
-        .. note::
+        .. tip::
            To attach a file to the message, use :py:meth:`pyryver.ryver.Ryver.upload_file()`
            to upload the file you wish to attach. Alternatively, use
            :py:meth:`pyryver.ryver.Ryver.create_link()` for a link attachment.
@@ -1036,7 +1135,7 @@ class User(Chat):
 
         Returns the topic created.
 
-        .. note::
+        .. tip::
            To attach files to the topic, use :py:meth:`pyryver.ryver.Ryver.upload_file()`
            to upload the files you wish to attach. Alternatively, use
            :py:meth:`pyryver.ryver.Ryver.create_link()` for link attachments.
@@ -1172,7 +1271,7 @@ class GroupChat(Chat):
 
         Returns the topic created.
 
-        .. note::
+        .. tip::
            To attach files to the topic, use :py:meth:`pyryver.ryver.Ryver.upload_file()`
            to upload the files you wish to attach. Alternatively, use
            :py:meth:`pyryver.ryver.Ryver.create_link()` for link attachments.
@@ -1315,6 +1414,63 @@ class TaskBoard(Object):
             url = self.get_api_url(action="tasks", filter=f"(archived eq {'true' if archived else 'false'})")
         async with self._ryver._session.get(url) as resp:
             return [Task(self._ryver, data) for data in (await resp.json())["d"]["results"]]
+    
+    async def create_task(self, subject: str, body: str = "", category: "TaskCategory" = None, assignees: typing.List[User] = [], due_date: str = None, tags: typing.Union[typing.List[str], typing.List[TaskTag]] = [], attachments: typing.List["Storage"] = []) -> "Task":
+        """
+        Create a task in this task board.
+
+        If the category is None, this task will be put in the "Uncategorized" category.
+        For list type task boards, the category can be left as None.
+
+        .. tip::
+           To attach files to the task, use :py:meth:`pyryver.ryver.Ryver.upload_file()`
+           to upload the files you wish to attach. Alternatively, use
+           :py:meth:`pyryver.ryver.Ryver.create_link()` for link attachments.
+        
+        .. tip::
+           You can use :py:meth:`pyryver.util.datetime_to_iso8601()` to turn datetime
+           objects into timestamps that Ryver will accept.
+
+           Note that timezone info **must** be present in the timestamp. Otherwise, this
+           will result in a 400 Bad Request.
+        
+        :param subject: The subject, or title of the task.
+        :param body: The body, or description of the task (optional).
+        :param category: The category of the task; if None, the task will be uncategorized (optional).
+        :param assignees: A list of users to assign for this task (optional).
+        :param due_date: The due date, as an ISO 8601 formatted string **with a timezone offset** (optional).
+        :param tags: A list of tags of this task (optional). Can either be a list of strings or a list of ``TaskTag``s.
+        :param attachments: A list of attachments for this task (optional). Note: Use `Storage` objects, not `File` objects! These attachments could be links or files.
+        """
+        data = {
+            "board": {
+                "id": self.get_id()
+            },
+            "subject": subject,
+            "body": body,
+        }
+        if category is not None:
+            data["category"] = {
+                "id": category.get_id()
+            }
+        if assignees:
+            data["assignees"] = {
+                "results": [{"__descriptor": user.get_name(), "id": user.get_id()} for user in assignees]
+            }
+        if tags:
+            # Convert TaskTags to strings
+            if isinstance(tags[0], TaskTag):
+                tags = [tag.get_name() for tag in tags]
+            data["tags"] = tags
+        if attachments:
+            data["attachments"] = {
+                "results": [{"id": attachment.get_content_id()} for attachment in attachments]
+            }
+        if due_date is not None:
+            data["dueDate"] = due_date
+        url = self._ryver.get_api_url(TYPE_TASK)
+        async with self._ryver._session.post(url, json=data) as resp:
+            return Task(self._ryver, (await resp.json())["d"]["results"])
 
 
 class TaskCategory(Object):
@@ -1552,6 +1708,15 @@ class Task(Message):
         """
         return self._data["attachmentsCount"]
     
+    def get_tags(self) -> typing.List[str]:
+        """
+        Get all the tags of this task.
+
+        .. note::
+           The tags are returned as a list of strings, not a list of ``TaskTag``s.
+        """
+        return self._data["tags"]
+    
     async def get_task_board(self) -> TaskBoard:
         """
         Get the task board this task is in.
@@ -1575,9 +1740,16 @@ class Task(Message):
         Set the complete date of this task, which also marks whether this task
         is complete.
 
-        An optional completion time can be specified (in the form of an ISO 8601
-        timestamp, as returned by :py:meth:`pyryver.util.datetime_to_iso8601()`).
-        If not specified or an empty string, the current time will be used.
+        An optional completion time can be specified in the form of an ISO 8601
+        timestamp with a timezone offset. If not specified or an empty string, the 
+        current time will be used.
+
+        .. tip::
+           You can use :py:meth:`pyryver.util.datetime_to_iso8601()` to turn datetime
+           objects into timestamps that Ryver will accept.
+
+           Note that timezone info **must** be present in the timestamp. Otherwise, this
+           will result in a 400 Bad Request.
 
         If None is used as the time, in addition to clearing the complete date,
         this task will also be un-completed.
@@ -1602,12 +1774,15 @@ class Task(Message):
         """
         Set the due date of this task.
 
-        The time must be specified as an ISO 8601 timestamp. It can also be None, in
-        which case there will be no due date.
+        The time must be specified as an ISO 8601 timestamp with a timezone offset.
+        It can also be None, in which case there will be no due date.
 
         .. tip::
            You can use :py:meth:`pyryver.util.datetime_to_iso8601()` to turn datetime
            objects into timestamps that Ryver will accept.
+
+           Note that timezone info **must** be present in the timestamp. Otherwise, this
+           will result in a 400 Bad Request.
         
         .. note::
            This also updates the due date property in this object.
