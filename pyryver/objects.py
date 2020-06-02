@@ -1570,14 +1570,17 @@ class Task(Message):
         """
         return self.get_deferred_field("assignees", TYPE_USER)
     
-    async def set_complete_date(self, time: str = datetime_to_iso8601(datetime.datetime.now(datetime.timezone.utc))) -> None:
+    async def set_complete_date(self, time: str = "") -> None:
         """
         Set the complete date of this task, which also marks whether this task
         is complete.
 
         An optional completion time can be specified (in the form of an ISO 8601
         timestamp, as returned by :py:meth:`pyryver.util.datetime_to_iso8601()`).
-        If not specified, the current time will be used.
+        If not specified or an empty string, the current time will be used.
+
+        If None is used as the time, in addition to clearing the complete date,
+        this task will also be un-completed.
 
         .. note::
            This also updates the complete date property in this object.
@@ -1586,6 +1589,8 @@ class Task(Message):
 
         :param time: The completion time (optional).
         """
+        if time == "":
+            time = datetime_to_iso8601(datetime.datetime.now(datetime.timezone.utc))
         url = self.get_api_url()
         data = {
             "completeDate": time
