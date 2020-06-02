@@ -93,6 +93,34 @@ class Object(ABC):
         two parameters set to ``self.get_type()`` and ``self.get_id()``.
         """
         return self._ryver.get_api_url(self.get_type(), self.get_id(), *args, **kwargs)
+    
+    def get_create_date(self) -> str:
+        """
+        Get the date this object was created as an ISO 8601 timestamp.
+
+        .. note::
+           This method does not work for all objects. For some objects, it will return
+           None.
+
+        .. tip::
+           You can use :py:meth:`pyryver.util.iso8601_to_datetime()` to convert the 
+           timestamps returned by this method into a datetime.
+        """
+        return self._data.get("createDate", None)
+    
+    def get_modify_date(self) -> str:
+        """
+        Get the date this object was last modified as an ISO 8601 timestamp.
+
+        .. note::
+           This method does not work for all objects. For some objects, it will return
+           None.
+
+        .. tip::
+           You can use :py:meth:`pyryver.util.iso8601_to_datetime()` to convert the 
+           timestamps returned by this method into a datetime.
+        """
+        return self._data.get("modifyDate", None)
 
 
 class Message(Object):
@@ -755,7 +783,7 @@ class Chat(Object):
             messages = (await resp.json())["d"]["results"]
         return [ChatMessage(self._ryver, data) for data in messages]
     
-    async def get_task_board(self) -> typing.Union["TaskBoard", None]:
+    async def get_task_board(self) -> "TaskBoard":
         """
         Get the task board of this chat.
 
@@ -1148,7 +1176,7 @@ class TaskBoard(Object):
         """
         return self._data["type"]
     
-    def get_prefix(self) -> typing.Union[str, None]:
+    def get_prefix(self) -> str:
         """
         Get the prefix for this task board.
 
@@ -1191,6 +1219,21 @@ class TaskBoard(Object):
             data["categoryType"] = "done"
         async with self._ryver._session.post(url, json=data) as resp:
             return TaskCategory(self._ryver, (await resp.json())["d"]["results"])
+        
+    async def get_tasks(self, archived: bool = None) -> typing.List["Task"]:
+        """
+        Get all the tasks in this task board.
+
+        If ``archived`` is unspecified or None, all tasks will be retrieved.
+        If ``archived`` is either True or False, only tasks that are archived or
+        unarchived are retrieved, respectively.
+        """
+        if archived is None:
+            url = self.get_api_url(action="tasks")
+        else:
+            url = self.get_api_url(action="tasks", filter=f"(archived eq {'true' if archived else 'false'})")
+        async with self._ryver._session.get(url) as resp:
+            return [Task(self._ryver, data) for data in (await resp.json())["d"]["results"]]
 
 
 class TaskCategory(Object):
@@ -1336,6 +1379,108 @@ class TaskCategory(Object):
         """
         url = self.get_api_url(action=f"TaskCategory.MoveTasks(moveTo={category.get_id()},completeOnly={'true' if completed_only else 'false'})")
         await self._ryver._session.post(url)
+    
+    async def get_tasks(self, archived: bool = None) -> typing.List["Task"]:
+        """
+        Get all the tasks in this category.
+
+        If ``archived`` is unspecified or None, all tasks will be retrieved.
+        If ``archived`` is either True or False, only tasks that are archived or
+        unarchived are retrieved, respectively.
+        """
+        if archived is None:
+            url = self.get_api_url(action="tasks")
+        else:
+            url = self.get_api_url(action="tasks", filter=f"(archived eq {'true' if archived else 'false'})")
+        async with self._ryver._session.get(url) as resp:
+            return [Task(self._ryver, data) for data in (await resp.json())["d"]["results"]]
+
+
+class Task(Object):
+    """
+    A Ryver task.
+    """
+
+    _OBJ_TYPE = TYPE_TASK
+    
+    def is_archived(self) -> bool:
+        """
+        Get whether this task has been archived.
+        """
+        return self._data["archived"]
+    
+    def get_subject(self) -> str:
+        """
+        Get the subject (title) of this task.
+        """
+        return self._data["subject"]
+    
+    def get_body(self) -> str:
+        """
+        Get the body (description) of this task.
+        """
+        return self._data["description"]
+    
+    def get_due_date(self) -> str:
+        """
+        Get the due date as an ISO 8601 timestamp.
+
+        If there is no due date, this method will return None.
+
+        .. tip::
+           You can use :py:meth:`pyryver.util.iso8601_to_datetime()` to convert the 
+           timestamps returned by this method into a datetime.
+        """
+        return self._data["dueDate"]
+    
+    def get_complete_date(self) -> str:
+        """
+        Get the complete date as an ISO 8601 timestamp.
+
+        If the task has not been completed, this method will return None.
+
+        .. tip::
+           You can use :py:meth:`pyryver.util.iso8601_to_datetime()` to convert the 
+           timestamps returned by this method into a datetime.
+        """
+        return self._data["completeDate"]
+    
+    def is_completed(self) -> bool:
+        """
+        Get whether this task has been completed.
+        """
+        return self.get_complete_date() is not None
+    
+    def get_short_repr(self) -> str:
+        """
+        Get the short representation of this task. 
+
+        This is can be used to reference this task across Ryver.
+        It has the form PREFIX-ID.
+
+        If the task board does not have prefixes set up, this will return None.
+        """
+        return self._data["short"]
+    
+    def get_position(self) -> int:
+        """
+        Get the position of this task in its category or the task list.
+
+        The first task has a position of 0.
+        """
+        return self._data["position"]
+    
+    def get_comments_count(self) -> int:
+        """
+        Get how many comments this task has received.
+        """
+        return self._data["commentsCount"]
+    
+    def get_attachments_count(self) -> int:
+        """
+        Get how many attachments this task has.
+        """
+        return self._data["attachmentsCount"]
 
 
 class Notification(Object):

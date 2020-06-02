@@ -1,5 +1,6 @@
 import aiohttp
 import asyncio
+import datetime
 import typing
 
 TYPE_USER = "users"
@@ -13,6 +14,7 @@ TYPE_FILE = "files"
 TYPE_STORAGE = "storage"
 TYPE_TASK_BOARD = "taskBoards"
 TYPE_TASK_CATEGORY = "taskCategories"
+TYPE_TASK = "task"
 
 # Note: messages aren't really a "real" type in the Ryver API
 # They're just here for the sake of completeness and to fit in with the rest of pyryver
@@ -31,6 +33,7 @@ ENTITY_TYPES = {
     TYPE_STORAGE: "Entity.Storage",
     TYPE_TASK_BOARD: "Entity.Tasks.TaskBoard",
     TYPE_TASK_CATEGORY: "Entity.Tasks.TaskCategory",
+    TYPE_TASK: "Entity.Tasks.Task",
 }
 
 # Field names for get_obj_by_field
@@ -146,3 +149,12 @@ async def retry_until_available(coro: typing.Awaitable[_T], *args, timeout: floa
             pass
     
     return await asyncio.wait_for(_retry_inner(), timeout)
+
+
+def iso8601_to_datetime(timestamp: str) -> datetime.datetime:
+    """
+    Convert an ISO 8601 timestamp as returned by the Ryver API into a datetime.
+
+    :param timestamp: The ISO 8601 timestamp.
+    """
+    return datetime.datetime.strptime(timestamp, "%Y-%m-%dT%H:%M:%S%z")
