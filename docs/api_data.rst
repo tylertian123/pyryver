@@ -69,6 +69,10 @@ Tasks
    :members:
    :undoc-members:
    :show-inheritance:
+.. autoclass:: Task
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 Files
 -----

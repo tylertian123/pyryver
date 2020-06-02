@@ -191,11 +191,13 @@ class Message(Object):
 
     _OBJ_TYPE = "__message"
 
-    @abstractmethod
     def get_body(self) -> str:
         """
         Get the body of this message.
+
+        Note that this may be None in some circumstances.
         """
+        return self._data["body"]
 
     def get_creator(self) -> Creator:
         """
@@ -205,16 +207,10 @@ class Message(Object):
         override the display name and avatar of a user. If the username and 
         avatar were not overridden, this will return None.
         """
-        if self._data["createSource"]:
+        if "createSource" in self._data and self._data["createSource"] is not None:
             return Creator(self._data["createSource"]["displayName"], self._data["createSource"]["avatar"])
         else:
             return None
-
-    @abstractmethod
-    def get_author_id(self) -> int:
-        """
-        Get the ID of the author of this message.
-        """
 
     async def get_author(self) -> "User":
         """
@@ -222,17 +218,34 @@ class Message(Object):
 
         This method sends requests.
         """
-        return await self._ryver.get_object(TYPE_USER, self.get_author_id())
-
+        return self.get_create_user()
+    
     async def react(self, emoji: str) -> None:
         """
-        React to a message with an emoji. 
+        React to this task with an emoji. 
 
         This method sends requests.
 
+        .. note::
+           This method does **not** update the reactions property of this object.
+
         :param emoji: The string name of the reaction (e.g. "thumbsup").
         """
-        url = self.get_api_url(f"React(reaction='{emoji}'")
+        url = self.get_api_url(action=f"React(reaction='{emoji}')")
+        await self._ryver._session.post(url)
+    
+    async def unreact(self, emoji: str) -> None:
+        """
+        Unreact with an emoji.
+
+        This method sends requests.
+
+        .. note::
+           This method does **not** update the reactions property of this object.
+
+        :param emoji: The string name of the reaction (e.g. "thumbsup").
+        """
+        url = self.get_api_url(action=f"UnReact(reaction='{emoji}')")
         await self._ryver._session.post(url)
 
     def get_reactions(self) -> dict:
@@ -254,11 +267,11 @@ class Message(Object):
                   for reaction, users in reactions.items()}
         return counts
     
-    @abstractmethod
     async def delete(self) -> None:
         """
         Delete this message.
         """
+        await self._ryver._session.delete(self.get_api_url(format="json"))
 
 
 class TopicMessage(Message):
@@ -267,12 +280,6 @@ class TopicMessage(Message):
     """
 
     _OBJ_TYPE = "__topicMessage"
-    
-    async def delete(self) -> None:
-        """
-        Delete this message.
-        """
-        await self._ryver._session.delete(self.get_api_url(format="json"))
     
     async def get_attachments(self) -> typing.List["Storage"]:
         """
@@ -305,6 +312,7 @@ class TopicReply(TopicMessage):
 
     _OBJ_TYPE = TYPE_TOPIC_REPLY
 
+    # Override as a different field is used
     def get_body(self) -> str:
         """
         Get the body of this message.
@@ -318,12 +326,6 @@ class TopicReply(TopicMessage):
         # Even though no requests are sent because of how this is implemented,
         # this is still a coro because of consistency
         return User(self._ryver, self._data["createUser"])
-
-    def get_author_id(self) -> int:
-        """
-        Get the ID of the author of this reply.
-        """
-        return self._data["createUser"]["id"]
 
     async def get_topic(self) -> "Topic":
         """
@@ -382,18 +384,6 @@ class Topic(TopicMessage):
         Get the subject of this topic.
         """
         return self._data["subject"]
-
-    def get_body(self) -> str:
-        """
-        Get the body of this topic.
-        """
-        return self._data["body"]
-
-    def get_author_id(self) -> int:
-        """
-        Get the ID of the author of this topic.
-        """
-        return self._data["createUser"]["id"]
     
     def is_stickied(self) -> bool:
         """
@@ -461,7 +451,7 @@ class Topic(TopicMessage):
         :param top: Maximum number of results; optional, if unspecified return all results.
         :param skip: Skip this many results.
         """
-        url = self._ryver.get_api_url(TYPE_TOPIC_REPLY, format="json", filter=f"((post/id eq {self.get_id()}))", expand="createUser")
+        url = self._ryver.get_api_url(TYPE_TOPIC_REPLY, format="json", filter=f"((post/id eq {self.get_id()}))")
         async for reply in get_all(session=self._ryver._session, url=url, top=top, skip=skip):
             yield TopicReply(self._ryver, reply)
     
@@ -514,17 +504,23 @@ class ChatMessage(Message):
 
     _OBJ_TYPE = TYPE_MESSAGE
 
-    def get_body(self) -> str:
-        """
-        Get the message body.
-        """
-        return self._data["body"]
-
     def get_author_id(self) -> int:
         """
         Get the ID of the author of this message.
         """
         return self._data["from"]["id"]
+    
+    async def get_author(self) -> "User":
+        """
+        Get the author of this message, as a :py:class:`User` object.
+
+        .. tip::
+           For chat messages, you can get the author ID without sending any requests,
+           with :py:meth:`ChatMessage.get_author_id()`.
+
+        This method sends requests.
+        """
+        return self._ryver.get_object(TYPE_USER, self.get_author_id())
 
     def get_chat_type(self) -> str:
         """
@@ -577,13 +573,35 @@ class ChatMessage(Message):
     # Override Message.react() because a different URL is used
     async def react(self, emoji: str) -> None:
         """
-        React to a message with an emoji. 
+        React to this task with an emoji. 
 
         This method sends requests.
+
+        .. note::
+           This method does **not** update the reactions property of this object.
 
         :param emoji: The string name of the reaction (e.g. "thumbsup").
         """
         url = self._ryver.get_api_url(get_type_from_entity(self.get_chat_type()), self.get_chat_id(), "Chat.React()", format="json")
+        data = {
+            "id": self.get_id(),
+            "reaction": emoji
+        }
+        await self._ryver._session.post(url, json=data)
+    
+    # Override Message.unreact() because a different URL is used
+    async def unreact(self, emoji: str) -> None:
+        """
+        Unreact with an emoji.
+
+        This method sends requests.
+
+        .. note::
+           This method does **not** update the reactions property of this object.
+
+        :param emoji: The string name of the reaction (e.g. "thumbsup").
+        """
+        url = self._ryver.get_api_url(get_type_from_entity(self.get_chat_type()), self.get_chat_id(), "Chat.UnReact()", format="json")
         data = {
             "id": self.get_id(),
             "reaction": emoji
@@ -1454,7 +1472,7 @@ class TaskCategory(Object):
             return [Task(self._ryver, data) for data in (await resp.json())["d"]["results"]]
 
 
-class Task(Object):
+class Task(Message):
     """
     A Ryver task.
     """
@@ -1472,12 +1490,6 @@ class Task(Object):
         Get the subject (title) of this task.
         """
         return self._data["subject"]
-    
-    def get_body(self) -> str:
-        """
-        Get the body (description) of this task.
-        """
-        return self._data["description"]
     
     def get_due_date(self) -> str:
         """
@@ -1627,36 +1639,6 @@ class Task(Object):
         url = self.get_api_url(action=f"Task.Move(position={position}, category={category.get_id()})")
         await self._ryver._session.post(url)
         self._data["position"] = position
-    
-    async def react(self, emoji: str) -> None:
-        """
-        React to this task with an emoji. 
-
-        This method sends requests.
-
-        .. note::
-           Unlike the other methods that modify the object, this method does **not**
-           update the reactions property of this object.
-
-        :param emoji: The string name of the reaction (e.g. "thumbsup").
-        """
-        url = self.get_api_url(action=f"React(reaction='{emoji}')")
-        await self._ryver._session.post(url)
-    
-    async def unreact(self, emoji: str) -> None:
-        """
-        Unreact with an emoji.
-
-        This method sends requests.
-
-        .. note::
-           Unlike the other methods that modify the object, this method does **not**
-           update the reactions property of this object.
-
-        :param emoji: The string name of the reaction (e.g. "thumbsup").
-        """
-        url = self.get_api_url(action=f"UnReact(reaction='{emoji}')")
-        await self._ryver._session.post(url)
 
 
 class Notification(Object):
