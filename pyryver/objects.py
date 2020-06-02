@@ -121,6 +121,66 @@ class Object(ABC):
            timestamps returned by this method into a datetime.
         """
         return self._data.get("modifyDate", None)
+    
+    async def get_deferred_field(self, field: str, field_type: str) -> typing.Any:
+        """
+        Get the value of a field of this object that exists, but is not included
+        ("__deferred" in the Ryver API).
+
+        .. warning::
+           This function is intended for internal use only.
+
+        This function will automatically infer from the result's contents whether
+        to return a single object or a list of objects.
+
+        If the field cannot be retrieved, a ``ValueError`` will be raised.
+        
+        :param field: The name of the field.
+        :param field_type: The type of the field, must be a ``TYPE_`` constant.
+        """
+        url = self.get_api_url(expand=field, select=field)
+        async with self._ryver._session.get(url) as resp:
+            data = (await resp.json())["d"]["results"][field]
+        if "__deferred" in data:
+            raise ValueError("Cannot obtain field! The field cannot be expanded for some reason.")
+        constructor = TYPES_DICT[field_type]
+        # Check if the result should be a list
+        if "results" in data:
+            return [constructor(self._ryver, obj_data) for obj_data in data]
+        else:
+            return constructor(self._ryver, data)
+    
+    async def get_create_user(self) -> "User":
+        """
+        Get the user that created this object.
+
+        .. note::
+           This method does not work for all objects. If not supported, it will return
+           None.
+        """
+        if "createUser" in self._data:
+            try:
+                return await self.get_deferred_field("createUser", TYPE_USER)
+            except ValueError:
+                return None
+        else:
+            return None
+    
+    async def get_modify_user(self) -> "User":
+        """
+        Get the user that modified this object.
+
+        .. note::
+           This method does not work for all objects. If not supported, it will return
+           None.
+        """
+        if "modifyUser" in self._data:
+            try:
+                return await self.get_deferred_field("modifyUser", TYPE_USER)
+            except ValueError:
+                return None
+        else:
+            return None
 
 
 class Message(Object):
@@ -250,12 +310,12 @@ class TopicReply(TopicMessage):
         """
         return self._data["comment"]
 
-    def get_author(self) -> "User":
+    async def get_author(self) -> "User":
         """
         Get the author of this reply, as a :py:class:`User` object.
-
-        Unlike the other implementations, this does not send any requests.
         """
+        # Even though no requests are sent because of how this is implemented,
+        # this is still a coro because of consistency
         return User(self._ryver, self._data["createUser"])
 
     def get_author_id(self) -> int:
@@ -264,11 +324,13 @@ class TopicReply(TopicMessage):
         """
         return self._data["createUser"]["id"]
 
-    def get_topic(self) -> "Topic":
+    async def get_topic(self) -> "Topic":
         """
         Get the topic this reply was sent to.
+
+        This method sends requests.
         """
-        return Topic(self._ryver, self._data["post"])
+        return await self.get_deferred_field("post", TYPE_TOPIC)
     
     async def edit(self, message: str = None, creator: Creator = None, attachments: typing.List["Storage"] = None) -> None:
         """
@@ -398,7 +460,7 @@ class Topic(TopicMessage):
         :param top: Maximum number of results; optional, if unspecified return all results.
         :param skip: Skip this many results.
         """
-        url = self._ryver.get_api_url(TYPE_TOPIC_REPLY, format="json", filter=f"((post/id eq {self.get_id()}))", expand="createUser,post")
+        url = self._ryver.get_api_url(TYPE_TOPIC_REPLY, format="json", filter=f"((post/id eq {self.get_id()}))", expand="createUser")
         async for reply in get_all(session=self._ryver._session, url=url, top=top, skip=skip):
             yield TopicReply(self._ryver, reply)
     
@@ -467,7 +529,7 @@ class ChatMessage(Message):
         """
         Gets the type of chat that this message was sent to, as a string.
 
-        This string will be one of the ENTITY_TYPES values
+        This string will be one of the ENTITY_TYPES values.
         """
         return self._data["to"]["__metadata"]["type"]
 
@@ -1283,12 +1345,7 @@ class TaskCategory(Object):
         """
         Get the task board that contains this category.
         """
-        if "board" not in self._data or "__deferred" in self._data["board"]:
-            url = self.get_api_url(expand="board", select="board")
-            async with self._ryver._session.get(url) as resp:
-                return TaskBoard(self._ryver, (await resp.json())["d"]["results"]["board"])
-        else:
-            return TaskBoard(self._ryver, self._data["board"])
+        return self.get_deferred_field("board", TYPE_TASK_BOARD)
     
     async def edit(self, name: str = None, done: bool = None) -> None:
         """
@@ -1788,16 +1845,24 @@ class Storage(Object):
 
 
 TYPES_DICT = {
-    TYPE_USER: User,
-    TYPE_FORUM: Forum,
-    TYPE_TEAM: Team,
-    TYPE_TOPIC: Topic,
-    TYPE_MESSAGE: ChatMessage,
-    TYPE_TOPIC_REPLY: TopicReply,
-    TYPE_NOTIFICATION: Notification,
-    TYPE_GROUPCHAT_MEMBER: GroupChatMember,
-    TYPE_FILE: File,
-    TYPE_STORAGE: Storage,
+    Object._OBJ_TYPE: Object,
+    Message._OBJ_TYPE: Message,
+    TopicMessage._OBJ_TYPE: TopicMessage,
+    TopicReply._OBJ_TYPE: TopicReply,
+    Topic._OBJ_TYPE: Topic,
+    ChatMessage._OBJ_TYPE: ChatMessage,
+    Chat._OBJ_TYPE: Chat,
+    User._OBJ_TYPE: User,
+    GroupChatMember._OBJ_TYPE: GroupChatMember,
+    GroupChat._OBJ_TYPE: GroupChat,
+    Forum._OBJ_TYPE: Forum,
+    Team._OBJ_TYPE: Team,
+    TaskBoard._OBJ_TYPE: TaskBoard,
+    TaskCategory._OBJ_TYPE: TaskCategory,
+    Task._OBJ_TYPE: Task,
+    Notification._OBJ_TYPE: Notification,
+    File._OBJ_TYPE: File,
+    Storage._OBJ_TYPE: Storage,
 }
 
 
