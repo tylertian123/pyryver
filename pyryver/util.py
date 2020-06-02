@@ -14,7 +14,7 @@ TYPE_FILE = "files"
 TYPE_STORAGE = "storage"
 TYPE_TASK_BOARD = "taskBoards"
 TYPE_TASK_CATEGORY = "taskCategories"
-TYPE_TASK = "task"
+TYPE_TASK = "tasks"
 
 # Note: messages aren't really a "real" type in the Ryver API
 # They're just here for the sake of completeness and to fit in with the rest of pyryver
@@ -155,6 +155,23 @@ def iso8601_to_datetime(timestamp: str) -> datetime.datetime:
     """
     Convert an ISO 8601 timestamp as returned by the Ryver API into a datetime.
 
+    .. warning::
+       This function does not handle *all* valid ISO 8601 timestamps; it only tries to
+       handle the ones returned by the Ryver API. It uses the simple format string
+       ``"%Y-%m-%dT%H:%M:%S%z"`` to parse the timestamp.
+
+       Therefore, this function should **not** be used for parsing any ISO timestamp;
+       to do that, consider using ``dateutil.parser``, or some alternative method.
+
     :param timestamp: The ISO 8601 timestamp.
     """
     return datetime.datetime.strptime(timestamp, "%Y-%m-%dT%H:%M:%S%z")
+
+
+def datetime_to_iso8601(timestamp: datetime.datetime) -> str:
+    """
+    Convert a datetime into an ISO 8601 timestamp as used by the Ryver API.
+
+    :param timestamp: The datetime to convert.
+    """
+    return timestamp.strftime("%Y-%m-%dT%H:%M:%S%z")

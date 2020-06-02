@@ -1,5 +1,6 @@
 import aiohttp
 import asyncio
+import datetime
 import typing
 from abc import ABC, abstractmethod
 from pyryver.util import *
@@ -1538,6 +1539,124 @@ class Task(Object):
         Get how many attachments this task has.
         """
         return self._data["attachmentsCount"]
+    
+    async def get_task_board(self) -> TaskBoard:
+        """
+        Get the task board this task is in.
+        """
+        return self.get_deferred_field("board", TYPE_TASK_BOARD)
+    
+    async def get_task_category(self) -> TaskCategory:
+        """
+        Get the category this task is in.
+        """
+        return self.get_deferred_field("category", TYPE_TASK_CATEGORY)
+    
+    async def get_assignees(self) -> typing.List[User]:
+        """
+        Get the assignees of this task.
+        """
+        return self.get_deferred_field("assignees", TYPE_USER)
+    
+    async def set_complete_date(self, time: str = datetime_to_iso8601(datetime.datetime.now(datetime.timezone.utc))) -> None:
+        """
+        Set the complete date of this task, which also marks whether this task
+        is complete.
+
+        An optional completion time can be specified (in the form of an ISO 8601
+        timestamp, as returned by :py:meth:`pyryver.util.datetime_to_iso8601()`).
+        If not specified, the current time will be used.
+
+        .. note::
+           This also updates the complete date property in this object.
+
+           If a time of None is given, this task will be marked as uncomplete.
+
+        :param time: The completion time (optional).
+        """
+        url = self.get_api_url()
+        data = {
+            "completeDate": time
+        }
+        await self._ryver._session.patch(url, json=data)
+        self._data["completeDate"] = time
+    
+    async def set_due_date(self, time: str):
+        """
+        Set the due date of this task.
+
+        The time must be specified as an ISO 8601 timestamp. It can also be None, in
+        which case there will be no due date.
+
+        .. tip::
+           You can use :py:meth:`pyryver.util.datetime_to_iso8601()` to turn datetime
+           objects into timestamps that Ryver will accept.
+        
+        .. note::
+           This also updates the due date property in this object.
+        
+        :param time: The new due date.
+        """
+        url = self.get_api_url()
+        data = {
+            "dueDate": time
+        }
+        await self._ryver._session.patch(url, json=data)
+        self._data["dueDate"] = time
+    
+    async def complete(self) -> None:
+        """
+        Mark this task as complete.
+        """
+        await self.set_complete_date()
+    
+    async def uncomplete(self) -> None:
+        """
+        Mark this task as uncomplete.
+        """
+        await self.set_complete_date(None)
+    
+    async def move(self, category: TaskCategory, position: int) -> None:
+        """
+        Move this task to another category or to a different position in the same
+        category.
+
+        .. note::
+           This also updates the position property of this object.
+        """
+        url = self.get_api_url(action=f"Task.Move(position={position}, category={category.get_id()})")
+        await self._ryver._session.post(url)
+        self._data["position"] = position
+    
+    async def react(self, emoji: str) -> None:
+        """
+        React to this task with an emoji. 
+
+        This method sends requests.
+
+        .. note::
+           Unlike the other methods that modify the object, this method does **not**
+           update the reactions property of this object.
+
+        :param emoji: The string name of the reaction (e.g. "thumbsup").
+        """
+        url = self.get_api_url(action=f"React(reaction='{emoji}')")
+        await self._ryver._session.post(url)
+    
+    async def unreact(self, emoji: str) -> None:
+        """
+        Unreact with an emoji.
+
+        This method sends requests.
+
+        .. note::
+           Unlike the other methods that modify the object, this method does **not**
+           update the reactions property of this object.
+
+        :param emoji: The string name of the reaction (e.g. "thumbsup").
+        """
+        url = self.get_api_url(action=f"UnReact(reaction='{emoji}')")
+        await self._ryver._session.post(url)
 
 
 class Notification(Object):
