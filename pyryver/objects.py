@@ -1407,15 +1407,21 @@ class TaskBoard(Object):
         If ``archived`` is unspecified or None, all tasks will be retrieved.
         If ``archived`` is either True or False, only tasks that are archived or
         unarchived are retrieved, respectively.
+
+        This will not retrieve sub-tasks (checklist items).
         """
         if archived is None:
             url = self.get_api_url(action="tasks")
         else:
-            url = self.get_api_url(action="tasks", filter=f"(archived eq {'true' if archived else 'false'})")
+            url = self.get_api_url(action="tasks", filter=f"(archived eq {'true' if archived else 'false'} and parent eq null)")
         async with self._ryver._session.get(url) as resp:
             return [Task(self._ryver, data) for data in (await resp.json())["d"]["results"]]
     
-    async def create_task(self, subject: str, body: str = "", category: "TaskCategory" = None, assignees: typing.List[User] = [], due_date: str = None, tags: typing.Union[typing.List[str], typing.List[TaskTag]] = [], attachments: typing.List["Storage"] = []) -> "Task":
+    async def create_task(self, subject: str, body: str = "", category: "TaskCategory" = None, 
+                          assignees: typing.List[User] = [], due_date: str = None, 
+                          tags: typing.Union[typing.List[str], typing.List[TaskTag]] = [], 
+                          checklist: typing.List[str] = [], 
+                          attachments: typing.List["Storage"] = []) -> "Task":
         """
         Create a task in this task board.
 
@@ -1440,6 +1446,7 @@ class TaskBoard(Object):
         :param assignees: A list of users to assign for this task (optional).
         :param due_date: The due date, as an ISO 8601 formatted string **with a timezone offset** (optional).
         :param tags: A list of tags of this task (optional). Can either be a list of strings or a list of ``TaskTag``s.
+        :param checklist: A list of strings which are used as the item names for the checklist of this task (optional).
         :param attachments: A list of attachments for this task (optional). Note: Use `Storage` objects, not `File` objects! These attachments could be links or files.
         """
         data = {
@@ -1468,6 +1475,10 @@ class TaskBoard(Object):
             }
         if due_date is not None:
             data["dueDate"] = due_date
+        if checklist:
+            data["subTasks"] = {
+                "results": [{"subject": subject} for subject in checklist]
+            }
         url = self._ryver.get_api_url(TYPE_TASK)
         async with self._ryver._session.post(url, json=data) as resp:
             return Task(self._ryver, (await resp.json())["d"]["results"])
@@ -1619,11 +1630,13 @@ class TaskCategory(Object):
         If ``archived`` is unspecified or None, all tasks will be retrieved.
         If ``archived`` is either True or False, only tasks that are archived or
         unarchived are retrieved, respectively.
+
+        This will not retrieve sub-tasks (checklist items).
         """
         if archived is None:
             url = self.get_api_url(action="tasks")
         else:
-            url = self.get_api_url(action="tasks", filter=f"(archived eq {'true' if archived else 'false'})")
+            url = self.get_api_url(action="tasks", filter=f"(archived eq {'true' if archived else 'false'} and parent eq null)")
         async with self._ryver._session.get(url) as resp:
             return [Task(self._ryver, data) for data in (await resp.json())["d"]["results"]]
 
@@ -1819,6 +1832,73 @@ class Task(Message):
         url = self.get_api_url(action=f"Task.Move(position={position}, category={category.get_id()})")
         await self._ryver._session.post(url)
         self._data["position"] = position
+    
+    async def get_checklist(self) -> typing.List["Task"]:
+        """
+        Get the checklist items of this task (subtasks).
+
+        If this task has no checklist, an empty list will be returned.
+
+        The checklist items are ``Task`` objects; complete or uncomplete those objects
+        to change the checklist status.
+        """
+        url = self.get_api_url(action="subTasks")
+        async with self._ryver._session.get(url) as resp:
+            return [Task(self._ryver, data) for data in (await resp.json())["d"]["results"]]
+    
+    async def get_parent(self) -> "Task":
+        """
+        Get the parent task of this sub-task (checklist item).
+
+        This only works if this task is an item in another task's checklist.
+        Otherwise, this will return None.
+        """
+        try:
+            return self.get_deferred_field("parent", TYPE_TASK)
+        except ValueError:
+            return None
+    
+    async def add_to_checklist(self, items: typing.List[str]) -> None:
+        """
+        Add items to this task's checklist.
+
+        :param items: The names of the items to add.
+        """
+        # Make sure that there is at least one item to add
+        # Otherwise the PATCH request will actually erase all existing subtasks
+        # as the results array is empty.
+        if not items:
+            return
+        data = {
+            "subTasks": {
+                "results": [{"subject": subject} for subject in items]
+            }
+        }
+        url = self.get_api_url(format="json", select="subTasks", expand="subTasks")
+        await self._ryver._session.patch(url, json=data)
+    
+    async def set_checklist(self, items: typing.List["Task"]) -> None:
+        """
+        Set the contents of this task's checklist.
+
+        This will overwrite existing checklist items.
+
+        .. note::
+           This method should be used for deleting checklist items only. It cannot be
+           used to add new items as the tasks would have to be created first. To add
+           new items, use :py:meth:`Task.add_to_checklist()`.
+
+        :param items: The items in the checklist.
+        """
+        # Note: The official client deletes checklist items another way
+        # But I can't get it to work outside the browser
+        data = {
+            "subTasks": {
+                "results": [{"id": item} for item in items]
+            }
+        }
+        url = self.get_api_url()
+        await self._ryver._session.patch(url, json=data)
 
 
 class Notification(Object):
