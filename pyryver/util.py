@@ -73,10 +73,12 @@ def get_type_from_entity(entity_type: str) -> str:
        This function is intended for internal use only.
     
     :param entity_type: The entity type of the object.
+    :return: The regular type of the object, or None if an invalid type.
     """
     for t, e in ENTITY_TYPES.items():
         if e == entity_type:
             return t
+    return None
 
 
 async def get_all(session: aiohttp.ClientSession, url: str, top: int = -1, skip: int = 0) -> typing.AsyncIterator[dict]:
@@ -91,6 +93,7 @@ async def get_all(session: aiohttp.ClientSession, url: str, top: int = -1, skip:
     :param url: The url to request from.
     :param top: The max number of results, or -1 for unlimited (optional).
     :param skip: The number of results to skip (optional).
+    :return: An async iterator for the results.
     """
     param_sep = "&" if "?" in url else "?"
     # -1 means everything
@@ -130,10 +133,17 @@ async def retry_until_available(coro: typing.Awaitable[_T], *args, timeout: floa
     of 5 seconds, retrying after 1 second if a 404 occurs:
     .. code-block:: python
        message = await pyryver.retry_until_available(chat.get_message, message_id, timeout=5.0, retry_delay=1.0)
+    
+    .. note::
+       Do not "call" the coro first and pass a future to this function; instead, pass
+       a reference to the coro directly, as seen in the example. This is done because
+       a single future cannot be awaited multiple times, so a new one is created each
+       time the function retries.
 
     :param coro: The coroutine to run.
     :param timeout: The timeout in seconds, or None for no timeout (optional).
     :param retry_delay: The duration in seconds to wait before trying again (optional).
+    :return: The return value of the coroutine.
     """
     async def _retry_inner():
         try:

@@ -79,6 +79,8 @@ class Ryver:
         many results to skip.
 
         This method sends requests.
+
+        :return: The chats.
         """
         url = self.get_api_url(obj_type)
         return [TYPES_DICT[obj_type](self, chat) async for chat in get_all(session=self._session, url=url, top=top, skip=skip)]
@@ -108,6 +110,7 @@ class Ryver:
         :param obj_type: The type of the object to work with for this API request, a constant beginning with ``TYPE_`` in :ref:`pyryver.util <util-data-constants>` (optional).
         :param obj_id: The object's ID (optional).
         :param action: The action to take on the object (optional).
+        :return: The formatted API url.
         """
         url = self._url_prefix
         if obj_type is not None:
@@ -136,6 +139,7 @@ class Ryver:
 
         :param obj_type: The type of the object to retrieve, a constant beginning with ``TYPE_`` in :ref:`pyryver.util <util-data-constants>`.
         :param obj_id: The object's ID.
+        :return: The object requested.
         """
         async with self._session.get(self.get_api_url(obj_type, obj_id, action=None, **kwargs)) as resp:
             return TYPES_DICT[obj_type](self, (await resp.json())["d"]["results"])
@@ -220,15 +224,20 @@ class Ryver:
         - jid
         - username
         - display_name
+        - name (same as display_name in this case)
         - email
 
-        Returns none if not found.
+        Returns None if not found.
+
+        :return: The user, or None of not found.
         """
         if self.users is None:
             raise ValueError("Users not loaded")
         if len(kwargs.items()) != 1:
             raise ValueError("Only 1 query parameter can be specified!")
         field, value = list(kwargs.items())[0]
+        if field == "name":
+            field = "display_name"
         try:
             return get_obj_by_field(self.users, FIELD_NAMES[field], value)
         except KeyError:
@@ -248,7 +257,9 @@ class Ryver:
         - name
         - nickname
 
-        Returns none if not found.
+        Returns None if not found.
+
+        :return: The chat, or None if not found.
         """
         if self.forums is None or self.teams is None:
             raise ValueError("Forums/teams not loaded")
@@ -272,7 +283,9 @@ class Ryver:
         - id
         - jid
 
-        Returns none if not found.
+        Returns None if not found.
+
+        :return: The chat, or None if not found.
         """
         if self.forums is None or self.teams is None or self.users is None:
             raise ValueError("Forums/teams/users not loaded")
@@ -286,13 +299,14 @@ class Ryver:
 
     async def get_notifs(self, unread: bool = False, top: int = -1, skip: int = 0) -> typing.AsyncIterator[Notification]:
         """
-        Get all the user's notifications. 
+        Get the notifications for the logged in user.
 
         This method sends requests.
 
         :param unread: If True, only return unread notifications.
         :param top: Maximum number of results.
         :param skip: Skip this many results.
+        :return: An async iterator for the user's notifications.
         """
         if unread:
             url = self.get_api_url(TYPE_NOTIFICATION, format="json", orderby="modifyDate desc", filter="((unread eq true))")
@@ -308,7 +322,7 @@ class Ryver:
 
         This method sends requests.
 
-        Returns how many notifications were marked as read.
+        :return: How many notifications were marked as read.
         """
         url = self.get_api_url(TYPE_NOTIFICATION, action="UserNotification.MarkAllRead()", format="json")
         async with self._session.post(url) as resp:
@@ -320,7 +334,7 @@ class Ryver:
 
         This method sends requests.
 
-        Returns how many notifications were marked as seen.
+        :return: How many notifications were marked as seen.
         """
         url = self.get_api_url(TYPE_NOTIFICATION, action="UserNotification.MarkAllSeen()", format="json")
         async with self._session.post(url) as resp:
@@ -337,6 +351,7 @@ class Ryver:
 
         :param filename: The filename to send to Ryver. (this will show up in the UI if attached as an embed, for example)
         :param filedata: The file's raw data, sent directly to :py:meth:`aiohttp.FormData.add_field`.
+        :return: The uploaded file, as a :py:class:`Storage` object.
         """
         url = self.get_api_url(TYPE_STORAGE, action="Storage.File.Create(createFile=true)", expand="file", format="json")
         data = aiohttp.FormData(quote_fields=False)
@@ -354,6 +369,7 @@ class Ryver:
         
         :param name: The name of this link (its title).
         :param url: The URL of this link.
+        :return: The created link, as a :py:class:`Storage` object.
         """
         url = self.get_api_url(TYPE_STORAGE, action="Storage.Link.Create()", format="json")
         data = {
@@ -383,6 +399,8 @@ class Ryver:
          - "messages" and "prefixes", the purpose of which are currently unknown.
 
         This method sends requests.
+
+        :return: The raw org and user info data.
         """
         url = self.get_api_url(action="Ryver.Info()", format="json")
         async with self._session.get(url) as resp:
@@ -397,5 +415,7 @@ class Ryver:
 
         .. warning::
            Live sessions **do not work** when using a custom integration token.
+        
+        :return: The live websockets session.
         """
         return ryver_ws.RyverWS(self)

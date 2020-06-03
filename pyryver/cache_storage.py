@@ -18,12 +18,19 @@ class AbstractCacheStorage(ABC):
         Load all saved objects of a specific type.
 
         If no objects were saved, this method returns an empty list.
+
+        :param ryver: The Ryver session to associate the objects with.
+        :param obj_type: The type of the objects to load.
+        :return: A list of saved objects of that type.
         """
     
     @abstractmethod
-    def save(self, obj_type: str, data: typing.List[Object]) -> None:
+    def save(self, obj_type: str, data: typing.Iterable[Object]) -> None:
         """
         Save all objects of a specific type.
+
+        :param obj_type: The type of the objects to save.
+        :param data: The objects to save.
         """
 
 
@@ -47,6 +54,10 @@ class FileCacheStorage(AbstractCacheStorage):
         Load all saved objects of a specific type.
 
         If no objects were saved, this method returns an empty list.
+
+        :param ryver: The Ryver session to associate the objects with.
+        :param obj_type: The type of the objects to load.
+        :return: A list of saved objects of that type.
         """
         name = os.path.join(self._root_dir, self._prefix + obj_type + ".json")
         if not os.path.exists(name):
@@ -59,9 +70,12 @@ class FileCacheStorage(AbstractCacheStorage):
             return []
         return [TYPES_DICT[obj_type](ryver, obj_data) for obj_data in data]
     
-    def save(self, obj_type: str, data: typing.List[Object]) -> None:
+    def save(self, obj_type: str, data: typing.Iterable[Object]) -> None:
         """
         Save all objects of a specific type.
+
+        :param obj_type: The type of the objects to save.
+        :param data: The objects to save.
         """
         name = os.path.join(self._root_dir, self._prefix + obj_type + ".json")
         obj_data = [obj.get_raw_data() for obj in data]

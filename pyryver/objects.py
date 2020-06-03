@@ -25,6 +25,8 @@ class Creator:
 
         .. warning::
            This method is intended for internal use only.
+        
+        :return: The dict representation of this object.
         """
         return {
             "displayName": self.name,
@@ -67,6 +69,7 @@ class TaskTag:
            This method is intended for internal use only.
 
         :param data: The instance data.
+        :return: The constructed instance.
         """
         inst = cls(None, None, None, None)
         inst._data = data
@@ -78,30 +81,40 @@ class TaskTag:
 
         .. warning::
            This method is intended for internal use only.
+        
+        :return: The dict representation of this object.
         """
         return self._data
     
     def get_name(self) -> str:
         """
         Get the name of this tag.
+
+        :return: The name of the tag.
         """
         return self._data["name"]
     
     def get_text_color(self) -> str:
         """
         Get the text colour of this tag, as an RGBA hex colour code.
+
+        :return: The text colour of the tag.
         """
         return self._data["colors"]["text"]
     
     def get_background_color(self) -> str:
         """
         Get the background colour of this tag, as an RGBA hex colour code.
+
+        :return: The background colour of the tag.
         """
         return self._data["colors"]["background"]
     
     def get_border_color(self) -> str:
         """
         Get the border colour of this tag, as an RGBA hex colour code.
+
+        :return: The border colour of the tag.
         """
         return self._data["colors"]["border"]
 
@@ -125,26 +138,35 @@ class Object(ABC):
     def get_ryver(self) -> "Ryver":
         """
         Get the Ryver session this object was retrieved from.
+
+        :return: The Ryver session associated with this object.
         """
         return self._ryver
 
-    def get_id(self) -> typing.Any:
+    def get_id(self) -> typing.Union[int, str]:
         """
         Get the ID of this object.
 
-        This is usually an integer, however for messages it is a string instead.
+        For :py:class:`ChatMessage`s, this is a string. For all other types, it is
+        an int.
+
+        :return: The ID of this object.
         """
         return self._id
 
     def get_type(self) -> str:
         """
         Get the type of this object.
+
+        :return: The type of this object.
         """
         return self._OBJ_TYPE
 
     def get_entity_type(self) -> str:
         """
         Get the entity type of this object.
+
+        :return: The entity type of this object, or if no entity of such type exists, ``<unknown>``.
         """
         return ENTITY_TYPES.get(self.get_type(), "<unknown>")
 
@@ -154,6 +176,8 @@ class Object(ABC):
 
         The raw data is a dictionary directly obtained from parsing the JSON
         response.
+
+        :return: The raw data of this object.
         """
         return self._data
     
@@ -166,6 +190,8 @@ class Object(ABC):
 
         This is equivalent to calling :py:meth:`Ryver.get_api_url()`, but with the first
         two parameters set to ``self.get_type()`` and ``self.get_id()``.
+
+        :return: The formatted URL for performing requests.
         """
         return self._ryver.get_api_url(self.get_type(), self.get_id(), *args, **kwargs)
     
@@ -180,6 +206,8 @@ class Object(ABC):
         .. tip::
            You can use :py:meth:`pyryver.util.iso8601_to_datetime()` to convert the 
            timestamps returned by this method into a datetime.
+        
+        :return: The creation date of this object, or None if not supported.
         """
         return self._data.get("createDate", None)
     
@@ -194,6 +222,8 @@ class Object(ABC):
         .. tip::
            You can use :py:meth:`pyryver.util.iso8601_to_datetime()` to convert the 
            timestamps returned by this method into a datetime.
+        
+        :return: The modification date of this object, or None if not supported.
         """
         return self._data.get("modifyDate", None)
     
@@ -212,6 +242,8 @@ class Object(ABC):
         
         :param field: The name of the field.
         :param field_type: The type of the field, must be a ``TYPE_`` constant.
+        :return: The expanded value of this field as an object or a list of objects.
+        :raises ValueError: When the field cannot be expanded.
         """
         url = self.get_api_url(expand=field, select=field)
         async with self._ryver._session.get(url) as resp:
@@ -232,6 +264,8 @@ class Object(ABC):
         .. note::
            This method does not work for all objects. If not supported, it will return
            None.
+        
+        :return: The user that created this object, or None if not supported.
         """
         if "createUser" in self._data:
             try:
@@ -248,6 +282,8 @@ class Object(ABC):
         .. note::
            This method does not work for all objects. If not supported, it will return
            None.
+
+        :return: The user that last modified this object, or None if not supported.
         """
         if "modifyUser" in self._data:
             try:
@@ -270,6 +306,8 @@ class Message(Object):
         Get the body of this message.
 
         Note that this may be None in some circumstances.
+
+        :return: The body of this message.
         """
         return self._data["body"]
 
@@ -280,6 +318,8 @@ class Message(Object):
         Note that this is different from the author. Creators are used to
         override the display name and avatar of a user. If the username and 
         avatar were not overridden, this will return None.
+
+        :return: The overridden creator of this message.
         """
         if "createSource" in self._data and self._data["createSource"] is not None:
             return Creator(self._data["createSource"]["displayName"], self._data["createSource"]["avatar"])
@@ -291,6 +331,8 @@ class Message(Object):
         Get the author of this message, as a :py:class:`User` object.
 
         This method sends requests.
+
+        :return: The author of this message.
         """
         return self.get_create_user()
     
@@ -326,7 +368,9 @@ class Message(Object):
         """
         Get the reactions on this message.
 
-        Returns a dict of {emoji: [users]}.
+        Returns a dict of ``{emoji: [users]}``.
+
+        :return: A dict matching each emoji to the users that reacted with that emoji.
         """
         return self._data['__reactions']
 
@@ -334,7 +378,9 @@ class Message(Object):
         """
         Count the number of reactions for each emoji on a message.
 
-        Returns a dict of {emoji: number_of_reacts}.
+        Returns a dict of ``{emoji: number_of_reacts}``.
+
+        :return: A dict matching each emoji to the number of users that reacted with that emoji.
         """
         reactions = self.get_reactions()
         counts = {reaction: len(users)
@@ -363,6 +409,8 @@ class TopicMessage(Message):
 
         As the attachments could be files, links or otherwise, :py:class:`Storage`
         objects are returned instead of :py:class:`File` objects.
+
+        :return: A list of attachments of this topic or reply.
         """
         url = self.get_api_url(expand="attachments,attachments/storage", select="attachments")
         async with self._ryver._session.get(url) as resp:
@@ -389,27 +437,23 @@ class TopicReply(TopicMessage):
     # Override as a different field is used
     def get_body(self) -> str:
         """
-        Get the body of this message.
+        Get the body of this reply.
+
+        :return: The body of this reply.
         """
         return self._data["comment"]
-
-    async def get_author(self) -> "User":
-        """
-        Get the author of this reply, as a :py:class:`User` object.
-        """
-        # Even though no requests are sent because of how this is implemented,
-        # this is still a coro because of consistency
-        return User(self._ryver, self._data["createUser"])
 
     async def get_topic(self) -> "Topic":
         """
         Get the topic this reply was sent to.
 
         This method sends requests.
+
+        :return: The topic associated with this reply.
         """
         return await self.get_deferred_field("post", TYPE_TOPIC)
     
-    async def edit(self, message: str = None, creator: Creator = None, attachments: typing.List["Storage"] = None) -> None:
+    async def edit(self, message: str = None, creator: Creator = None, attachments: typing.Iterable["Storage"] = None) -> None:
         """
         Edit this topic reply.
 
@@ -456,18 +500,24 @@ class Topic(TopicMessage):
     def get_subject(self) -> str:
         """
         Get the subject of this topic.
+
+        :return: The subject of this topic.
         """
         return self._data["subject"]
     
     def is_stickied(self) -> bool:
         """
         Return whether this topic is stickied (pinned) to the top of the list.
+
+        :return: Whether this topic is stickied.
         """
         return self._data["stickied"]
     
     def is_archived(self) -> bool:
         """
         Return whether this topic is archived.
+
+        :return: Whether this topic is archived.
         """
         return self._data["archived"]
     
@@ -483,7 +533,7 @@ class Topic(TopicMessage):
         }
         await self._ryver._session.patch(url, json=data)
 
-    async def reply(self, message: str, creator: Creator = None, attachments: typing.List["Storage"] = []) -> TopicReply:
+    async def reply(self, message: str, creator: Creator = None, attachments: typing.Iterable["Storage"] = []) -> TopicReply:
         """
         Reply to the topic.
 
@@ -500,6 +550,7 @@ class Topic(TopicMessage):
         :param message: The reply content
         :param creator: The overridden creator (optional). **Does not work.**
         :param attachments: A number of attachments for this reply (optional). Note: Use `Storage` objects, not `File` objects! These attachments could be links or files.
+        :return: The created reply.
         """
         url = self._ryver.get_api_url(TYPE_TOPIC_REPLY, format="json")
         data = {
@@ -525,12 +576,13 @@ class Topic(TopicMessage):
 
         :param top: Maximum number of results; optional, if unspecified return all results.
         :param skip: Skip this many results.
+        :return: An async iterator for the replies of this topic.
         """
         url = self._ryver.get_api_url(TYPE_TOPIC_REPLY, format="json", filter=f"((post/id eq {self.get_id()}))")
         async for reply in get_all(session=self._ryver._session, url=url, top=top, skip=skip):
             yield TopicReply(self._ryver, reply)
     
-    async def edit(self, subject: str = None, body: str = None, stickied: bool = None, creator: Creator = None, attachments: typing.List["Storage"] = None) -> None:
+    async def edit(self, subject: str = None, body: str = None, stickied: bool = None, creator: Creator = None, attachments: typing.Iterable["Storage"] = None) -> None:
         """
         Edit this topic.
 
@@ -582,6 +634,8 @@ class ChatMessage(Message):
     def get_author_id(self) -> int:
         """
         Get the ID of the author of this message.
+
+        :return: The author ID of the message.
         """
         return self._data["from"]["id"]
     
@@ -594,6 +648,8 @@ class ChatMessage(Message):
            with :py:meth:`ChatMessage.get_author_id()`.
 
         This method sends requests.
+
+        :return: The author of this message.
         """
         return self._ryver.get_object(TYPE_USER, self.get_author_id())
 
@@ -601,9 +657,9 @@ class ChatMessage(Message):
         """
         Gets the type of chat that this message was sent to, as a string.
 
-        This string will be one of the ENTITY_TYPES values.
+        :return: The type of the chat this message was sent to.
         """
-        return self._data["to"]["__metadata"]["type"]
+        return get_type_from_entity(self._data["to"]["__metadata"]["type"])
 
     def get_chat_id(self) -> int:
         """
@@ -613,6 +669,8 @@ class ChatMessage(Message):
         the message data and is good for most API purposes while ``get_chat()``
         returns an entire Chat object, which might not be necessary depending
         on what you're trying to do.
+
+        :return: The ID of the chat this message was sent to.
         """
         return self._data["to"]["id"]
     
@@ -626,11 +684,14 @@ class ChatMessage(Message):
            will result in a KeyError. To obtain the full file info, use :py:meth:`Ryver.get_object()`
            with `TYPE_FILE <pyryver.util.TYPE_FILE>` and the ID.
 
+        .. note::
            Even if the attachment was a link and not a file, it will still be returned
            as a ``File`` object, as there seems to be no way of telling the type of the
            attachment just from the info provided in the message object.
 
         Returns None otherwise.
+
+        :return: The attached file or link.
         """
         if "extras" in self._data and "file" in self._data["extras"]:
             return File(self._ryver, self._data["extras"]["file"])
@@ -642,8 +703,10 @@ class ChatMessage(Message):
         Get the chat that this message was sent to, as a :py:class:`Chat` object.
 
         This method sends requests.
+
+        :return: The chat this message was sent to.
         """
-        return await self._ryver.get_object(get_type_from_entity(self.get_chat_type()), self.get_chat_id())
+        return await self._ryver.get_object(self.get_chat_type(), self.get_chat_id())
 
     # Override Message.react() because a different URL is used
     async def react(self, emoji: str) -> None:
@@ -657,7 +720,7 @@ class ChatMessage(Message):
 
         :param emoji: The string name of the reaction (e.g. "thumbsup").
         """
-        url = self._ryver.get_api_url(get_type_from_entity(self.get_chat_type()), self.get_chat_id(), "Chat.React()", format="json")
+        url = self._ryver.get_api_url(self.get_chat_type(), self.get_chat_id(), "Chat.React()", format="json")
         data = {
             "id": self.get_id(),
             "reaction": emoji
@@ -676,7 +739,7 @@ class ChatMessage(Message):
 
         :param emoji: The string name of the reaction (e.g. "thumbsup").
         """
-        url = self._ryver.get_api_url(get_type_from_entity(self.get_chat_type()), self.get_chat_id(), "Chat.UnReact()", format="json")
+        url = self._ryver.get_api_url(self.get_chat_type(), self.get_chat_id(), "Chat.UnReact()", format="json")
         data = {
             "id": self.get_id(),
             "reaction": emoji
@@ -687,7 +750,7 @@ class ChatMessage(Message):
         """
         Deletes the message.
         """
-        url = self._ryver.get_api_url(get_type_from_entity(self.get_chat_type()), self.get_chat_id(), "Chat.DeleteMessage()", format="json")
+        url = self._ryver.get_api_url(self.get_chat_type(), self.get_chat_id(), "Chat.DeleteMessage()", format="json")
         data = {
             "id": self.get_id(),
         }
@@ -705,7 +768,7 @@ class ChatMessage(Message):
         :param body: The new message content.
         :param creator: The new message creator; optional, if unset left as-is.
         """
-        url = self._ryver.get_api_url(get_type_from_entity(self.get_chat_type()), self.get_chat_id(), "Chat.UpdateMessage()", format="json")
+        url = self._ryver.get_api_url(self.get_chat_type(), self.get_chat_id(), "Chat.UpdateMessage()", format="json")
         data = {
             "id": self.get_id(),
             "body": body,
@@ -729,6 +792,8 @@ class Chat(Object):
         Get the JID (JabberID) of this chat.
 
         The JID is used in the websockets interface.
+
+        :return: The JID of this chat.
         """
         return self._data["jid"]
     
@@ -736,15 +801,19 @@ class Chat(Object):
     def get_name(self) -> str:
         """
         Get the name of this chat.
+
+        :return: The name of this chat.
         """
     
     def get_task_tags(self) -> typing.List[TaskTag]:
         """
         Get a list of task tags defined in this chat, as ``TaskTag`` objects.
+
+        :return: The defined task tags of this chat.
         """
         return [TaskTag.from_data(data) for data in self._data["tagDefs"]]
     
-    async def set_task_tags(self, tags: typing.List[TaskTag]):
+    async def set_task_tags(self, tags: typing.Iterable[TaskTag]):
         """
         Set the task tags defined in this chat.
 
@@ -789,6 +858,7 @@ class Chat(Object):
         :param creator: The overridden creator; optional, if unset uses the logged-in user's profile.
         :param attachment: An attachment for this message, e.g. a file or a link (optional).
         :param from_user: The user that is sending this message (the user currently logged in); **must** be set when using attachments in private messages (optional).
+        :return: The ID of the chat message that was sent.
         """
         url = self.get_api_url("Chat.PostMessage()", format="json")
         data = {
@@ -852,6 +922,7 @@ class Chat(Object):
         :param archived: If True, only include archived topics in the results, otherwise, only include non-archived topics.
         :param top: Maximum number of results; optional, if unspecified return all results.
         :param skip: Skip this many results.
+        :return: An async iterator for the topics of this chat.
         """
         url = self.get_api_url(f"Post.Stream(archived={'true' if archived else 'false'})", format="json")
         async for topic in get_all(session=self._ryver._session, url=url, top=top, skip=skip):
@@ -865,6 +936,7 @@ class Chat(Object):
 
         :param count: Maximum number of results.
         :param skip: The number of results to skip (optional).
+        :return: A list of messages.
         """
         # Interestingly, this does not have the same 50-result restriction as the other API methods...
         url = self.get_api_url("Chat.History()", format="json", top=count, skip=skip)
@@ -889,6 +961,7 @@ class Chat(Object):
         This method sends requests.
 
         :param id: The ID of the chat message to get.
+        :return: The message object.
         """
         url = self.get_api_url(f"Chat.History.Message(id='{id}')", format="json")
         async with self._ryver._session.get(url) as resp:
@@ -920,6 +993,7 @@ class Chat(Object):
         :param id: The ID of the message to use as the reference point.
         :param before: How many messages to retrieve before the specified one (optional).
         :param after: How many messages to retrieve after the specified one (optional).
+        :return: The messages requested, including the reference point message.
         """
         url = self.get_api_url(f"Chat.History.Message(id='{id}',before={before},after={after})", format="json")
         async with self._ryver._session.get(url) as resp:
@@ -957,6 +1031,7 @@ class Chat(Object):
         :param id: The ID of the message to retrieve, and the reference point for the ``before`` and ``after`` parameters.
         :param before: How many extra messages to retrieve before the specified one.
         :param after: How many extra messages to retrieve after the specified one.
+        :return: The message(s) requested in a list.
         """
         url = self.get_api_url(f"Chat.History.Message(id='{id}',before={before},after={after})", format="json")
         async with self._ryver._session.get(url) as resp:
@@ -971,6 +1046,8 @@ class Chat(Object):
 
         This method works on users too. If used on a user, it will get their personal
         task board.
+
+        :return: The task board of this chat.
         """
         url = self.get_api_url(action="board")
         async with self._ryver._session.get(url, raise_for_status=False) as resp:
@@ -999,18 +1076,24 @@ class User(Chat):
     def get_username(self) -> str:
         """
         Get the username of this user.
+
+        :return: The username of this user.
         """
         return self._data["username"]
 
     def get_display_name(self) -> str:
         """
         Get the display name of this user.
+
+        :return: The display name of this user.
         """
         return self._data["displayName"]
     
     def get_name(self) -> str:
         """
-        Get the display name of this user.
+        Get the display name of this user (same as the display name).
+
+        :return: The name of this user.
         """
         return self._data["displayName"]
 
@@ -1023,30 +1106,39 @@ class User(Chat):
            of the user from the profile, ``get_roles()`` gets the user's roles in the
            organization (user, guest, admin).
 
+        :return: The user's "Role" as described in their profile.
         """
         return self._data["description"]
 
     def get_about(self) -> str:
         """
         Get this user's About.
+
+        :return: The user's "About" as described in their profile.
         """
         return self._data["aboutMe"]
 
     def get_time_zone(self) -> str:
         """
         Get this user's Time Zone.
+
+        :return: The user's time zone.
         """
         return self._data["timeZone"]
 
     def get_email_address(self) -> str:
         """
         Get this user's Email Address.
+
+        :return: The user's email address.
         """
         return self._data["emailAddress"]
 
     def get_activated(self) -> bool:
         """
         Get whether this user's account is activated.
+
+        :return: Whether this user's account is activated (enabled).
         """
         return self._data["active"]
 
@@ -1059,12 +1151,15 @@ class User(Chat):
            roles in the organization (user, guest, admin), ``get_role()`` gets the
            user's role from their profile.
 
+        :return: The user's roles in the organization.
         """
         return self._data["roles"]
 
     def is_admin(self) -> bool:
         """
         Get whether this user is an org admin.
+
+        :return: Whether the user is an org admin.
         """
         return User.ROLE_ADMIN in self.get_roles()
 
@@ -1112,7 +1207,12 @@ class User(Chat):
         """
         Set a user's role in this organization, as described in :py:meth:`get_roles()`.
 
-        This can be either ROLE_USER, ROLE_ADMIN or ROLE_GUEST.
+        This can be either ``ROLE_USER``, ``ROLE_ADMIN`` or ``ROLE_GUEST``.
+
+        .. note::
+           Although for org admins, :py:meth:`get_roles()` will return both
+           ``ROLE_USER`` and ``ROLE_ADMIN``, to make someone an org admin you only
+           need to pass ``ROLE_ADMIN`` into this method.
 
         This method sends requests.
 
@@ -1127,7 +1227,8 @@ class User(Chat):
         if role == User.ROLE_ADMIN:
             self._data["roles"].append(User.ROLE_USER)
 
-    async def create_topic(self, from_user: "User", subject: str, body: str, stickied: bool = False, attachments: typing.List["Storage"] = [], creator: Creator = None) -> Topic:
+    async def create_topic(self, from_user: "User", subject: str, body: str, stickied: bool = False, 
+                           attachments: typing.Iterable["Storage"] = [], creator: Creator = None) -> Topic:
         """
         Create a topic in this user's DMs.
 
@@ -1146,6 +1247,7 @@ class User(Chat):
         :param stickied: Whether to sticky (pin) this topic to the top of the list (optional, default False).
         :param attachments: A number of attachments for this topic (optional). Note: Use `Storage` objects, not `File` objects! These attachments could be links or files.
         :param creator: The overridden creator; optional, if unset uses the logged-in user's profile.
+        :return: The created topic.
         """
         url = self._ryver.get_api_url(TYPE_TOPIC)
         data = {
@@ -1184,6 +1286,8 @@ class GroupChatMember(Object):
     """
     A member in a forum or team.
 
+    This class can be used to tell whether a user is an admin of their forum/team.
+
     :cvar ROLE_MEMBER: Regular chat member. Note: This member could also be an org admin.
     :cvar ROLE_ADMIN: Forum/team admin.
     """
@@ -1196,21 +1300,29 @@ class GroupChatMember(Object):
     def get_role(self) -> str:
         """
         Get the role of this member.
+
+        This will be one of the ``ROLE_`` constants in this class.
+
+        :return: The role of this member.
         """
         return self._data["role"]
 
-    def get_user(self) -> User:
+    def as_user(self) -> User:
         """
         Get this member as a :py:class:`User` object.
+
+        :return: The member as a ``User`` object.
         """
         return User(self._ryver, self._data["member"])
 
     def is_admin(self) -> bool:
         """
-        Get whether this member is an admin of their forum.
+        Get whether this member is an admin of their forum/team.
 
         .. warning::
            This method does not check for org admins.
+
+        :return: Whether this user is a forum admin/team admin.
         """
         return GroupChatMember.ROLE_ADMIN == self.get_role()
 
@@ -1225,12 +1337,18 @@ class GroupChat(Chat):
     def get_name(self) -> str:
         """
         Get the name of this chat.
+
+        :return: The name of this forum/team.
         """
         return self._data["name"]
 
     def get_nickname(self) -> str:
         """
         Get the nickname of this chat.
+
+        The nickname is a unique identifier that can be used to refer to the chat across Ryver.
+
+        :return: The nickname of this forum/team.
         """
         return self._data["nickname"]
 
@@ -1238,10 +1356,17 @@ class GroupChat(Chat):
         """
         Get all the members of this chat.
 
+        .. note::
+           This gets the members as :py:class:`GroupChatMember` objects, which contain
+           additional info such as whether the user is an admin of this chat.
+
+           To get the :py:class:`User` object, use :py:meth:`GroupChatMember.as_user()`.
+
         This method sends requests.
 
         :param top: Maximum number of results; optional, if unspecified return all results.
         :param skip: Skip this many results.
+        :return: An async iterator for the members of this chat.
         """
         url = self.get_api_url("members", expand="member")
         async for member in get_all(session=self._ryver._session, url=url, top=top, skip=skip):
@@ -1252,18 +1377,27 @@ class GroupChat(Chat):
         Get a member by user ID.
 
         .. note::
+           This gets the member as a :py:class:`GroupChatMember` object, which contain
+           additional info such as whether the user is an admin of this chat.
+
+           To get the :py:class:`User` object, use :py:meth:`GroupChatMember.as_user()`.
+
+        .. note::
            The ID should be the **user** ID of this member, not the groupchat member ID.
 
         This method sends requests.
 
         If the user is not found, this method will return None.
+
+        :return: The member, or None if not found.
         """
-        url = self.get_api_url("members", expand="member", filter=f"((member/id eq {id}))")
+        url = self.get_api_url("members", expand="member", filter=f"(member/id eq {id})")
         async with self._ryver._session.get(url) as resp:
             member = (await resp.json())["d"]["results"]
         return GroupChatMember(self._ryver, member[0]) if member else None
     
-    async def create_topic(self, subject: str, body: str, stickied: bool = False, creator: Creator = None, attachments: typing.List["Storage"] = []) -> Topic:
+    async def create_topic(self, subject: str, body: str, stickied: bool = False, creator: Creator = None, 
+                           attachments: typing.Iterable["Storage"] = []) -> Topic:
         """
         Create a topic in this chat.
 
@@ -1281,6 +1415,7 @@ class GroupChat(Chat):
         :param stickied: Whether to sticky (pin) this topic to the top of the list (optional, default False).
         :param creator: The overridden creator; optional, if unset uses the logged-in user's profile.
         :param attachments: A number of attachments for this topic (optional). Note: Use `Storage` objects, not `File` objects! These attachments could be links or files.
+        :return: The created topic.
         """
         url = self._ryver.get_api_url(TYPE_TOPIC)
         data = {
@@ -1340,6 +1475,11 @@ class TaskBoard(Object):
     def get_name(self) -> str:
         """
         Get the name of this task board.
+
+        This will be the same as the name of the forum/team/user the task board is
+        associated with.
+
+        :return: The name of the task board.
         """
         return self._data["name"]
     
@@ -1353,6 +1493,8 @@ class TaskBoard(Object):
         is a task list without categories.
 
         Not to be confused with :py:meth:`Object.get_type()`.
+
+        :return: The type of this task board.
         """
         return self._data["type"]
     
@@ -1364,6 +1506,8 @@ class TaskBoard(Object):
         syntax.
 
         If a task board does not have task IDs set up, this will return None.
+
+        :return: The task prefix for this task board.
         """
         return self._data["shortPrefix"]
     
@@ -1373,6 +1517,8 @@ class TaskBoard(Object):
 
         Even if this task board has no categories (a list), this method will still
         return a single category, "Uncategorized".
+
+        :return: The categories in this task board.
         """
         if "categories" not in self._data or "__deferred" in self._data["categories"]:
             url = self.get_api_url(action="categories")
@@ -1387,6 +1533,7 @@ class TaskBoard(Object):
 
         :param name: The name of this category.
         :param done: Whether tasks moved to this category should be marked as done.
+        :return: The created category.
         """
         url = self._ryver.get_api_url(TYPE_TASK_CATEGORY)
         data = {
@@ -1409,6 +1556,8 @@ class TaskBoard(Object):
         unarchived are retrieved, respectively.
 
         This will not retrieve sub-tasks (checklist items).
+
+        :return: A list of all tasks in this task board.
         """
         if archived is None:
             url = self.get_api_url(action="tasks")
@@ -1418,10 +1567,10 @@ class TaskBoard(Object):
             return [Task(self._ryver, data) for data in (await resp.json())["d"]["results"]]
     
     async def create_task(self, subject: str, body: str = "", category: "TaskCategory" = None, 
-                          assignees: typing.List[User] = [], due_date: str = None, 
+                          assignees: typing.Iterable[User] = [], due_date: str = None, 
                           tags: typing.Union[typing.List[str], typing.List[TaskTag]] = [], 
-                          checklist: typing.List[str] = [], 
-                          attachments: typing.List["Storage"] = []) -> "Task":
+                          checklist: typing.Iterable[str] = [], 
+                          attachments: typing.Iterable["Storage"] = []) -> "Task":
         """
         Create a task in this task board.
 
@@ -1448,6 +1597,7 @@ class TaskBoard(Object):
         :param tags: A list of tags of this task (optional). Can either be a list of strings or a list of ``TaskTag``s.
         :param checklist: A list of strings which are used as the item names for the checklist of this task (optional).
         :param attachments: A list of attachments for this task (optional). Note: Use `Storage` objects, not `File` objects! These attachments could be links or files.
+        :return: The created task.
         """
         data = {
             "board": {
@@ -1502,6 +1652,8 @@ class TaskCategory(Object):
     def get_name(self) -> str:
         """
         Get the name of this category.
+
+        :return: The name of this category.
         """
         return self._data["name"]
     
@@ -1516,6 +1668,8 @@ class TaskCategory(Object):
            This is because the "Uncategorized" category, which is present in all task
            boards, always has a position of 0, even when it's not shown (when there are
            no uncategorized tasks).
+
+        :return: The position of this category.
         """
         return self._data["position"]
     
@@ -1524,12 +1678,16 @@ class TaskCategory(Object):
         Get the type of this task category.
 
         Returns one of the ``CATEGORY_TYPE_`` constants in this class.
+
+        :return: The type of this category.
         """
         return self._data["categoryType"]
     
     async def get_task_board(self) -> TaskBoard:
         """
         Get the task board that contains this category.
+
+        :return: The task board.
         """
         return self.get_deferred_field("board", TYPE_TASK_BOARD)
     
@@ -1632,6 +1790,8 @@ class TaskCategory(Object):
         unarchived are retrieved, respectively.
 
         This will not retrieve sub-tasks (checklist items).
+
+        :return: The tasks in this category.
         """
         if archived is None:
             url = self.get_api_url(action="tasks")
@@ -1651,12 +1811,16 @@ class Task(Message):
     def is_archived(self) -> bool:
         """
         Get whether this task has been archived.
+
+        :return: Whether this task has been archived.
         """
         return self._data["archived"]
     
     def get_subject(self) -> str:
         """
         Get the subject (title) of this task.
+
+        :return: The subject of this task.
         """
         return self._data["subject"]
     
@@ -1669,6 +1833,8 @@ class Task(Message):
         .. tip::
            You can use :py:meth:`pyryver.util.iso8601_to_datetime()` to convert the 
            timestamps returned by this method into a datetime.
+
+        :return: The due date of this task.
         """
         return self._data["dueDate"]
     
@@ -1681,12 +1847,16 @@ class Task(Message):
         .. tip::
            You can use :py:meth:`pyryver.util.iso8601_to_datetime()` to convert the 
            timestamps returned by this method into a datetime.
+        
+        :return: The completion date of this task.
         """
         return self._data["completeDate"]
     
     def is_completed(self) -> bool:
         """
         Get whether this task has been completed.
+
+        :return: Whether this task has been completed.
         """
         return self.get_complete_date() is not None
     
@@ -1695,9 +1865,11 @@ class Task(Message):
         Get the short representation of this task. 
 
         This is can be used to reference this task across Ryver.
-        It has the form PREFIX-ID.
+        It has the form PREFIX-ID, and is also unique across the entire organization.
 
         If the task board does not have prefixes set up, this will return None.
+
+        :return: The unique short representation of this task.
         """
         return self._data["short"]
     
@@ -1706,18 +1878,24 @@ class Task(Message):
         Get the position of this task in its category or the task list.
 
         The first task has a position of 0.
+
+        :return: The position of this task in its category.
         """
         return self._data["position"]
     
     def get_comments_count(self) -> int:
         """
         Get how many comments this task has received.
+
+        :return: The number of comments this task has received.
         """
         return self._data["commentsCount"]
     
     def get_attachments_count(self) -> int:
         """
         Get how many attachments this task has.
+
+        :return: The number of attachments this task has.
         """
         return self._data["attachmentsCount"]
     
@@ -1727,24 +1905,32 @@ class Task(Message):
 
         .. note::
            The tags are returned as a list of strings, not a list of ``TaskTag``s.
+        
+        :return: All the tags of this task, as strings.
         """
         return self._data["tags"]
     
     async def get_task_board(self) -> TaskBoard:
         """
         Get the task board this task is in.
+
+        :return: The task board containing this task.
         """
         return self.get_deferred_field("board", TYPE_TASK_BOARD)
     
     async def get_task_category(self) -> TaskCategory:
         """
         Get the category this task is in.
+
+        :return: The category containing this task.
         """
         return self.get_deferred_field("category", TYPE_TASK_CATEGORY)
     
     async def get_assignees(self) -> typing.List[User]:
         """
         Get the assignees of this task.
+
+        :return: The assignees of this task,.
         """
         return self.get_deferred_field("assignees", TYPE_USER)
     
@@ -1841,6 +2027,8 @@ class Task(Message):
 
         The checklist items are ``Task`` objects; complete or uncomplete those objects
         to change the checklist status.
+
+        :return: The checklist items of this task.
         """
         url = self.get_api_url(action="subTasks")
         async with self._ryver._session.get(url) as resp:
@@ -1852,13 +2040,15 @@ class Task(Message):
 
         This only works if this task is an item in another task's checklist.
         Otherwise, this will return None.
+
+        :return: The parent of this sub-task (checklist item), or None if this task is not a sub-task.
         """
         try:
             return self.get_deferred_field("parent", TYPE_TASK)
         except ValueError:
             return None
     
-    async def add_to_checklist(self, items: typing.List[str]) -> None:
+    async def add_to_checklist(self, items: typing.Iterable[str]) -> None:
         """
         Add items to this task's checklist.
 
@@ -1877,7 +2067,7 @@ class Task(Message):
         url = self.get_api_url(format="json", select="subTasks", expand="subTasks")
         await self._ryver._session.patch(url, json=data)
     
-    async def set_checklist(self, items: typing.List["Task"]) -> None:
+    async def set_checklist(self, items: typing.Iterable["Task"]) -> None:
         """
         Set the contents of this task's checklist.
 
@@ -1925,6 +2115,8 @@ class Notification(Object):
         This usually returns one of the ``PREDICATE_`` constants in this class.
         Note that the list currently provided is not exhaustive; this method may
         return a value that isn't one of the constants.
+
+        :return: The predicate of this notification.
         """
         return self._data["predicate"]
 
@@ -1934,6 +2126,8 @@ class Notification(Object):
 
         The exact nature of this field is not yet known, but it seems to be the
         user that did the action which caused this notification.
+
+        :return: The entity type of this notification's subject.
         """
         return self._data["subjectType"]
 
@@ -1943,6 +2137,8 @@ class Notification(Object):
 
         The exact nature of this field is not yet known, but it seems to be the
         user that did the action which caused this notification.
+
+        :return: The ID of this notification's subject.
         """
         return self._data["subjectId"]
 
@@ -1954,6 +2150,8 @@ class Notification(Object):
         user that did the action which caused this notification. It is also 
         unknown why this is an array, as it seems to only ever contain one
         element.
+
+        :return: The subjects of this notification.
         """
         return self._data["subjects"]
 
@@ -1964,6 +2162,8 @@ class Notification(Object):
         The exact nature of this field is not yet known, but it seems to be the
         target of an @mention for mentions, the topic for topic comments, or the
         task for task activities.
+
+        :return: The entity type of the object of this notification.
         """
         return self._data["objectType"]
 
@@ -1974,6 +2174,8 @@ class Notification(Object):
         The exact nature of this field is not yet known, but it seems to be the
         target of an @mention for mentions, the topic for topic comments, or the
         task for task activities.
+
+        :return: The ID of the object of this notification.
         """
         return self._data["objectId"]
 
@@ -1984,6 +2186,8 @@ class Notification(Object):
         The exact nature of this field is not yet known, but it seems to be the
         target of an @mention for mentions, the topic for topic comments, or the
         task for task activities.
+
+        :return: The object of this notification.
         """
         return self._data["object"]
 
@@ -1995,6 +2199,8 @@ class Notification(Object):
         contain information about whatever caused this notification. For
         example, the chat message of an @mention, the topic reply for a reply,
         etc. For task completions, there is NO via.
+
+        :return: The entity type of the via of this notification.
         """
         return self._data["viaType"]
 
@@ -2006,6 +2212,8 @@ class Notification(Object):
         contain information about whatever caused this notification. For
         example, the chat message of an @mention, the topic reply for a reply,
         etc. For task completions, there is NO via.
+
+        :return: The ID of the via of this notification.
         """
         return self._data["viaId"]
 
@@ -2017,18 +2225,24 @@ class Notification(Object):
         contain information about whatever caused this notification. For
         example, the chat message of an @mention, the topic reply for a reply,
         etc. For task completions, there is NO via.
+
+        :return: The via of this notification.
         """
         return self._data["via"]
 
     def get_new(self) -> bool:
         """
         Get whether this notification is new.
+
+        :return: Whether this notification is new.
         """
         return self._data["new"]
 
     def get_unread(self) -> bool:
         """
         Get whether this notification is unread.
+
+        :return: Whether this notification is unread.
         """
         return self._data["unread"]
 
@@ -2040,7 +2254,6 @@ class Notification(Object):
 
         .. note:: 
            This also updates these properties in this object.
-
         """
         data = {
             "unread": unread,
@@ -2062,30 +2275,40 @@ class File(Object):
     def get_title(self) -> str:
         """
         Get the title of this file.
+
+        :return: The title of this file.
         """
         return self._data["title"]
 
     def get_name(self) -> str:
         """
         Get the name of this file.
+
+        :return: The name of this file.
         """
         return self._data["fileName"]
 
     def get_size(self) -> int:
         """
         Get the size of this file in bytes.
+
+        :return: The size of the file in bytes.
         """
         return self._data["fileSize"]
 
     def get_url(self) -> str:
         """
         Get the URL of this file.
+
+        :return: The URL of the file.
         """
         return self._data["url"]
 
     def get_MIME_type(self) -> str:
         """
         Get the MIME type of this file.
+
+        :return: The MIME type of the file.
         """
         return self._data.get("type", None) or self._data["fileType"]
     
@@ -2094,6 +2317,8 @@ class File(Object):
         Get the file data.
 
         Returns an aiohttp request response to the file URL.
+
+        :return: An :py:class:`aiohttp.ClientResponse` object representing a request response for the file contents.
         """
         # Use aiohttp.request directly because we don't want to send the auth header
         # Otherwise we'll get a 400
@@ -2104,6 +2329,8 @@ class File(Object):
         Download the file data.
 
         This method sends requests.
+
+        :return: The downloaded file data, as raw bytes.
         """
         async with aiohttp.request("GET", self.get_url()) as resp:
             resp.raise_for_status()
@@ -2139,6 +2366,8 @@ class Storage(Object):
         Returns one of the ``STORAGE_TYPE_`` constants in this class.
 
         Not to be confused with :py:meth:`Object.get_type()`.
+
+        :return: The type of this storage object.
         """
         if "file" in self._data:
             return self._data["file"]["recordType"]
@@ -2147,12 +2376,16 @@ class Storage(Object):
     def get_name(self) -> str:
         """
         Get the name of this storage object.
+
+        :return: The name of this storage object.
         """
         return self._data.get("fileName", None) or self._data["name"]
     
     def get_size(self) -> str:
         """
         Get the size of the object stored.
+
+        :return: The size of the thing stored.
         """
         return self._data["fileSize"]
     
@@ -2162,6 +2395,8 @@ class Storage(Object):
 
         If a link is stored, then this will return the same value as ``get_id()``.
         If a file is stored, then this will return the ID of the file instead.
+
+        :return: The ID of the contents of this storage object.
         """
         if self.get_storage_type() == Storage.STORAGE_TYPE_FILE:
             return self._data["file"]["id"]
@@ -2173,6 +2408,8 @@ class Storage(Object):
         Get the MIME type of the content.
 
         For links, this will be "application/octet-stream".
+
+        :return: The MIME type of the contents of this storage object.
         """
         return self._data.get("contentType", None) or self._data["type"]
 
@@ -2183,6 +2420,8 @@ class Storage(Object):
         .. warning::
            This method will raise a ``KeyError`` if the type of this storage is not
            ``TYPE_FILE``!
+
+        :return: The file stored.
         """
         return File(self._ryver, self._data["file"])
     
@@ -2192,6 +2431,8 @@ class Storage(Object):
 
         If a link is stored, then this will be the URL of the link.
         If a file is stored, then this will be the URL of the file contents.
+
+        :return: The content's URL.
         """
         if self.get_storage_type() == Storage.STORAGE_TYPE_FILE:
             return self._data["file"]["url"]
@@ -2227,7 +2468,7 @@ TYPES_DICT = {
 }
 
 
-def get_obj_by_field(objs: typing.List[Object], field: str, value: typing.Any) -> Object:
+def get_obj_by_field(objs: typing.Iterable[Object], field: str, value: typing.Any) -> Object:
     """
     Gets an object from a list of objects by a field.
 
@@ -2237,6 +2478,7 @@ def get_obj_by_field(objs: typing.List[Object], field: str, value: typing.Any) -
     :param objs: List of objects to search in.
     :param field: The field's name (usually a constant beginning with ``FIELD_`` in :ref:`pyryver.util <util-data-constants>`) within the object's JSON data.
     :param value: The value to look for.
+    :return: The object with the matching field, or None if not found.
     """
     for obj in objs:
         if obj._data[field] == value:

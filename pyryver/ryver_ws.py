@@ -122,12 +122,18 @@ class RyverWS():
     def get_ryver(self) -> "Ryver":
         """
         Get the Ryver session this live session was created from.
+
+        :return: The Ryver session this live session was created from.
         """
         return self._ryver
     
-    async def _ws_send_msg(self, msg: typing.Dict[str, typing.Any], timeout: float = None):
+    async def _ws_send_msg(self, msg: typing.Dict[str, typing.Any], timeout: float = None) -> None:
         """
         Send a message through the websocket.
+
+        :param msg: The raw message data.
+        :param timeout: The timeout for waiting for an ack. If None, waits forever.
+        :raises ClosedError: If connection closed or not yet opened.    
         """
         if self._closed:
             raise ClosedError("Connection not started or already closed!")
@@ -297,6 +303,7 @@ class RyverWS():
 
         :param to_chat: The chat to send the message to.
         :param msg: The message contents.
+        :raises ClosedError: If connection closed or not yet opened.  
         """
         data = {
             "type": "chat",
@@ -309,7 +316,8 @@ class RyverWS():
         """
         Send a presence change message.
 
-        :param presence: The new presence, a constant in this class starting with ``PRESENCE_``
+        :param presence: The new presence, one of the ``PRESENCE_`` constants.
+        :raises ClosedError: If connection closed or not yet opened.  
         """
         return await self._ws_send_msg({
             "type": "presence_change",
@@ -324,6 +332,7 @@ class RyverWS():
         a message is sent.
 
         :param to_chat: Where to send the typing status.
+        :raises ClosedError: If connection closed or not yet opened.  
         """
         return await self._ws_send_msg({
             "type": "user_typing",
@@ -335,16 +344,15 @@ class RyverWS():
         """
         Get an async context manager that keeps sending a typing indicator to a chat.
 
-        Useful for wrapping long running operations, like:
+        Useful for wrapping long running operations to make sure the typing indicator
+        is kept, like:
 
         .. code:: python3
-
            async with session.typing(chat):
                print("do something silly")
                await asyncio.sleep(4)
                await session.send_chat(chat, "done") # or do it outside the with, doesn't matter
                 
-
         :param to_chat: Where to send the typing status.
         """
         return RyverWSTyping(self, to_chat)
@@ -405,6 +413,8 @@ class RyverWS():
     def _create_id():
         """
         Create a random message ID.
+
+        :return: The random message ID.
         """
         return "".join(random.choice(RyverWS._VALID_ID_CHARS) for x in range(9))
 
