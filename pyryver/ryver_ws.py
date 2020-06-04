@@ -422,3 +422,6 @@ class RyverWS():
         :return: The random message ID.
         """
         return "".join(random.choice(RyverWS._VALID_ID_CHARS) for x in range(9))
+
+
+from pyryver.ryver import * # nopep8

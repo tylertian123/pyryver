@@ -561,12 +561,12 @@ class Topic(PostedMessage):
         Get all the replies to this topic.
 
         :param top: Maximum number of results; optional, if unspecified return all results.
-        :param skip: Skip this many results.
+        :param skip: Skip this many results (optional).
         :return: An async iterator for the replies of this topic.
         """
         url = self._ryver.get_api_url(
             TYPE_TOPIC_REPLY, format="json", filter=f"((post/id eq {self.get_id()}))")
-        async for reply in get_all(session=self._ryver._session, url=url, top=top, skip=skip):
+        async for reply in self._ryver.get_all(url=url, top=top, skip=skip):
             yield TopicReply(self._ryver, reply)
 
     async def edit(self, subject: str = None, body: str = None, stickied: bool = None, creator: Creator = None, attachments: typing.Iterable["Storage"] = None) -> None:
@@ -906,7 +906,7 @@ class Chat(Object):
         """
         url = self.get_api_url(
             f"Post.Stream(archived={'true' if archived else 'false'})", format="json")
-        async for topic in get_all(session=self._ryver._session, url=url, top=top, skip=skip):
+        async for topic in self._ryver.get_all(url=url, top=top, skip=skip):
             yield Topic(self._ryver, topic)
 
     async def get_messages(self, count: int, skip: int = 0) -> typing.List[ChatMessage]:
@@ -1337,7 +1337,7 @@ class GroupChat(Chat):
         :return: An async iterator for the members of this chat.
         """
         url = self.get_api_url("members", expand="member")
-        async for member in get_all(session=self._ryver._session, url=url, top=top, skip=skip):
+        async for member in self._ryver.get_all(url=url, top=top, skip=skip):
             yield GroupChatMember(self._ryver, member)
 
     async def get_member(self, user_id: int) -> GroupChatMember:
@@ -1477,21 +1477,20 @@ class TaskBoard(Object):
         """
         return self._data["shortPrefix"]
 
-    async def get_categories(self) -> typing.List["TaskCategory"]:
+    async def get_categories(self, top: int = -1, skip: int = 0) -> typing.AsyncIterator["TaskCategory"]:
         """
         Get all the categories in this task board.
 
         Even if this task board has no categories (a list), this method will still
         return a single category, "Uncategorized".
 
-        :return: The categories in this task board.
+        :param top: Maximum number of results; optional, if unspecified return all results.
+        :param skip: Skip this many results (optional).
+        :return: An async iterator for the categories in this task board.
         """
-        if "categories" not in self._data or "__deferred" in self._data["categories"]:
-            url = self.get_api_url(action="categories")
-            async with self._ryver._session.get(url) as resp:
-                return [TaskCategory(self._ryver, data) for data in (await resp.json())["d"]["results"]]
-        else:
-            return [TaskCategory(self._ryver, data) for data in self._data["categories"]["results"]]
+        url = self.get_api_url(action="categories")
+        async for category in self._ryver.get_all(url=url, top=top, skip=skip):
+            yield TaskCategory(self._ryver, category)
 
     async def create_category(self, name: str, done: bool = False) -> "TaskCategory":
         """
@@ -1513,7 +1512,7 @@ class TaskBoard(Object):
         async with self._ryver._session.post(url, json=data) as resp:
             return TaskCategory(self._ryver, (await resp.json())["d"]["results"])
 
-    async def get_tasks(self, archived: bool = None) -> typing.List["Task"]:
+    async def get_tasks(self, archived: bool = None, top: int = -1, skip: int = 0) -> typing.AsyncIterator["Task"]:
         """
         Get all the tasks in this task board.
 
@@ -1523,15 +1522,18 @@ class TaskBoard(Object):
 
         This will not retrieve sub-tasks (checklist items).
 
-        :return: A list of all tasks in this task board.
+        :param archived: If True or False, only retrieve tasks that are archived or unarchived; if None, retrieve all tasks (optional).
+        :param top: Maximum number of results; optional, if unspecified return all results.
+        :param skip: Skip this many results (optional).
+        :return: An async iterator for the tasks in this task board.
         """
         if archived is None:
             url = self.get_api_url(action="tasks")
         else:
-            url = self.get_api_url(
-                action="tasks", filter=f"(archived eq {'true' if archived else 'false'} and parent eq null)")
-        async with self._ryver._session.get(url) as resp:
-            return [Task(self._ryver, data) for data in (await resp.json())["d"]["results"]]
+            url = self.get_api_url(action="tasks",
+                                   filter=f"(archived eq {'true' if archived else 'false'} and parent eq null)")
+        async for task in self._ryver.get_all(url=url, top=top, skip=skip):
+            yield Task(self._ryver, task)
 
     async def create_task(self, subject: str, body: str = "", category: "TaskCategory" = None,
                           assignees: typing.Iterable[User] = None, due_date: str = None,
@@ -1754,7 +1756,7 @@ class TaskCategory(Object):
             action=f"TaskCategory.MoveTasks(moveTo={category.get_id()},completeOnly={'true' if completed_only else 'false'})")
         await self._ryver._session.post(url)
 
-    async def get_tasks(self, archived: bool = None) -> typing.List["Task"]:
+    async def get_tasks(self, archived: bool = None, top: int = -1, skip: int = 0) -> typing.AsyncIterator["Task"]:
         """
         Get all the tasks in this category.
 
@@ -1764,15 +1766,18 @@ class TaskCategory(Object):
 
         This will not retrieve sub-tasks (checklist items).
 
-        :return: The tasks in this category.
+        :param archived: If True or False, only retrieve tasks that are archived or unarchived; if None, retrieve all tasks (optional).
+        :param top: Maximum number of results; optional, if unspecified return all results.
+        :param skip: Skip this many results (optional).
+        :return: An async iterator for the tasks in this category.
         """
         if archived is None:
             url = self.get_api_url(action="tasks")
         else:
             url = self.get_api_url(
                 action="tasks", filter=f"(archived eq {'true' if archived else 'false'} and parent eq null)")
-        async with self._ryver._session.get(url) as resp:
-            return [Task(self._ryver, data) for data in (await resp.json())["d"]["results"]]
+        async for task in self._ryver.get_all(url, top, skip):
+            yield Task(self._ryver, task)
 
 
 class Task(PostedMessage):
@@ -1995,7 +2000,7 @@ class Task(PostedMessage):
         await self._ryver._session.post(url)
         self._data["position"] = position
 
-    async def get_checklist(self) -> typing.List["Task"]:
+    async def get_checklist(self, top: int = -1, skip: int = 0) -> typing.AsyncIterator["Task"]:
         """
         Get the checklist items of this task (subtasks).
 
@@ -2004,11 +2009,13 @@ class Task(PostedMessage):
         The checklist items are ``Task`` objects; complete or uncomplete those objects
         to change the checklist status.
 
-        :return: The checklist items of this task.
+        :param top: Maximum number of results; optional, if unspecified return all results.
+        :param skip: Skip this many results (optional).
+        :return: An async iterator for the tasks in the checklist of this task.
         """
         url = self.get_api_url(action="subTasks")
-        async with self._ryver._session.get(url) as resp:
-            return [Task(self._ryver, data) for data in (await resp.json())["d"]["results"]]
+        async for task in self._ryver.get_all(url, top, skip):
+            return Task(self._ryver, task)
 
     async def get_parent(self) -> "Task":
         """
@@ -2456,3 +2463,6 @@ def get_obj_by_field(objs: typing.Iterable[Object], field: str, value: typing.An
         if obj._data[field] == value:
             return obj
     return None
+
+
+from pyryver.ryver import *  # nopep8

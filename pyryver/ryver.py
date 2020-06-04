@@ -82,7 +82,7 @@ class Ryver:
         :return: The chats.
         """
         url = self.get_api_url(obj_type)
-        return [TYPES_DICT[obj_type](self, chat) async for chat in get_all(session=self._session, url=url, top=top, skip=skip)]
+        return [TYPES_DICT[obj_type](self, chat) async for chat in self.get_all(url=url, top=top, skip=skip)]
 
     async def close(self):
         """
@@ -123,6 +123,37 @@ class Ryver:
         if kwargs:
             url += "?" + "&".join(f"${k}={v}" for k, v in kwargs.items())
         return url
+
+    async def get_all(self, url: str, top: int = -1, skip: int = 0) -> typing.AsyncIterator[dict]:
+        """
+        Get all objects from an URL, without the typical 50 result limit.
+
+        .. warning::
+           This function is intended for internal use only.
+
+        :param url: The url to request from.
+        :param top: The max number of results, or -1 for unlimited (optional).
+        :param skip: The number of results to skip (optional).
+        :return: An async iterator for the results (raw data).
+        """
+        param_sep = "&" if "?" in url else "?"
+        # -1 means everything
+        if top == -1:
+            top = float("inf")
+        while True:
+            # Respect the max specified
+            count = min(top, 50)
+            top -= count
+
+            request_url = url + f"{param_sep}$skip={skip}&$top={count}"
+            async with self._session.get(request_url) as resp:
+                page = (await resp.json())["d"]["results"]
+
+            for i in page:
+                yield i
+            if not page or top == 0:
+                break
+            skip += len(page)
 
     async def get_object(self, obj_type: str, obj_id: int, **kwargs) -> Object:
         """
@@ -302,7 +333,7 @@ class Ryver:
             url = self.get_api_url(
                 TYPE_NOTIFICATION, format="json", orderby="modifyDate desc")
 
-        async for notif in get_all(session=self._session, url=url, top=top, skip=skip):
+        async for notif in self.get_all(url=url, top=top, skip=skip):
             yield Notification(self, notif)
 
     async def mark_all_notifs_read(self) -> int:

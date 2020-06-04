@@ -81,39 +81,6 @@ def get_type_from_entity(entity_type: str) -> str:
     return None
 
 
-async def get_all(session: aiohttp.ClientSession, url: str, top: int = -1, skip: int = 0) -> typing.AsyncIterator[dict]:
-    """
-    Because the REST API only gives 50 results at a time, this function is used
-    to retrieve all objects.
-
-    .. warning::
-       This function is intended for internal use only.
-
-    :param session: The aiohttp session used for the requests.
-    :param url: The url to request from.
-    :param top: The max number of results, or -1 for unlimited (optional).
-    :param skip: The number of results to skip (optional).
-    :return: An async iterator for the results.
-    """
-    param_sep = "&" if "?" in url else "?"
-    # -1 means everything
-    if top == -1:
-        top = float("inf")
-    while True:
-        # Respect the max specified
-        count = min(top, 50)
-        top -= count
-
-        request_url = url + f"{param_sep}$skip={skip}&$top={count}"
-        async with session.get(request_url) as resp:
-            page = (await resp.json())["d"]["results"]
-
-        for i in page:
-            yield i
-        if not page or top == 0:
-            break
-        skip += len(page)
-
 _T = typing.TypeVar("T")
 
 

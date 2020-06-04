@@ -4,6 +4,7 @@ import typing
 from .objects import *
 from abc import ABC, abstractmethod
 
+
 class AbstractCacheStorage(ABC):
     """
     An abstract class defining the requirements for cache storages.
@@ -23,7 +24,7 @@ class AbstractCacheStorage(ABC):
         :param obj_type: The type of the objects to load.
         :return: A list of saved objects of that type.
         """
-    
+
     @abstractmethod
     def save(self, obj_type: str, data: typing.Iterable[Object]) -> None:
         """
@@ -48,7 +49,7 @@ class FileCacheStorage(AbstractCacheStorage):
         """
         self._root_dir = root_dir
         self._prefix = prefix
-    
+
     def load(self, ryver: "Ryver", obj_type: str) -> typing.List[Object]:
         """
         Load all saved objects of a specific type.
@@ -69,7 +70,7 @@ class FileCacheStorage(AbstractCacheStorage):
             print("Warning: Invalid JSON in cache")
             return []
         return [TYPES_DICT[obj_type](ryver, obj_data) for obj_data in data]
-    
+
     def save(self, obj_type: str, data: typing.Iterable[Object]) -> None:
         """
         Save all objects of a specific type.
@@ -83,4 +84,4 @@ class FileCacheStorage(AbstractCacheStorage):
             json.dump(obj_data, f)
 
 
-from pyryver.ryver import *
+from pyryver.ryver import *  # nopep8
