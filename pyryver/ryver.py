@@ -1,8 +1,9 @@
 import aiohttp
 import asyncio
-import typing
 import os
+import typing
 import json
+from .doc import *
 from getpass import getpass
 from pyryver import ryver_ws
 from pyryver.util import *
@@ -406,6 +407,7 @@ class Ryver:
         async with self._session.get(url) as resp:
             return (await resp.json())["d"]
     
+    @sphinx_acontexmanager
     def get_live_session(self) -> ryver_ws.RyverWS:
         """
         Get a live session.
