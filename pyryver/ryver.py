@@ -1,14 +1,12 @@
 import aiohttp
-import asyncio
-import os
 import typing
-import json
 from .doc import *
 from getpass import getpass
 from pyryver import ryver_ws
 from pyryver.util import *
 from pyryver.objects import *
 from pyryver.cache_storage import *
+
 
 class Ryver:
     """
@@ -19,7 +17,7 @@ class Ryver:
     If the organization, it will be prompted using input(). 
     If the username or password are not provided, and the token is not provided,
     the username and password will be prompted.
-    
+
     If a token is specified, the username and password will be ignored.
 
     The cache is used to load the chats data. If not provided, no caching
@@ -36,7 +34,8 @@ class Ryver:
     :param cache: The aforementioned cache (optional).
     """
 
-    def __init__(self, org: str = None, user: str = None, password: str = None, token: str = None, cache: typing.Type[AbstractCacheStorage] = None):
+    def __init__(self, org: str = None, user: str = None, password: str = None, token: str = None,
+                 cache: typing.Type[AbstractCacheStorage] = None):
         if org is None:
             org = input("Organization: ")
         if user is None and token is None:
@@ -52,7 +51,8 @@ class Ryver:
             headers = {
                 "Authorization": f"Bearer {token}"
             }
-            self._session = aiohttp.ClientSession(headers=headers, raise_for_status=True)
+            self._session = aiohttp.ClientSession(
+                headers=headers, raise_for_status=True)
 
         self._cache = cache
         # Try to load from cache if it exists
@@ -71,7 +71,7 @@ class Ryver:
 
     async def __aexit__(self, exc, *exc_info):
         return await self._session.__aexit__(exc, *exc_info)
-    
+
     async def _get_chats(self, obj_type: str, top: int = -1, skip: int = 0) -> typing.List[Chat]:
         """
         Get a list of chats (teams, forums, users, etc) from Ryver.
@@ -89,7 +89,7 @@ class Ryver:
         Close this session.
         """
         await self._session.close()
-    
+
     def get_api_url(self, obj_type: str = None, obj_id: int = None, action: str = None, **kwargs) -> str:
         """
         Get the URL for making an API request.
@@ -140,7 +140,7 @@ class Ryver:
         """
         async with self._session.get(self.get_api_url(obj_type, obj_id, action=None, **kwargs)) as resp:
             return TYPES_DICT[obj_type](self, (await resp.json())["d"]["results"])
-    
+
     async def load_users(self) -> None:
         """
         Load the data of all users.
@@ -150,7 +150,7 @@ class Ryver:
         self.users = await self._get_chats(TYPE_USER)
         if self._cache:
             self._cache.save(TYPE_USER, self.users)
-    
+
     async def load_forums(self) -> None:
         """
         Load the data of all forums.
@@ -160,7 +160,7 @@ class Ryver:
         self.forums = await self._get_chats(TYPE_FORUM)
         if self._cache:
             self._cache.save(TYPE_FORUM, self.forums)
-    
+
     async def load_teams(self) -> None:
         """
         Load the data of all teams.
@@ -170,7 +170,7 @@ class Ryver:
         self.teams = await self._get_chats(TYPE_TEAM)
         if self._cache:
             self._cache.save(TYPE_TEAM, self.teams)
-    
+
     async def load_chats(self) -> None:
         """
         Load the data of all users/teams/forums. 
@@ -184,13 +184,13 @@ class Ryver:
             self._cache.save(TYPE_USER, self.users)
             self._cache.save(TYPE_FORUM, self.forums)
             self._cache.save(TYPE_TEAM, self.teams)
-    
+
     async def load_missing_chats(self) -> None:
         """
         Load the data of all users/teams/forums if it does not exist.
 
         Unlike load_chats(), this does not update the cache.
-        
+
         This method could send requests.
         """
         if self.users is None:
@@ -199,7 +199,7 @@ class Ryver:
             await self.load_forums()
         if self.teams is None:
             await self.load_teams()
-    
+
     def get_user(self, **kwargs) -> User:
         """
         Get a specific user.
@@ -231,7 +231,7 @@ class Ryver:
             return get_obj_by_field(self.users, FIELD_NAMES[field], value)
         except KeyError:
             raise ValueError("Invalid query parameter!")
-    
+
     def get_groupchat(self, **kwargs) -> GroupChat:
         """
         Get a specific forum/team.
@@ -259,7 +259,7 @@ class Ryver:
             return get_obj_by_field(self.forums + self.teams, FIELD_NAMES[field], value)
         except KeyError:
             raise ValueError("Invalid query parameter!")
-    
+
     def get_chat(self, **kwargs) -> Chat:
         """
         Get a specific forum/team/user.
@@ -296,9 +296,11 @@ class Ryver:
         :return: An async iterator for the user's notifications.
         """
         if unread:
-            url = self.get_api_url(TYPE_NOTIFICATION, format="json", orderby="modifyDate desc", filter="((unread eq true))")
+            url = self.get_api_url(TYPE_NOTIFICATION, format="json",
+                                   orderby="modifyDate desc", filter="((unread eq true))")
         else:
-            url = self.get_api_url(TYPE_NOTIFICATION, format="json", orderby="modifyDate desc")
+            url = self.get_api_url(
+                TYPE_NOTIFICATION, format="json", orderby="modifyDate desc")
 
         async for notif in get_all(session=self._session, url=url, top=top, skip=skip):
             yield Notification(self, notif)
@@ -309,7 +311,8 @@ class Ryver:
 
         :return: How many notifications were marked as read.
         """
-        url = self.get_api_url(TYPE_NOTIFICATION, action="UserNotification.MarkAllRead()", format="json")
+        url = self.get_api_url(
+            TYPE_NOTIFICATION, action="UserNotification.MarkAllRead()", format="json")
         async with self._session.post(url) as resp:
             return (await resp.json())["d"]["count"]
 
@@ -319,7 +322,8 @@ class Ryver:
 
         :return: How many notifications were marked as seen.
         """
-        url = self.get_api_url(TYPE_NOTIFICATION, action="UserNotification.MarkAllSeen()", format="json")
+        url = self.get_api_url(
+            TYPE_NOTIFICATION, action="UserNotification.MarkAllSeen()", format="json")
         async with self._session.post(url) as resp:
             return (await resp.json())["d"]["count"]
 
@@ -336,25 +340,27 @@ class Ryver:
         :param filedata: The file's raw data, sent directly to :py:meth:`aiohttp.FormData.add_field`.
         :return: The uploaded file, as a :py:class:`Storage` object.
         """
-        url = self.get_api_url(TYPE_STORAGE, action="Storage.File.Create(createFile=true)", expand="file", format="json")
+        url = self.get_api_url(
+            TYPE_STORAGE, action="Storage.File.Create(createFile=true)", expand="file", format="json")
         data = aiohttp.FormData(quote_fields=False)
         data.add_field("file", filedata, filename=filename,
                        content_type=filetype)
         async with self._session.post(url, data=data) as resp:
             return Storage(self, await resp.json())
-        
+
     async def create_link(self, name: str, link_url: str) -> Storage:
         """
         Create a link on Ryver (for attaching to messages).
 
         .. note::
            The returned object is an instance of :py:class:`Storage` with type :py:attr:`Storage.TYPE_LINK`.
-        
+
         :param name: The name of this link (its title).
         :param url: The URL of this link.
         :return: The created link, as a :py:class:`Storage` object.
         """
-        url = self.get_api_url(TYPE_STORAGE, action="Storage.Link.Create()", format="json")
+        url = self.get_api_url(
+            TYPE_STORAGE, action="Storage.Link.Create()", format="json")
         data = {
             "description": False,
             "fileName": name,
@@ -363,7 +369,7 @@ class Ryver:
         }
         async with self._session.post(url, json=data) as resp:
             return Storage(self, await resp.json())
-    
+
     async def get_info(self) -> typing.Dict[str, typing.Any]:
         """
         Get organization and user info.
@@ -386,18 +392,18 @@ class Ryver:
         url = self.get_api_url(action="Ryver.Info()", format="json")
         async with self._session.get(url) as resp:
             return (await resp.json())["d"]
-    
+
     @sphinx_acontexmanager
     def get_live_session(self) -> ryver_ws.RyverWS:
         """
         Get a live session.
-        
+
         The session is not started unless start() is called or if it is used as
         a context manager.
 
         .. warning::
            Live sessions **do not work** when using a custom integration token.
-        
+
         :return: The live websockets session.
         """
         return ryver_ws.RyverWS(self)

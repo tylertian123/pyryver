@@ -1,11 +1,10 @@
-import aiohttp
 import asyncio
 import random
 import string
 import time
-import typing
 from .doc import *
 from pyryver.objects import *
+
 
 class ClosedError(Exception):
     """
@@ -25,7 +24,7 @@ class RyverWSTyping():
         self._rws = rws
         self._to = to
         self._typing_task_handle = None
-    
+
     async def _typing_task(self):
         """
         The task that keeps sending a typing indicator.
@@ -37,13 +36,13 @@ class RyverWSTyping():
                 await asyncio.sleep(2.5)
         except asyncio.CancelledError:
             pass
-    
+
     def start(self):
         """
         Start sending the typing indicator.
         """
         self._typing_task_handle = asyncio.ensure_future(self._typing_task())
-    
+
     async def stop(self):
         """
         Stop sending the typing indicator.
@@ -53,11 +52,11 @@ class RyverWSTyping():
         """
         self._typing_task_handle.cancel()
         await asyncio.gather(self._typing_task_handle)
-    
+
     async def __aenter__(self) -> "RyverWSTyping":
         self.start()
         return self
-    
+
     async def __aexit__(self, exc, *exc_info):
         await self.stop()
 
@@ -70,7 +69,7 @@ class RyverWS():
 
     .. warning::
        This **does not work** when using a custom integration token to sign in.
-    
+
     :cvar PRESENCE_AVAILABLE: "Available" presence (green).
     :cvar PRESENCE_AWAY: "Away" presence (yellow clock).
     :cvar PRESENCE_DO_NOT_DISTURB: "Do Not Disturb" presence (red stop sign).
@@ -112,14 +111,14 @@ class RyverWS():
         self._on_event = {}
 
         self._closed = True
-    
+
     async def __aenter__(self) -> "RyverWS":
         await self.start()
         return self
-    
+
     async def __aexit__(self, exc, *exc_info):
         await self.close()
-    
+
     def get_ryver(self) -> "Ryver":
         """
         Get the Ryver session this live session was created from.
@@ -127,7 +126,7 @@ class RyverWS():
         :return: The Ryver session this live session was created from.
         """
         return self._ryver
-    
+
     async def _ws_send_msg(self, msg: typing.Dict[str, typing.Any], timeout: float = None) -> None:
         """
         Send a message through the websocket.
@@ -182,11 +181,13 @@ class RyverWS():
                         if self._on_chat_updated:
                             asyncio.ensure_future(self._on_chat_updated(msg))
                     elif msg["type"] == "event":
-                        handler = self._on_event.get(msg["topic"], self._on_event.get("", None))
+                        handler = self._on_event.get(
+                            msg["topic"], self._on_event.get("", None))
                         if handler:
                             asyncio.ensure_future(handler(msg))
                     else:
-                        handler = self._on_msg_type.get(msg["type"], self._on_msg_type.get("", None))
+                        handler = self._on_msg_type.get(
+                            msg["type"], self._on_msg_type.get("", None))
                         if handler:
                             asyncio.ensure_future(handler(msg))
                 except ValueError as e:
@@ -195,7 +196,7 @@ class RyverWS():
                     print(f"Error: Unexpected binary message received: {e}")
         except asyncio.CancelledError:
             return
-    
+
     async def _ping_task(self):
         """
         This task sends a ping message once every few seconds to ensure the connection is alive.
@@ -214,7 +215,7 @@ class RyverWS():
                 await asyncio.sleep(10)
         except asyncio.CancelledError:
             return
-    
+
     def on_chat(self, func):
         """
         The on chat message coroutine decorator.
@@ -244,7 +245,7 @@ class RyverWS():
         """
         self._on_chat_updated = func
         return func
-    
+
     def on_connection_loss(self, func):
         """
         The on connection loss coroutine decorator.
@@ -253,7 +254,7 @@ class RyverWS():
         """
         self._on_connection_loss = func
         return func
-    
+
     def on_event(self, event_type: str):
         """
         The on event coroutine decorator for a specific event or all unhandled
@@ -266,16 +267,17 @@ class RyverWS():
 
         :param event_type: The event type to listen to, one of the constants in 
                            this class starting with ``EVENT_`` or 
-                           :py:attr:`RyverWS.EVENT_ALL` to receieve all otherwise 
+                           :py:attr:`RyverWS.EVENT_ALL` to receive all otherwise 
                            unhandled messages.
         """
         if event_type is None:
             event_type = ""
+
         def _on_event_inner(func):
             self._on_event[event_type] = func
             return func
         return _on_event_inner
-    
+
     def on_msg_type(self, msg_type):
         """
         The on message type coroutine decorator for a specific message type or all 
@@ -288,16 +290,17 @@ class RyverWS():
 
         :param msg_type: The message type to listen to, one of the constants in 
                          this class starting with ``MSG_TYPE_`` or 
-                         :py:attr:`RyverWS.MSG_TYPE_ALL` to receieve all otherwise
+                         :py:attr:`RyverWS.MSG_TYPE_ALL` to receive all otherwise
                          unhandled messages.
         """
         if msg_type is None:
             msg_type = ""
+
         def _on_msg_type_inner(func):
             self._on_msg_type[msg_type] = func
             return func
         return _on_msg_type_inner
-    
+
     async def send_chat(self, to_chat: Chat, msg: str):
         """
         Send a chat message to a chat.
@@ -324,7 +327,7 @@ class RyverWS():
             "type": "presence_change",
             "presence": presence,
         })
-    
+
     async def send_typing(self, to_chat: Chat):
         """
         Send a typing indicator to a chat identified by JID.
@@ -340,7 +343,7 @@ class RyverWS():
             "state": "composing",
             "to": to_chat.get_jid()
         })
-    
+
     @sphinx_acontexmanager
     def typing(self, to_chat: Chat) -> RyverWSTyping:
         """
@@ -354,11 +357,11 @@ class RyverWS():
                print("do something silly")
                await asyncio.sleep(4)
                await session.send_chat(chat, "done") # or do it outside the with, doesn't matter
-                
+
         :param to_chat: Where to send the typing status.
         """
         return RyverWSTyping(self, to_chat)
-    
+
     async def start(self):
         """
         Start the session.
@@ -400,11 +403,11 @@ class RyverWS():
         self._rx_task_handle.cancel()
         await self._ws.close()
         # Terminate any messages waiting for acks with an exception
-        for k, future in self._msg_ack_table.items():
+        for _, future in self._msg_ack_table.items():
             future.set_exception(ClosedError("Connection closed"))
         # Wait until tasks terminate
         await asyncio.gather(self._ping_task_handle, self._rx_task_handle)
-    
+
     async def run_forever(self):
         """
         Run forever, or until the connection is closed.
@@ -419,6 +422,3 @@ class RyverWS():
         :return: The random message ID.
         """
         return "".join(random.choice(RyverWS._VALID_ID_CHARS) for x in range(9))
-
-
-from pyryver.ryver import *

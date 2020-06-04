@@ -49,7 +49,7 @@ FIELD_NAMES = {
     "id": FIELD_ID,
     "email": FIELD_EMAIL_ADDR,
     "username": FIELD_USERNAME,
-    "display_name": FIELD_DISPLAY_NAME, 
+    "display_name": FIELD_DISPLAY_NAME,
     "jid": FIELD_JID,
     "nickname": FIELD_NICKNAME,
     "name": FIELD_NAME,
@@ -71,7 +71,7 @@ def get_type_from_entity(entity_type: str) -> str:
 
     .. warning::
        This function is intended for internal use only.
-    
+
     :param entity_type: The entity type of the object.
     :return: The regular type of the object, or None if an invalid type.
     """
@@ -88,7 +88,7 @@ async def get_all(session: aiohttp.ClientSession, url: str, top: int = -1, skip:
 
     .. warning::
        This function is intended for internal use only.
-    
+
     :param session: The aiohttp session used for the requests.
     :param url: The url to request from.
     :param top: The max number of results, or -1 for unlimited (optional).
@@ -110,11 +110,12 @@ async def get_all(session: aiohttp.ClientSession, url: str, top: int = -1, skip:
 
         for i in page:
             yield i
-        if len(page) == 0 or top == 0:
+        if not page or top == 0:
             break
         skip += len(page)
 
 _T = typing.TypeVar("T")
+
 
 async def retry_until_available(coro: typing.Awaitable[_T], *args, timeout: float = None, retry_delay: float = 0.5, **kwargs) -> _T:
     """
@@ -133,7 +134,7 @@ async def retry_until_available(coro: typing.Awaitable[_T], *args, timeout: floa
     of 5 seconds, retrying after 1 second if a 404 occurs:
     .. code-block:: python
        message = await pyryver.retry_until_available(chat.get_message, message_id, timeout=5.0, retry_delay=1.0)
-    
+
     .. note::
        Do not "call" the coro first and pass a future to this function; instead, pass
        a reference to the coro directly, as seen in the example. This is done because
@@ -157,7 +158,7 @@ async def retry_until_available(coro: typing.Awaitable[_T], *args, timeout: floa
                         raise e
         except asyncio.CancelledError:
             pass
-    
+
     return await asyncio.wait_for(_retry_inner(), timeout)
 
 

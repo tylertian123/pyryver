@@ -1,9 +1,9 @@
 import aiohttp
-import asyncio
 import datetime
 import typing
 from abc import ABC, abstractmethod
 from pyryver.util import *
+
 
 class Creator:
     """
@@ -25,14 +25,14 @@ class Creator:
 
         .. warning::
            This method is intended for internal use only.
-        
+
         :return: The dict representation of this object.
         """
         return {
             "displayName": self.name,
             "avatar": self.avatar
         }
-    
+
 
 class TaskTag:
     """
@@ -59,7 +59,7 @@ class TaskTag:
                 "border": border_color,
             }
         }
-    
+
     @classmethod
     def from_data(cls, data: dict) -> "TaskTag":
         """
@@ -74,18 +74,18 @@ class TaskTag:
         inst = cls(None, None, None, None)
         inst._data = data
         return inst
-    
+
     def to_dict(self) -> dict:
         """
         Convert this ``TaskTag`` object to a dictionary to be used in a request.
 
         .. warning::
            This method is intended for internal use only.
-        
+
         :return: The dict representation of this object.
         """
         return self._data
-    
+
     def get_name(self) -> str:
         """
         Get the name of this tag.
@@ -93,7 +93,7 @@ class TaskTag:
         :return: The name of the tag.
         """
         return self._data["name"]
-    
+
     def get_text_color(self) -> str:
         """
         Get the text colour of this tag, as an RGBA hex colour code.
@@ -101,7 +101,7 @@ class TaskTag:
         :return: The text colour of the tag.
         """
         return self._data["colors"]["text"]
-    
+
     def get_background_color(self) -> str:
         """
         Get the background colour of this tag, as an RGBA hex colour code.
@@ -109,7 +109,7 @@ class TaskTag:
         :return: The background colour of the tag.
         """
         return self._data["colors"]["background"]
-    
+
     def get_border_color(self) -> str:
         """
         Get the border colour of this tag, as an RGBA hex colour code.
@@ -131,7 +131,7 @@ class Object(ABC):
     _OBJ_TYPE = "__object"
 
     def __init__(self, ryver: "Ryver", data: dict):
-        self._ryver = ryver # type: Ryver
+        self._ryver = ryver  # type: Ryver
         self._data = data
         self._id = data["id"]
 
@@ -180,7 +180,7 @@ class Object(ABC):
         :return: The raw data of this object.
         """
         return self._data
-    
+
     def get_api_url(self, *args, **kwargs) -> str:
         """
         Uses :py:meth:`Ryver.get_api_url()` to get a URL for working with the Ryver API.
@@ -194,7 +194,7 @@ class Object(ABC):
         :return: The formatted URL for performing requests.
         """
         return self._ryver.get_api_url(self.get_type(), self.get_id(), *args, **kwargs)
-    
+
     def get_create_date(self) -> str:
         """
         Get the date this object was created as an ISO 8601 timestamp.
@@ -206,11 +206,11 @@ class Object(ABC):
         .. tip::
            You can use :py:meth:`pyryver.util.iso8601_to_datetime()` to convert the 
            timestamps returned by this method into a datetime.
-        
+
         :return: The creation date of this object, or None if not supported.
         """
         return self._data.get("createDate", None)
-    
+
     def get_modify_date(self) -> str:
         """
         Get the date this object was last modified as an ISO 8601 timestamp.
@@ -222,11 +222,11 @@ class Object(ABC):
         .. tip::
            You can use :py:meth:`pyryver.util.iso8601_to_datetime()` to convert the 
            timestamps returned by this method into a datetime.
-        
+
         :return: The modification date of this object, or None if not supported.
         """
         return self._data.get("modifyDate", None)
-    
+
     async def get_deferred_field(self, field: str, field_type: str) -> typing.Any:
         """
         Get the value of a field of this object that exists, but is not included
@@ -239,7 +239,7 @@ class Object(ABC):
         to return a single object or a list of objects.
 
         If the field cannot be retrieved, a ``ValueError`` will be raised.
-        
+
         :param field: The name of the field.
         :param field_type: The type of the field, must be a ``TYPE_`` constant.
         :return: The expanded value of this field as an object or a list of objects.
@@ -249,14 +249,15 @@ class Object(ABC):
         async with self._ryver._session.get(url) as resp:
             data = (await resp.json())["d"]["results"][field]
         if "__deferred" in data:
-            raise ValueError("Cannot obtain field! The field cannot be expanded for some reason.")
+            raise ValueError(
+                "Cannot obtain field! The field cannot be expanded for some reason.")
         constructor = TYPES_DICT[field_type]
         # Check if the result should be a list
         if "results" in data:
             return [constructor(self._ryver, obj_data) for obj_data in data]
         else:
             return constructor(self._ryver, data)
-    
+
     async def get_create_user(self) -> "User":
         """
         Get the user that created this object.
@@ -264,7 +265,7 @@ class Object(ABC):
         .. note::
            This method does not work for all objects. If not supported, it will return
            None.
-        
+
         :return: The user that created this object, or None if not supported.
         """
         if "createUser" in self._data:
@@ -274,7 +275,7 @@ class Object(ABC):
                 return None
         else:
             return None
-    
+
     async def get_modify_user(self) -> "User":
         """
         Get the user that modified this object.
@@ -333,7 +334,7 @@ class Message(Object):
         :return: The author of this message.
         """
         return self.get_create_user()
-    
+
     async def react(self, emoji: str) -> None:
         """
         React to this task with an emoji. 
@@ -345,7 +346,7 @@ class Message(Object):
         """
         url = self.get_api_url(action=f"React(reaction='{emoji}')")
         await self._ryver._session.post(url)
-    
+
     async def unreact(self, emoji: str) -> None:
         """
         Unreact with an emoji.
@@ -380,7 +381,7 @@ class Message(Object):
         counts = {reaction: len(users)
                   for reaction, users in reactions.items()}
         return counts
-    
+
     async def delete(self) -> None:
         """
         Delete this message.
@@ -394,7 +395,7 @@ class PostedMessage(Message):
     """
 
     _OBJ_TYPE = "__postedMessage"
-    
+
     async def get_attachments(self) -> typing.List["Storage"]:
         """
         Get all the attachments of this message.
@@ -404,7 +405,8 @@ class PostedMessage(Message):
 
         :return: A list of attachments of this message.
         """
-        url = self.get_api_url(expand="attachments,attachments/storage", select="attachments")
+        url = self.get_api_url(
+            expand="attachments,attachments/storage", select="attachments")
         async with self._ryver._session.get(url) as resp:
             attachments = (await resp.json())["d"]["results"]["attachments"]["results"]
         results = []
@@ -442,7 +444,7 @@ class TopicReply(PostedMessage):
         :return: The topic associated with this reply.
         """
         return await self.get_deferred_field("post", TYPE_TOPIC)
-    
+
     async def edit(self, message: str = None, creator: Creator = None, attachments: typing.Iterable["Storage"] = None) -> None:
         """
         Edit this topic reply.
@@ -492,7 +494,7 @@ class Topic(PostedMessage):
         :return: The subject of this topic.
         """
         return self._data["subject"]
-    
+
     def is_stickied(self) -> bool:
         """
         Return whether this topic is stickied (pinned) to the top of the list.
@@ -500,7 +502,7 @@ class Topic(PostedMessage):
         :return: Whether this topic is stickied.
         """
         return self._data["stickied"]
-    
+
     def is_archived(self) -> bool:
         """
         Return whether this topic is archived.
@@ -508,7 +510,7 @@ class Topic(PostedMessage):
         :return: Whether this topic is archived.
         """
         return self._data["archived"]
-    
+
     async def archive(self, archived: bool = True) -> None:
         """
         Archive or un-archive this topic.
@@ -517,11 +519,11 @@ class Topic(PostedMessage):
         """
         url = self.get_api_url(format="json")
         data = {
-            "archived": True
+            "archived": archived
         }
         await self._ryver._session.patch(url, json=data)
 
-    async def reply(self, message: str, creator: Creator = None, attachments: typing.Iterable["Storage"] = []) -> TopicReply:
+    async def reply(self, message: str, creator: Creator = None, attachments: typing.Iterable["Storage"] = None) -> TopicReply:
         """
         Reply to the topic.
 
@@ -545,7 +547,7 @@ class Topic(PostedMessage):
                 "id": self.get_id()
             }
         }
-        if creator:
+        if creator is not None:
             data["createSource"] = creator.to_dict()
         if attachments:
             data["attachments"] = {
@@ -562,10 +564,11 @@ class Topic(PostedMessage):
         :param skip: Skip this many results.
         :return: An async iterator for the replies of this topic.
         """
-        url = self._ryver.get_api_url(TYPE_TOPIC_REPLY, format="json", filter=f"((post/id eq {self.get_id()}))")
+        url = self._ryver.get_api_url(
+            TYPE_TOPIC_REPLY, format="json", filter=f"((post/id eq {self.get_id()}))")
         async for reply in get_all(session=self._ryver._session, url=url, top=top, skip=skip):
             yield TopicReply(self._ryver, reply)
-    
+
     async def edit(self, subject: str = None, body: str = None, stickied: bool = None, creator: Creator = None, attachments: typing.Iterable["Storage"] = None) -> None:
         """
         Edit this topic.
@@ -577,7 +580,7 @@ class Topic(PostedMessage):
            The file attachments (if specified) will **replace** all existing attachments.
 
            Additionally, this method also updates these properties in this object.
-        
+
         If any parameters are unspecified, that property will remain unchanged.
 
         :param subject: The subject (or title) of the topic (optional).
@@ -620,7 +623,7 @@ class ChatMessage(Message):
         :return: The author ID of the message.
         """
         return self._data["from"]["id"]
-    
+
     async def get_author(self) -> "User":
         """
         Get the author of this message, as a :py:class:`User` object.
@@ -653,7 +656,7 @@ class ChatMessage(Message):
         :return: The ID of the chat this message was sent to.
         """
         return self._data["to"]["id"]
-    
+
     def get_attached_file(self) -> "File":
         """
         Get the file attached to this message, if there is one.
@@ -696,13 +699,14 @@ class ChatMessage(Message):
 
         :param emoji: The string name of the reaction (e.g. "thumbsup").
         """
-        url = self._ryver.get_api_url(self.get_chat_type(), self.get_chat_id(), "Chat.React()", format="json")
+        url = self._ryver.get_api_url(self.get_chat_type(
+        ), self.get_chat_id(), "Chat.React()", format="json")
         data = {
             "id": self.get_id(),
             "reaction": emoji
         }
         await self._ryver._session.post(url, json=data)
-    
+
     # Override Message.unreact() because a different URL is used
     async def unreact(self, emoji: str) -> None:
         """
@@ -713,7 +717,8 @@ class ChatMessage(Message):
 
         :param emoji: The string name of the reaction (e.g. "thumbsup").
         """
-        url = self._ryver.get_api_url(self.get_chat_type(), self.get_chat_id(), "Chat.UnReact()", format="json")
+        url = self._ryver.get_api_url(self.get_chat_type(
+        ), self.get_chat_id(), "Chat.UnReact()", format="json")
         data = {
             "id": self.get_id(),
             "reaction": emoji
@@ -724,12 +729,13 @@ class ChatMessage(Message):
         """
         Deletes the message.
         """
-        url = self._ryver.get_api_url(self.get_chat_type(), self.get_chat_id(), "Chat.DeleteMessage()", format="json")
+        url = self._ryver.get_api_url(self.get_chat_type(
+        ), self.get_chat_id(), "Chat.DeleteMessage()", format="json")
         data = {
             "id": self.get_id(),
         }
         await self._ryver._session.post(url, json=data)
-    
+
     async def edit(self, body: str, creator: Creator = None) -> None:
         """
         Edit the message.
@@ -742,12 +748,13 @@ class ChatMessage(Message):
         :param body: The new message content.
         :param creator: The new message creator; optional, if unset left as-is.
         """
-        url = self._ryver.get_api_url(self.get_chat_type(), self.get_chat_id(), "Chat.UpdateMessage()", format="json")
+        url = self._ryver.get_api_url(self.get_chat_type(
+        ), self.get_chat_id(), "Chat.UpdateMessage()", format="json")
         data = {
             "id": self.get_id(),
             "body": body,
         }
-        if creator:
+        if creator is not None:
             data["createSource"] = creator.to_dict()
         await self._ryver._session.post(url, json=data)
 
@@ -770,7 +777,7 @@ class Chat(Object):
         :return: The JID of this chat.
         """
         return self._data["jid"]
-    
+
     @abstractmethod
     def get_name(self) -> str:
         """
@@ -778,7 +785,7 @@ class Chat(Object):
 
         :return: The name of this chat.
         """
-    
+
     def get_task_tags(self) -> typing.List[TaskTag]:
         """
         Get a list of task tags defined in this chat, as ``TaskTag`` objects.
@@ -786,7 +793,7 @@ class Chat(Object):
         :return: The defined task tags of this chat.
         """
         return [TaskTag.from_data(data) for data in self._data["tagDefs"]]
-    
+
     async def set_task_tags(self, tags: typing.Iterable[TaskTag]):
         """
         Set the task tags defined in this chat.
@@ -795,7 +802,7 @@ class Chat(Object):
            This will erase any existing tags.
 
            This method also updates the task tags property of this object.
-        
+
         :param tags: The new tags as a list of ``TaskTag``s.
         """
         data = {
@@ -815,7 +822,7 @@ class Chat(Object):
            To attach a file to the message, use :py:meth:`pyryver.ryver.Ryver.upload_file()`
            to upload the file you wish to attach. Alternatively, use
            :py:meth:`pyryver.ryver.Ryver.create_link()` for a link attachment.
-        
+
         .. warning::
            ``from_user`` **must** be set when using attachments with private messages.
            Otherwise, a ``ValueError`` will be raised. It should be set to the user that
@@ -836,11 +843,12 @@ class Chat(Object):
         data = {
             "body": message
         }
-        if creator:
+        if creator is not None:
             data["createSource"] = creator.to_dict()
         if attachment:
             if from_user is None and isinstance(self, User):
-                raise ValueError("Message attachments in private messages require from_user to be set!")
+                raise ValueError(
+                    "Message attachments in private messages require from_user to be set!")
             # The Ryver API is weird
             out_assoc = {
                 "results": [
@@ -860,12 +868,14 @@ class Chat(Object):
                     "inName": from_user.get_name(),
                 })
             # PATCH to update the outAssociations of the file
-            patch_url = self._ryver.get_api_url(TYPE_FILE, attachment.get_content_id(), format="json")
+            patch_url = self._ryver.get_api_url(
+                TYPE_FILE, attachment.get_content_id(), format="json")
             await self._ryver._session.patch(patch_url, json={
                 "outAssociations": out_assoc
             })
             # Now GET to get the embeds
-            embeds_url = self._ryver.get_api_url(TYPE_FILE, attachment.get_content_id(), select="embeds")
+            embeds_url = self._ryver.get_api_url(
+                TYPE_FILE, attachment.get_content_id(), select="embeds")
             async with self._ryver._session.get(embeds_url) as resp:
                 embeds = await resp.json()
             data["extras"] = {
@@ -894,7 +904,8 @@ class Chat(Object):
         :param skip: Skip this many results.
         :return: An async iterator for the topics of this chat.
         """
-        url = self.get_api_url(f"Post.Stream(archived={'true' if archived else 'false'})", format="json")
+        url = self.get_api_url(
+            f"Post.Stream(archived={'true' if archived else 'false'})", format="json")
         async for topic in get_all(session=self._ryver._session, url=url, top=top, skip=skip):
             yield Topic(self._ryver, topic)
 
@@ -907,12 +918,13 @@ class Chat(Object):
         :return: A list of messages.
         """
         # Interestingly, this does not have the same 50-result restriction as the other API methods...
-        url = self.get_api_url("Chat.History()", format="json", top=count, skip=skip)
+        url = self.get_api_url(
+            "Chat.History()", format="json", top=count, skip=skip)
         async with self._ryver._session.get(url) as resp:
             messages = (await resp.json())["d"]["results"]
         return [ChatMessage(self._ryver, data) for data in messages]
-    
-    async def get_message(self, id: str) -> ChatMessage:
+
+    async def get_message(self, msg_id: str) -> ChatMessage:
         """
         Get a single message from this chat by its ID.
 
@@ -926,22 +938,23 @@ class Chat(Object):
            You can use :py:func:`pyryver.util.retry_until_available()` to wrap
            around this coroutine to get around this.
 
-        :param id: The ID of the chat message to get.
+        :param msg_id: The ID of the chat message to get.
         :return: The message object.
         """
-        url = self.get_api_url(f"Chat.History.Message(id='{id}')", format="json")
+        url = self.get_api_url(
+            f"Chat.History.Message(id='{msg_id}')", format="json")
         async with self._ryver._session.get(url) as resp:
             messages = (await resp.json())["d"]["results"]
         return ChatMessage(self._ryver, messages[0])
-    
-    async def get_messages_surrounding(self, id: str, before: int = 0, after: int = 0) -> typing.List[ChatMessage]:
+
+    async def get_messages_surrounding(self, msg_id: str, before: int = 0, after: int = 0) -> typing.List[ChatMessage]:
         """
         Get a range of messages (most recent **last**) before and after a chat message (given by ID).
 
         .. warning::
            Before and after cannot exceed 25 messages, otherwise a :py:exc:`aiohttp.ClientResponseError`
            will be raised with the code 400 Bad Request.
-        
+
         .. note::
            There is a chance that this method might result in a 404 Not Found for
            messages that were sent recently (such as when using the realtime
@@ -954,17 +967,18 @@ class Chat(Object):
 
         The message with the given ID is also included as a part of the result.
 
-        :param id: The ID of the message to use as the reference point.
+        :param msg_id: The ID of the message to use as the reference point.
         :param before: How many messages to retrieve before the specified one (optional).
         :param after: How many messages to retrieve after the specified one (optional).
         :return: The messages requested, including the reference point message.
         """
-        url = self.get_api_url(f"Chat.History.Message(id='{id}',before={before},after={after})", format="json")
+        url = self.get_api_url(
+            f"Chat.History.Message(id='{msg_id}',before={before},after={after})", format="json")
         async with self._ryver._session.get(url) as resp:
             messages = (await resp.json())["d"]["results"]
         return [ChatMessage(self._ryver, data) for data in messages]
 
-    async def get_message_from_id(self, id: str, before: int = 0, after: int = 0) -> typing.List[Message]:
+    async def get_message_from_id(self, msg_id: str, before: int = 0, after: int = 0) -> typing.List[Message]:
         """
         Get a message from an ID, optionally also messages before and after it too.
 
@@ -977,7 +991,7 @@ class Chat(Object):
         .. warning:: 
            Before and after cannot exceed 25 messages, otherwise an HTTPError will be raised
            with the error code 400 Bad Request.
-        
+
         .. note::
            There is a chance that this method might result in a 404 Not Found for
            messages that were sent recently (such as when using the realtime
@@ -990,16 +1004,17 @@ class Chat(Object):
 
         This method does not support top/skip.
 
-        :param id: The ID of the message to retrieve, and the reference point for the ``before`` and ``after`` parameters.
+        :param msg_id: The ID of the message to retrieve, and the reference point for the ``before`` and ``after`` parameters.
         :param before: How many extra messages to retrieve before the specified one.
         :param after: How many extra messages to retrieve after the specified one.
         :return: The message(s) requested in a list.
         """
-        url = self.get_api_url(f"Chat.History.Message(id='{id}',before={before},after={after})", format="json")
+        url = self.get_api_url(
+            f"Chat.History.Message(id='{msg_id}',before={before},after={after})", format="json")
         async with self._ryver._session.get(url) as resp:
             messages = (await resp.json())["d"]["results"]
         return [ChatMessage(self._ryver, data) for data in messages]
-    
+
     async def get_task_board(self) -> "TaskBoard":
         """
         Get the task board of this chat.
@@ -1050,7 +1065,7 @@ class User(Chat):
         :return: The display name of this user.
         """
         return self._data["displayName"]
-    
+
     def get_name(self) -> str:
         """
         Get the display name of this user (same as the display name).
@@ -1157,7 +1172,8 @@ class User(Chat):
         .. note::
            This also updates these properties in this object.
         """
-        url = self.get_api_url(f"User.Active.Set(value='{'true' if activated else 'false'}')")
+        url = self.get_api_url(
+            f"User.Active.Set(value='{'true' if activated else 'false'}')")
         await self._ryver._session.post(url)
         self._data["active"] = activated
 
@@ -1183,8 +1199,8 @@ class User(Chat):
         if role == User.ROLE_ADMIN:
             self._data["roles"].append(User.ROLE_USER)
 
-    async def create_topic(self, from_user: "User", subject: str, body: str, stickied: bool = False, 
-                           attachments: typing.Iterable["Storage"] = [], creator: Creator = None) -> Topic:
+    async def create_topic(self, from_user: "User", subject: str, body: str, stickied: bool = False,
+                           attachments: typing.Iterable["Storage"] = None, creator: Creator = None) -> Topic:
         """
         Create a topic in this user's DMs.
 
@@ -1226,7 +1242,7 @@ class User(Chat):
             "recordType": "note",
             "stickied": stickied
         }
-        if creator:
+        if creator is not None:
             data["createSource"] = creator.to_dict()
         if attachments:
             data["attachments"] = {
@@ -1324,7 +1340,7 @@ class GroupChat(Chat):
         async for member in get_all(session=self._ryver._session, url=url, top=top, skip=skip):
             yield GroupChatMember(self._ryver, member)
 
-    async def get_member(self, id: int) -> GroupChatMember:
+    async def get_member(self, user_id: int) -> GroupChatMember:
         """
         Get a member by user ID.
 
@@ -1339,15 +1355,17 @@ class GroupChat(Chat):
 
         If the user is not found, this method will return None.
 
+        :param user_id: The ID of the member.
         :return: The member, or None if not found.
         """
-        url = self.get_api_url("members", expand="member", filter=f"(member/id eq {id})")
+        url = self.get_api_url("members", expand="member",
+                               filter=f"(member/id eq {user_id})")
         async with self._ryver._session.get(url) as resp:
             member = (await resp.json())["d"]["results"]
         return GroupChatMember(self._ryver, member[0]) if member else None
-    
-    async def create_topic(self, subject: str, body: str, stickied: bool = False, creator: Creator = None, 
-                           attachments: typing.Iterable["Storage"] = []) -> Topic:
+
+    async def create_topic(self, subject: str, body: str, stickied: bool = False, creator: Creator = None,
+                           attachments: typing.Iterable["Storage"] = None) -> Topic:
         """
         Create a topic in this chat.
 
@@ -1381,7 +1399,7 @@ class GroupChat(Chat):
             "recordType": "note",
             "stickied": stickied
         }
-        if creator:
+        if creator is not None:
             data["createSource"] = creator.to_dict()
         if attachments:
             data["attachments"] = {
@@ -1430,7 +1448,7 @@ class TaskBoard(Object):
         :return: The name of the task board.
         """
         return self._data["name"]
-    
+
     def get_board_type(self) -> str:
         """
         Get the type of this task board.
@@ -1445,7 +1463,7 @@ class TaskBoard(Object):
         :return: The type of this task board.
         """
         return self._data["type"]
-    
+
     def get_prefix(self) -> str:
         """
         Get the prefix for this task board.
@@ -1458,7 +1476,7 @@ class TaskBoard(Object):
         :return: The task prefix for this task board.
         """
         return self._data["shortPrefix"]
-    
+
     async def get_categories(self) -> typing.List["TaskCategory"]:
         """
         Get all the categories in this task board.
@@ -1474,7 +1492,7 @@ class TaskBoard(Object):
                 return [TaskCategory(self._ryver, data) for data in (await resp.json())["d"]["results"]]
         else:
             return [TaskCategory(self._ryver, data) for data in self._data["categories"]["results"]]
-    
+
     async def create_category(self, name: str, done: bool = False) -> "TaskCategory":
         """
         Create a new task category in this task board.
@@ -1494,7 +1512,7 @@ class TaskBoard(Object):
             data["categoryType"] = "done"
         async with self._ryver._session.post(url, json=data) as resp:
             return TaskCategory(self._ryver, (await resp.json())["d"]["results"])
-        
+
     async def get_tasks(self, archived: bool = None) -> typing.List["Task"]:
         """
         Get all the tasks in this task board.
@@ -1510,15 +1528,16 @@ class TaskBoard(Object):
         if archived is None:
             url = self.get_api_url(action="tasks")
         else:
-            url = self.get_api_url(action="tasks", filter=f"(archived eq {'true' if archived else 'false'} and parent eq null)")
+            url = self.get_api_url(
+                action="tasks", filter=f"(archived eq {'true' if archived else 'false'} and parent eq null)")
         async with self._ryver._session.get(url) as resp:
             return [Task(self._ryver, data) for data in (await resp.json())["d"]["results"]]
-    
-    async def create_task(self, subject: str, body: str = "", category: "TaskCategory" = None, 
-                          assignees: typing.Iterable[User] = [], due_date: str = None, 
-                          tags: typing.Union[typing.List[str], typing.List[TaskTag]] = [], 
-                          checklist: typing.Iterable[str] = [], 
-                          attachments: typing.Iterable["Storage"] = []) -> "Task":
+
+    async def create_task(self, subject: str, body: str = "", category: "TaskCategory" = None,
+                          assignees: typing.Iterable[User] = None, due_date: str = None,
+                          tags: typing.Union[typing.List[str], typing.List[TaskTag]] = None,
+                          checklist: typing.Iterable[str] = None,
+                          attachments: typing.Iterable["Storage"] = None) -> "Task":
         """
         Create a task in this task board.
 
@@ -1529,14 +1548,14 @@ class TaskBoard(Object):
            To attach files to the task, use :py:meth:`pyryver.ryver.Ryver.upload_file()`
            to upload the files you wish to attach. Alternatively, use
            :py:meth:`pyryver.ryver.Ryver.create_link()` for link attachments.
-        
+
         .. tip::
            You can use :py:meth:`pyryver.util.datetime_to_iso8601()` to turn datetime
            objects into timestamps that Ryver will accept.
 
            Note that timezone info **must** be present in the timestamp. Otherwise, this
            will result in a 400 Bad Request.
-        
+
         :param subject: The subject, or title of the task.
         :param body: The body, or description of the task (optional).
         :param category: The category of the task; if None, the task will be uncategorized (optional).
@@ -1604,7 +1623,7 @@ class TaskCategory(Object):
         :return: The name of this category.
         """
         return self._data["name"]
-    
+
     def get_position(self) -> int:
         """
         Get the position of this category in this task board.
@@ -1620,7 +1639,7 @@ class TaskCategory(Object):
         :return: The position of this category.
         """
         return self._data["position"]
-    
+
     def get_category_type(self) -> str:
         """
         Get the type of this task category.
@@ -1630,7 +1649,7 @@ class TaskCategory(Object):
         :return: The type of this category.
         """
         return self._data["categoryType"]
-    
+
     async def get_task_board(self) -> TaskBoard:
         """
         Get the task board that contains this category.
@@ -1638,14 +1657,14 @@ class TaskCategory(Object):
         :return: The task board.
         """
         return self.get_deferred_field("board", TYPE_TASK_BOARD)
-    
+
     async def edit(self, name: str = None, done: bool = None) -> None:
         """
         Edit this category.
 
         .. note::
            This method also updates these properties in this object.
-        
+
         .. warning::
            ``done`` should **never** be set for the "Uncategorized" category, as its
            type cannot be modified. If set, a ``ValueError`` will be raised.
@@ -1661,15 +1680,17 @@ class TaskCategory(Object):
             data["name"] = name
         if done is not None:
             if self.get_category_type() == TaskCategory.CATEGORY_TYPE_UNCATEGORIZED:
-                raise ValueError("Cannot modify type of the 'Uncategorized' category!")
+                raise ValueError(
+                    "Cannot modify type of the 'Uncategorized' category!")
             if done:
                 data["categoryType"] = TaskCategory.CATEGORY_TYPE_DONE
             else:
                 data["categoryType"] = TaskCategory.CATEGORY_TYPE_OTHER
         await self._ryver._session.patch(url, json=data)
         self._data["name"] = data.get("name", self._data["name"])
-        self._data["categoryType"] = data.get("categoryType", self._data["categoryType"])
-    
+        self._data["categoryType"] = data.get(
+            "categoryType", self._data["categoryType"])
+
     async def delete(self, move_to: "TaskCategory" = None) -> None:
         """
         Delete this category.
@@ -1683,9 +1704,10 @@ class TaskCategory(Object):
         if move_to is None:
             url = self.get_api_url(action="TaskCategory.Delete(archive=true)")
         else:
-            url = self.get_api_url(action=f"TaskCategory.Delete(moveTo={move_to.get_id()},archive=true)")
+            url = self.get_api_url(
+                action=f"TaskCategory.Delete(moveTo={move_to.get_id()},archive=true)")
         await self._ryver._session.post(url)
-    
+
     async def archive(self, completed_only: bool = False) -> None:
         """
         Archive either all or only completed tasks in this category.
@@ -1695,9 +1717,10 @@ class TaskCategory(Object):
 
         :param completed_only: Whether to only archive completed tasks (optional).
         """
-        url = self.get_api_url(action=f"TaskCategory.Archive(completeOnly={'true' if completed_only else 'false'})")
+        url = self.get_api_url(
+            action=f"TaskCategory.Archive(completeOnly={'true' if completed_only else 'false'})")
         await self._ryver._session.post(url)
-    
+
     async def move_position(self, position: int) -> None:
         """
         Move this category's display position in the UI.
@@ -1712,13 +1735,14 @@ class TaskCategory(Object):
 
            Therefore, no user-created task category can ever be moved to position 0,
            and the "Uncategorized" category should never be moved.
-        
+
         :param position: The new display position.
         """
-        url = self.get_api_url(action=f"TaskCategory.Move(position={position})")
+        url = self.get_api_url(
+            action=f"TaskCategory.Move(position={position})")
         await self._ryver._session.post(url)
         self._data["position"] = position
-    
+
     async def move_tasks(self, category: "TaskCategory", completed_only: bool = False) -> None:
         """
         Move either all or only completed tasks in this category to another category.
@@ -1726,9 +1750,10 @@ class TaskCategory(Object):
         :param category: The category to move to.
         :param completed_only: Whether to only move completed tasks (optional).
         """
-        url = self.get_api_url(action=f"TaskCategory.MoveTasks(moveTo={category.get_id()},completeOnly={'true' if completed_only else 'false'})")
+        url = self.get_api_url(
+            action=f"TaskCategory.MoveTasks(moveTo={category.get_id()},completeOnly={'true' if completed_only else 'false'})")
         await self._ryver._session.post(url)
-    
+
     async def get_tasks(self, archived: bool = None) -> typing.List["Task"]:
         """
         Get all the tasks in this category.
@@ -1744,7 +1769,8 @@ class TaskCategory(Object):
         if archived is None:
             url = self.get_api_url(action="tasks")
         else:
-            url = self.get_api_url(action="tasks", filter=f"(archived eq {'true' if archived else 'false'} and parent eq null)")
+            url = self.get_api_url(
+                action="tasks", filter=f"(archived eq {'true' if archived else 'false'} and parent eq null)")
         async with self._ryver._session.get(url) as resp:
             return [Task(self._ryver, data) for data in (await resp.json())["d"]["results"]]
 
@@ -1755,7 +1781,7 @@ class Task(PostedMessage):
     """
 
     _OBJ_TYPE = TYPE_TASK
-    
+
     def is_archived(self) -> bool:
         """
         Get whether this task has been archived.
@@ -1763,7 +1789,7 @@ class Task(PostedMessage):
         :return: Whether this task has been archived.
         """
         return self._data["archived"]
-    
+
     def get_subject(self) -> str:
         """
         Get the subject (title) of this task.
@@ -1771,7 +1797,7 @@ class Task(PostedMessage):
         :return: The subject of this task.
         """
         return self._data["subject"]
-    
+
     def get_due_date(self) -> str:
         """
         Get the due date as an ISO 8601 timestamp.
@@ -1785,7 +1811,7 @@ class Task(PostedMessage):
         :return: The due date of this task.
         """
         return self._data["dueDate"]
-    
+
     def get_complete_date(self) -> str:
         """
         Get the complete date as an ISO 8601 timestamp.
@@ -1795,11 +1821,11 @@ class Task(PostedMessage):
         .. tip::
            You can use :py:meth:`pyryver.util.iso8601_to_datetime()` to convert the 
            timestamps returned by this method into a datetime.
-        
+
         :return: The completion date of this task.
         """
         return self._data["completeDate"]
-    
+
     def is_completed(self) -> bool:
         """
         Get whether this task has been completed.
@@ -1807,7 +1833,7 @@ class Task(PostedMessage):
         :return: Whether this task has been completed.
         """
         return self.get_complete_date() is not None
-    
+
     def get_short_repr(self) -> str:
         """
         Get the short representation of this task. 
@@ -1820,7 +1846,7 @@ class Task(PostedMessage):
         :return: The unique short representation of this task.
         """
         return self._data["short"]
-    
+
     def get_position(self) -> int:
         """
         Get the position of this task in its category or the task list.
@@ -1830,7 +1856,7 @@ class Task(PostedMessage):
         :return: The position of this task in its category.
         """
         return self._data["position"]
-    
+
     def get_comments_count(self) -> int:
         """
         Get how many comments this task has received.
@@ -1838,7 +1864,7 @@ class Task(PostedMessage):
         :return: The number of comments this task has received.
         """
         return self._data["commentsCount"]
-    
+
     def get_attachments_count(self) -> int:
         """
         Get how many attachments this task has.
@@ -1846,18 +1872,18 @@ class Task(PostedMessage):
         :return: The number of attachments this task has.
         """
         return self._data["attachmentsCount"]
-    
+
     def get_tags(self) -> typing.List[str]:
         """
         Get all the tags of this task.
 
         .. note::
            The tags are returned as a list of strings, not a list of ``TaskTag``s.
-        
+
         :return: All the tags of this task, as strings.
         """
         return self._data["tags"]
-    
+
     async def get_task_board(self) -> TaskBoard:
         """
         Get the task board this task is in.
@@ -1865,7 +1891,7 @@ class Task(PostedMessage):
         :return: The task board containing this task.
         """
         return self.get_deferred_field("board", TYPE_TASK_BOARD)
-    
+
     async def get_task_category(self) -> TaskCategory:
         """
         Get the category this task is in.
@@ -1873,7 +1899,7 @@ class Task(PostedMessage):
         :return: The category containing this task.
         """
         return self.get_deferred_field("category", TYPE_TASK_CATEGORY)
-    
+
     async def get_assignees(self) -> typing.List[User]:
         """
         Get the assignees of this task.
@@ -1881,7 +1907,7 @@ class Task(PostedMessage):
         :return: The assignees of this task,.
         """
         return self.get_deferred_field("assignees", TYPE_USER)
-    
+
     async def set_complete_date(self, time: str = "") -> None:
         """
         Set the complete date of this task, which also marks whether this task
@@ -1909,14 +1935,15 @@ class Task(PostedMessage):
         :param time: The completion time (optional).
         """
         if time == "":
-            time = datetime_to_iso8601(datetime.datetime.now(datetime.timezone.utc))
+            time = datetime_to_iso8601(
+                datetime.datetime.now(datetime.timezone.utc))
         url = self.get_api_url()
         data = {
             "completeDate": time
         }
         await self._ryver._session.patch(url, json=data)
         self._data["completeDate"] = time
-    
+
     async def set_due_date(self, time: str):
         """
         Set the due date of this task.
@@ -1930,10 +1957,10 @@ class Task(PostedMessage):
 
            Note that timezone info **must** be present in the timestamp. Otherwise, this
            will result in a 400 Bad Request.
-        
+
         .. note::
            This also updates the due date property in this object.
-        
+
         :param time: The new due date.
         """
         url = self.get_api_url()
@@ -1942,19 +1969,19 @@ class Task(PostedMessage):
         }
         await self._ryver._session.patch(url, json=data)
         self._data["dueDate"] = time
-    
+
     async def complete(self) -> None:
         """
         Mark this task as complete.
         """
         await self.set_complete_date()
-    
+
     async def uncomplete(self) -> None:
         """
         Mark this task as uncomplete.
         """
         await self.set_complete_date(None)
-    
+
     async def move(self, category: TaskCategory, position: int) -> None:
         """
         Move this task to another category or to a different position in the same
@@ -1963,10 +1990,11 @@ class Task(PostedMessage):
         .. note::
            This also updates the position property of this object.
         """
-        url = self.get_api_url(action=f"Task.Move(position={position}, category={category.get_id()})")
+        url = self.get_api_url(
+            action=f"Task.Move(position={position}, category={category.get_id()})")
         await self._ryver._session.post(url)
         self._data["position"] = position
-    
+
     async def get_checklist(self) -> typing.List["Task"]:
         """
         Get the checklist items of this task (subtasks).
@@ -1981,7 +2009,7 @@ class Task(PostedMessage):
         url = self.get_api_url(action="subTasks")
         async with self._ryver._session.get(url) as resp:
             return [Task(self._ryver, data) for data in (await resp.json())["d"]["results"]]
-    
+
     async def get_parent(self) -> "Task":
         """
         Get the parent task of this sub-task (checklist item).
@@ -1995,7 +2023,7 @@ class Task(PostedMessage):
             return self.get_deferred_field("parent", TYPE_TASK)
         except ValueError:
             return None
-    
+
     async def add_to_checklist(self, items: typing.Iterable[str]) -> None:
         """
         Add items to this task's checklist.
@@ -2012,9 +2040,10 @@ class Task(PostedMessage):
                 "results": [{"subject": subject} for subject in items]
             }
         }
-        url = self.get_api_url(format="json", select="subTasks", expand="subTasks")
+        url = self.get_api_url(
+            format="json", select="subTasks", expand="subTasks")
         await self._ryver._session.patch(url, json=data)
-    
+
     async def set_checklist(self, items: typing.Iterable["Task"]) -> None:
         """
         Set the contents of this task's checklist.
@@ -2205,7 +2234,7 @@ class Notification(Object):
             "unread": unread,
             "new": new,
         }
-        url = self.get_api_url(format=json)
+        url = self.get_api_url(format="json")
         await self._ryver._session.patch(url, json=data)
         self._data["unread"] = unread
         self._data["new"] = new
@@ -2257,7 +2286,7 @@ class File(Object):
         :return: The MIME type of the file.
         """
         return self._data.get("type", None) or self._data["fileType"]
-    
+
     def request_data(self) -> aiohttp.ClientResponse:
         """
         Get the file data.
@@ -2269,7 +2298,7 @@ class File(Object):
         # Use aiohttp.request directly because we don't want to send the auth header
         # Otherwise we'll get a 400
         return aiohttp.request("GET", self.get_url())
-    
+
     async def download_data(self) -> bytes:
         """
         Download the file data.
@@ -2314,7 +2343,7 @@ class Storage(Object):
         if "file" in self._data:
             return self._data["file"]["recordType"]
         return self._data["recordType"]
-    
+
     def get_name(self) -> str:
         """
         Get the name of this storage object.
@@ -2322,7 +2351,7 @@ class Storage(Object):
         :return: The name of this storage object.
         """
         return self._data.get("fileName", None) or self._data["name"]
-    
+
     def get_size(self) -> str:
         """
         Get the size of the object stored.
@@ -2330,7 +2359,7 @@ class Storage(Object):
         :return: The size of the thing stored.
         """
         return self._data["fileSize"]
-    
+
     def get_content_id(self) -> int:
         """
         Get the ID of the **contents** of this storage object.
@@ -2344,7 +2373,7 @@ class Storage(Object):
             return self._data["file"]["id"]
         else:
             return self.get_id()
-    
+
     def get_content_MIME_type(self) -> str:
         """
         Get the MIME type of the content.
@@ -2366,7 +2395,7 @@ class Storage(Object):
         :return: The file stored.
         """
         return File(self._ryver, self._data["file"])
-    
+
     def get_content_url(self) -> str:
         """
         Get the URL of the contents.
@@ -2379,12 +2408,13 @@ class Storage(Object):
         if self.get_storage_type() == Storage.STORAGE_TYPE_FILE:
             return self._data["file"]["url"]
         return self._data["url"]
-    
+
     async def delete(self) -> None:
         """
         Delete this storage object and the file it contains if there is one.
         """
-        url = self._ryver.get_api_url(Storage.STORAGE_TYPE_FILE, self.get_content_id(), format="json")
+        url = self._ryver.get_api_url(
+            Storage.STORAGE_TYPE_FILE, self.get_content_id(), format="json")
         await self._ryver._session.delete(url)
 
 
@@ -2426,5 +2456,3 @@ def get_obj_by_field(objs: typing.Iterable[Object], field: str, value: typing.An
         if obj._data[field] == value:
             return obj
     return None
-
-from pyryver.ryver import *
