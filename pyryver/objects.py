@@ -388,21 +388,21 @@ class Message(Object):
         await self._ryver._session.delete(self.get_api_url(format="json"))
 
 
-class TopicMessage(Message):
+class PostedMessage(Message):
     """
-    A topic or a reply to a topic.
+    A topic, task, topic reply, etc.
     """
 
-    _OBJ_TYPE = "__topicMessage"
+    _OBJ_TYPE = "__postedMessage"
     
     async def get_attachments(self) -> typing.List["Storage"]:
         """
-        Get all the attachments of this topic.
+        Get all the attachments of this message.
 
         As the attachments could be files, links or otherwise, :py:class:`Storage`
         objects are returned instead of :py:class:`File` objects.
 
-        :return: A list of attachments of this topic or reply.
+        :return: A list of attachments of this message.
         """
         url = self.get_api_url(expand="attachments,attachments/storage", select="attachments")
         async with self._ryver._session.get(url) as resp:
@@ -419,7 +419,7 @@ class TopicMessage(Message):
         return results
 
 
-class TopicReply(TopicMessage):
+class TopicReply(PostedMessage):
     """
     A reply on a topic.
     """
@@ -478,7 +478,7 @@ class TopicReply(TopicMessage):
             self._data[k] = v
 
 
-class Topic(TopicMessage):
+class Topic(PostedMessage):
     """
     A Ryver topic in a chat.
     """
@@ -1749,7 +1749,7 @@ class TaskCategory(Object):
             return [Task(self._ryver, data) for data in (await resp.json())["d"]["results"]]
 
 
-class Task(Message):
+class Task(PostedMessage):
     """
     A Ryver task.
     """
@@ -2391,7 +2391,7 @@ class Storage(Object):
 TYPES_DICT = {
     Object._OBJ_TYPE: Object,
     Message._OBJ_TYPE: Message,
-    TopicMessage._OBJ_TYPE: TopicMessage,
+    PostedMessage._OBJ_TYPE: PostedMessage,
     TopicReply._OBJ_TYPE: TopicReply,
     Topic._OBJ_TYPE: Topic,
     ChatMessage._OBJ_TYPE: ChatMessage,
