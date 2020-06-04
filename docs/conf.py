@@ -18,8 +18,8 @@ import pyryver
 # -- Project information -----------------------------------------------------
 
 project = 'pyryver'
-copyright = '2020, pyryver authors'
-author = 'pyryver authors'
+copyright = '2020, Tyler Tian, Matthew Mirvish and Moeez Muhammad'
+author = 'Tyler Tian, Matthew Mirvish and Moeez Muhammad'
 
 # The full version, including alpha/beta/rc tags
 release = pyryver.__version__
@@ -39,6 +39,8 @@ extensions = [
 default_role = 'py:obj'
 
 master_doc = "index"
+
+autodoc_member_order = 'bysource'
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']

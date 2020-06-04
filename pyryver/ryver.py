@@ -79,8 +79,6 @@ class Ryver:
         top is the maximum number of results (-1 for unlimited), skip is how
         many results to skip.
 
-        This method sends requests.
-
         :return: The chats.
         """
         url = self.get_api_url(obj_type)
@@ -130,8 +128,6 @@ class Ryver:
         """
         Get an object from Ryver with a type and ID.
 
-        This method sends requests.
-
         If extra keyword arguments are supplied, they are appended to the request
         as additional query parameters. Possible values include ``top``, ``skip``, 
         ``select``, ``expand`` and more. 
@@ -150,8 +146,6 @@ class Ryver:
         Load the data of all users.
 
         This refreshes the cached data if a cache is supplied.
-
-        This method sends requests.
         """
         self.users = await self._get_chats(TYPE_USER)
         if self._cache:
@@ -162,8 +156,6 @@ class Ryver:
         Load the data of all forums.
 
         This refreshes the cached data if a cache is supplied.
-
-        This method sends requests.
         """
         self.forums = await self._get_chats(TYPE_FORUM)
         if self._cache:
@@ -174,8 +166,6 @@ class Ryver:
         Load the data of all teams.
 
         This refreshes the cached data if a cache is supplied.
-
-        This method sends requests.
         """
         self.teams = await self._get_chats(TYPE_TEAM)
         if self._cache:
@@ -186,8 +176,6 @@ class Ryver:
         Load the data of all users/teams/forums. 
 
         This refreshes the cached data if a cache is supplied.
-
-        This method sends requests.
         """
         self.users = await self._get_chats(TYPE_USER)
         self.forums = await self._get_chats(TYPE_FORUM)
@@ -302,8 +290,6 @@ class Ryver:
         """
         Get the notifications for the logged in user.
 
-        This method sends requests.
-
         :param unread: If True, only return unread notifications.
         :param top: Maximum number of results.
         :param skip: Skip this many results.
@@ -321,8 +307,6 @@ class Ryver:
         """
         Marks all the user's notifications as read.
 
-        This method sends requests.
-
         :return: How many notifications were marked as read.
         """
         url = self.get_api_url(TYPE_NOTIFICATION, action="UserNotification.MarkAllRead()", format="json")
@@ -332,8 +316,6 @@ class Ryver:
     async def mark_all_notifs_seen(self) -> int:
         """
         Marks all the user's notifications as seen.
-
-        This method sends requests.
 
         :return: How many notifications were marked as seen.
         """
@@ -398,8 +380,6 @@ class Ryver:
          - Basic info about all forums - contains avatar URLs ("forums")
          - All available commands ("commands")
          - "messages" and "prefixes", the purpose of which are currently unknown.
-
-        This method sends requests.
 
         :return: The raw org and user info data.
         """

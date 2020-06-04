@@ -330,8 +330,6 @@ class Message(Object):
         """
         Get the author of this message, as a :py:class:`User` object.
 
-        This method sends requests.
-
         :return: The author of this message.
         """
         return self.get_create_user()
@@ -339,8 +337,6 @@ class Message(Object):
     async def react(self, emoji: str) -> None:
         """
         React to this task with an emoji. 
-
-        This method sends requests.
 
         .. note::
            This method does **not** update the reactions property of this object.
@@ -353,8 +349,6 @@ class Message(Object):
     async def unreact(self, emoji: str) -> None:
         """
         Unreact with an emoji.
-
-        This method sends requests.
 
         .. note::
            This method does **not** update the reactions property of this object.
@@ -405,8 +399,6 @@ class TopicMessage(Message):
         """
         Get all the attachments of this topic.
 
-        This method sends requests.
-
         As the attachments could be files, links or otherwise, :py:class:`Storage`
         objects are returned instead of :py:class:`File` objects.
 
@@ -447,8 +439,6 @@ class TopicReply(TopicMessage):
         """
         Get the topic this reply was sent to.
 
-        This method sends requests.
-
         :return: The topic associated with this reply.
         """
         return await self.get_deferred_field("post", TYPE_TOPIC)
@@ -456,8 +446,6 @@ class TopicReply(TopicMessage):
     async def edit(self, message: str = None, creator: Creator = None, attachments: typing.Iterable["Storage"] = None) -> None:
         """
         Edit this topic reply.
-
-        This method sends requests.
 
         .. note::
            You can only edit a reply if it was sent by you (even if you are an
@@ -537,8 +525,6 @@ class Topic(TopicMessage):
         """
         Reply to the topic.
 
-        This method sends requests.
-
         .. note::
            For unknown reasons, overriding the creator does not seem to work for this method.
 
@@ -572,8 +558,6 @@ class Topic(TopicMessage):
         """
         Get all the replies to this topic.
 
-        This method sends requests.
-
         :param top: Maximum number of results; optional, if unspecified return all results.
         :param skip: Skip this many results.
         :return: An async iterator for the replies of this topic.
@@ -585,8 +569,6 @@ class Topic(TopicMessage):
     async def edit(self, subject: str = None, body: str = None, stickied: bool = None, creator: Creator = None, attachments: typing.Iterable["Storage"] = None) -> None:
         """
         Edit this topic.
-
-        This method sends requests.
 
         .. note::
            Unlike editing topic replies and chat messages, admins have permission to
@@ -647,8 +629,6 @@ class ChatMessage(Message):
            For chat messages, you can get the author ID without sending any requests,
            with :py:meth:`ChatMessage.get_author_id()`.
 
-        This method sends requests.
-
         :return: The author of this message.
         """
         return self._ryver.get_object(TYPE_USER, self.get_author_id())
@@ -702,8 +682,6 @@ class ChatMessage(Message):
         """
         Get the chat that this message was sent to, as a :py:class:`Chat` object.
 
-        This method sends requests.
-
         :return: The chat this message was sent to.
         """
         return await self._ryver.get_object(self.get_chat_type(), self.get_chat_id())
@@ -712,8 +690,6 @@ class ChatMessage(Message):
     async def react(self, emoji: str) -> None:
         """
         React to this task with an emoji. 
-
-        This method sends requests.
 
         .. note::
            This method does **not** update the reactions property of this object.
@@ -731,8 +707,6 @@ class ChatMessage(Message):
     async def unreact(self, emoji: str) -> None:
         """
         Unreact with an emoji.
-
-        This method sends requests.
 
         .. note::
            This method does **not** update the reactions property of this object.
@@ -849,8 +823,6 @@ class Chat(Object):
 
            It is not required to be set if the message is being sent to a forum/team.
 
-        This method sends requests.
-
         Returns the ID of the chat message sent (**not** the message object itself). 
         Note that message IDs are strings.
 
@@ -917,8 +889,6 @@ class Chat(Object):
         """
         Get all the topics in this chat.
 
-        This method sends requests.
-
         :param archived: If True, only include archived topics in the results, otherwise, only include non-archived topics.
         :param top: Maximum number of results; optional, if unspecified return all results.
         :param skip: Skip this many results.
@@ -931,8 +901,6 @@ class Chat(Object):
     async def get_messages(self, count: int, skip: int = 0) -> typing.List[ChatMessage]:
         """
         Get a number of messages (most recent **first**) in this chat.
-
-        This method sends requests.
 
         :param count: Maximum number of results.
         :param skip: The number of results to skip (optional).
@@ -957,8 +925,6 @@ class Chat(Object):
 
            You can use :py:func:`pyryver.util.retry_until_available()` to wrap
            around this coroutine to get around this.
-
-        This method sends requests.
 
         :param id: The ID of the chat message to get.
         :return: The message object.
@@ -987,8 +953,6 @@ class Chat(Object):
            around this coroutine to get around this.
 
         The message with the given ID is also included as a part of the result.
-
-        This method sends requests.
 
         :param id: The ID of the message to use as the reference point.
         :param before: How many messages to retrieve before the specified one (optional).
@@ -1023,8 +987,6 @@ class Chat(Object):
 
            You can use :py:func:`pyryver.util.retry_until_available()` to wrap
            around this coroutine to get around this.
-
-        This method sends requests.
 
         This method does not support top/skip.
 
@@ -1169,8 +1131,6 @@ class User(Chat):
 
         If any of the arguments are None, they will not be changed.
 
-        This method sends requests.
-
         .. note::
            This also updates these properties in this object.
 
@@ -1194,8 +1154,6 @@ class User(Chat):
         """
         Activate or deactivate the user. Requires admin.
 
-        This method sends requests.
-
         .. note::
            This also updates these properties in this object.
         """
@@ -1214,8 +1172,6 @@ class User(Chat):
            ``ROLE_USER`` and ``ROLE_ADMIN``, to make someone an org admin you only
            need to pass ``ROLE_ADMIN`` into this method.
 
-        This method sends requests.
-
         .. note::
            This also updates these properties in this object.
         """
@@ -1231,8 +1187,6 @@ class User(Chat):
                            attachments: typing.Iterable["Storage"] = [], creator: Creator = None) -> Topic:
         """
         Create a topic in this user's DMs.
-
-        This method sends requests.
 
         Returns the topic created.
 
@@ -1362,8 +1316,6 @@ class GroupChat(Chat):
 
            To get the :py:class:`User` object, use :py:meth:`GroupChatMember.as_user()`.
 
-        This method sends requests.
-
         :param top: Maximum number of results; optional, if unspecified return all results.
         :param skip: Skip this many results.
         :return: An async iterator for the members of this chat.
@@ -1385,8 +1337,6 @@ class GroupChat(Chat):
         .. note::
            The ID should be the **user** ID of this member, not the groupchat member ID.
 
-        This method sends requests.
-
         If the user is not found, this method will return None.
 
         :return: The member, or None if not found.
@@ -1400,8 +1350,6 @@ class GroupChat(Chat):
                            attachments: typing.Iterable["Storage"] = []) -> Topic:
         """
         Create a topic in this chat.
-
-        This method sends requests.
 
         Returns the topic created.
 
@@ -2250,8 +2198,6 @@ class Notification(Object):
         """
         Set the read/unread and seen/unseen (new) status of this notification.
 
-        This method sends requests.
-
         .. note:: 
            This also updates these properties in this object.
         """
@@ -2328,8 +2274,6 @@ class File(Object):
         """
         Download the file data.
 
-        This method sends requests.
-
         :return: The downloaded file data, as raw bytes.
         """
         async with aiohttp.request("GET", self.get_url()) as resp:
@@ -2339,8 +2283,6 @@ class File(Object):
     async def delete(self) -> None:
         """
         Delete this file.
-
-        This method sends requests.
         """
         url = self.get_api_url(format="json")
         await self._ryver._session.delete(url)
