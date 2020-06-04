@@ -475,9 +475,7 @@ class TopicReply(PostedMessage):
                 "results": [attachment.get_file().get_raw_data() if attachment.get_storage_type() == Storage.STORAGE_TYPE_FILE else attachment.get_raw_data() for attachment in attachments]
             }
         await self._ryver._session.patch(url, json=data)
-        # Update self
-        for k, v in data.items():
-            self._data[k] = v
+        self._data.update(data)
 
 
 class Topic(PostedMessage):
@@ -604,9 +602,7 @@ class Topic(PostedMessage):
                 "results": [attachment.get_file().get_raw_data() if attachment.get_storage_type() == Storage.STORAGE_TYPE_FILE else attachment.get_raw_data() for attachment in attachments]
             }
         await self._ryver._session.patch(url, json=data)
-        # Update self
-        for k, v in data.items():
-            self._data[k] = v
+        self._data.update(data)
 
 
 class ChatMessage(Message):
@@ -736,27 +732,53 @@ class ChatMessage(Message):
         }
         await self._ryver._session.post(url, json=data)
 
-    async def edit(self, body: str, creator: Creator = None) -> None:
+    async def edit(self, body: str = None, creator: Creator = None, attachment: "Storage" = None, 
+                   from_user: "User" = None) -> None:
         """
-        Edit the message.
+        Edit this message.
 
         .. note::
            You can only edit a message if it was sent by you (even if you are an
            admin). Attempting to edit another user's message will result in a 
            :py:exc:`aiohttp.ClientResponseError`.
 
-        :param body: The new message content.
-        :param creator: The new message creator; optional, if unset left as-is.
+           Any fields that are left as None will not be modified.
+
+           This also updates these properties in this object.
+
+        .. tip::
+           To attach a file to the message, use :py:meth:`pyryver.ryver.Ryver.upload_file()`
+           to upload the file you wish to attach. Alternatively, use
+           :py:meth:`pyryver.ryver.Ryver.create_link()` for a link attachment.
+
+        .. warning::
+           ``from_user`` **must** be set when using attachments with private messages.
+           Otherwise, a ``ValueError`` will be raised. It should be set to the user that
+           is sending the message (the user currently logged in).
+
+           It is not required to be set if the message is being sent to a forum/team.
+
+        :param body: The new message contents (optional).
+        :param creator: The new creator (optional).
+        :param attachment: An attachment for this message, e.g. a file or a link (optional).
+        :param from_user: The user that is sending this message (the user currently logged in); **must** be set when using attachments in private messages (optional).
+        :raises ValueError: If a ``from_user`` is not provided for a private message attachment.
         """
-        url = self._ryver.get_api_url(self.get_chat_type(
-        ), self.get_chat_id(), "Chat.UpdateMessage()", format="json")
+        url = self._ryver.get_api_url(
+            self.get_chat_type(), self.get_chat_id(), "Chat.UpdateMessage()", format="json")
         data = {
             "id": self.get_id(),
             "body": body,
         }
         if creator is not None:
             data["createSource"] = creator.to_dict()
+        if body is not None:
+            data["body"] = body
+        if attachment is not None:
+            chat = await self.get_chat()
+            data.update(await chat._process_attachment(body, attachment, from_user))
         await self._ryver._session.post(url, json=data)
+        self._data.update(data)
 
 
 class Chat(Object):
@@ -811,6 +833,65 @@ class Chat(Object):
         url = self.get_api_url()
         await self._ryver._session.patch(url, json=data)
         self._data["tagDefs"] = data["tagDefs"]
+    
+    async def _process_attachment(self, message: str, attachment: "Storage", from_user: "User" = None) -> typing.Dict[str, typing.Any]:
+        """
+        Process a ``Storage`` object for attaching to a chat message.
+
+        .. warning::
+           This method is intended for internal use only.
+        
+        :param message: The chat message.
+        :param attachment: The attachment to process.
+        :param from_user: The user that is sending this message (the user currently logged in); **must** be set when using attachments in private messages (optional).
+        :raises ValueError: If a ``from_user`` is not provided for a private message attachment.
+        :return: The data that can be used to send this message attachment.
+        """
+        if from_user is None and isinstance(self, User):
+            raise ValueError("Message attachments in private messages require from_user to be set!")
+        # The Ryver API is weird
+        out_assoc = {
+            "results": [
+                {
+                    "inId": self.get_id(),
+                    "inSecured": True,
+                    "inType": self.get_entity_type(),
+                    "inName": self.get_name(),
+                }
+            ]
+        }
+        if isinstance(self, User):
+            out_assoc["results"].insert(0, {
+                "inId": from_user.get_id(),
+                "inSecured": True,
+                "inType": from_user.get_entity_type(),
+                "inName": from_user.get_name(),
+            })
+        # PATCH to update the outAssociations of the file
+        patch_url = self._ryver.get_api_url(TYPE_FILE, attachment.get_content_id(), format="json")
+        await self._ryver._session.patch(patch_url, json={
+            "outAssociations": out_assoc
+        })
+        # Now GET to get the embeds
+        embeds_url = self._ryver.get_api_url(TYPE_FILE, attachment.get_content_id(), select="embeds")
+        async with self._ryver._session.get(embeds_url) as resp:
+            embeds = await resp.json()
+        data = {
+            "extras": {
+                "file": {
+                    "fileName": attachment.get_name(),
+                    "fileSize": attachment.get_size(),
+                    "id": attachment.get_content_id(),
+                    "outAssociations": out_assoc,
+                    "url": attachment.get_content_url(),
+                    "fileType": attachment.get_content_MIME_type(),
+                    "chatBody": message
+                }
+            },
+            "embeds": embeds["d"]["results"]["embeds"],
+            "body": message + f"\n\n[{attachment.get_name()}]({attachment.get_content_url()})"
+        }
+        return data
 
     async def send_message(self, message: str, creator: Creator = None, attachment: "Storage" = None, from_user: "User" = None) -> str:
         """
@@ -837,6 +918,7 @@ class Chat(Object):
         :param creator: The overridden creator; optional, if unset uses the logged-in user's profile.
         :param attachment: An attachment for this message, e.g. a file or a link (optional).
         :param from_user: The user that is sending this message (the user currently logged in); **must** be set when using attachments in private messages (optional).
+        :raises ValueError: If a ``from_user`` is not provided for a private message attachment.
         :return: The ID of the chat message that was sent.
         """
         url = self.get_api_url("Chat.PostMessage()", format="json")
@@ -846,52 +928,7 @@ class Chat(Object):
         if creator is not None:
             data["createSource"] = creator.to_dict()
         if attachment:
-            if from_user is None and isinstance(self, User):
-                raise ValueError(
-                    "Message attachments in private messages require from_user to be set!")
-            # The Ryver API is weird
-            out_assoc = {
-                "results": [
-                    {
-                        "inId": self.get_id(),
-                        "inSecured": True,
-                        "inType": self.get_entity_type(),
-                        "inName": self.get_name(),
-                    }
-                ]
-            }
-            if isinstance(self, User):
-                out_assoc["results"].insert(0, {
-                    "inId": from_user.get_id(),
-                    "inSecured": True,
-                    "inType": from_user.get_entity_type(),
-                    "inName": from_user.get_name(),
-                })
-            # PATCH to update the outAssociations of the file
-            patch_url = self._ryver.get_api_url(
-                TYPE_FILE, attachment.get_content_id(), format="json")
-            await self._ryver._session.patch(patch_url, json={
-                "outAssociations": out_assoc
-            })
-            # Now GET to get the embeds
-            embeds_url = self._ryver.get_api_url(
-                TYPE_FILE, attachment.get_content_id(), select="embeds")
-            async with self._ryver._session.get(embeds_url) as resp:
-                embeds = await resp.json()
-            data["extras"] = {
-                "file": {
-                    "fileName": attachment.get_name(),
-                    "fileSize": attachment.get_size(),
-                    "id": attachment.get_content_id(),
-                    "outAssociations": out_assoc,
-                    "url": attachment.get_content_url(),
-                    "fileType": attachment.get_content_MIME_type(),
-                    "chatBody": message
-                }
-            }
-            data["embeds"] = embeds["d"]["results"]["embeds"]
-            message += f"\n\n[{attachment.get_name()}]({attachment.get_content_url()})"
-            data["body"] = message
+            data.update(await self._process_attachment(message, attachment, from_user))
         async with self._ryver._session.post(url, json=data) as resp:
             return (await resp.json())["d"]["id"]
 

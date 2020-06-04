@@ -79,6 +79,9 @@ class Ryver:
         top is the maximum number of results (-1 for unlimited), skip is how
         many results to skip.
 
+        .. warning::
+           This method is intended for internal use only.
+
         :return: The chats.
         """
         url = self.get_api_url(obj_type)
