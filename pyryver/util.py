@@ -7,7 +7,7 @@ import typing
 #: This constant is used in the various ``edit()`` methods.
 #: It's used to indicate that there should be no change to the value of a field,
 #: in the cases where ``None`` is a valid value.
-NO_CHANGE = object()
+NO_CHANGE = type('no_change', (), {"__repr__": lambda x: "NO_CHANGE"})()
 
 TYPE_USER = "users"
 TYPE_FORUM = "forums"
