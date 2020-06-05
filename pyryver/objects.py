@@ -445,7 +445,7 @@ class TopicReply(PostedMessage):
         """
         return await self.get_deferred_field("post", TYPE_TOPIC)
 
-    async def edit(self, message: str = None, creator: Creator = None, attachments: typing.Iterable["Storage"] = None) -> None:
+    async def edit(self, message: str = NO_CHANGE, creator: Creator = NO_CHANGE, attachments: typing.Iterable["Storage"] = NO_CHANGE) -> None:
         """
         Edit this topic reply.
 
@@ -458,7 +458,9 @@ class TopicReply(PostedMessage):
 
            Additionally, this method also updates these properties in this object.
 
-        If any parameters are unspecified, that property will remain unchanged.
+        If any parameters are unspecified or :py:const:`NO_CHANGE`, they will be left
+        as-is. Passing ``None`` for parameters for which ``None`` is not a valid value
+        will also result in the value being unchanged.
 
         :param message: The contents of the topic (optional).
         :param creator: The overridden creator (optional).
@@ -466,11 +468,11 @@ class TopicReply(PostedMessage):
         """
         url = self.get_api_url(format="json")
         data = {}
-        if message is not None:
+        if message is not NO_CHANGE and message is not None:
             data["comment"] = message
-        if creator is not None:
-            data["createSource"] = creator.to_dict()
-        if attachments is not None:
+        if creator is not NO_CHANGE:
+            data["createSource"] = creator.to_dict() if creator is not None else None
+        if attachments is not NO_CHANGE and attachments is not None:
             data["attachments"] = {
                 "results": [attachment.get_file().get_raw_data() if attachment.get_storage_type() == Storage.STORAGE_TYPE_FILE else attachment.get_raw_data() for attachment in attachments]
             }
@@ -567,7 +569,8 @@ class Topic(PostedMessage):
         async for reply in self._ryver.get_all(url=url, top=top, skip=skip):
             yield TopicReply(self._ryver, reply)
 
-    async def edit(self, subject: str = None, body: str = None, stickied: bool = None, creator: Creator = None, attachments: typing.Iterable["Storage"] = None) -> None:
+    async def edit(self, subject: str = NO_CHANGE, body: str = NO_CHANGE, stickied: bool = NO_CHANGE,
+                   creator: Creator = NO_CHANGE, attachments: typing.Iterable["Storage"] = NO_CHANGE) -> None:
         """
         Edit this topic.
 
@@ -579,7 +582,9 @@ class Topic(PostedMessage):
 
            Additionally, this method also updates these properties in this object.
 
-        If any parameters are unspecified, that property will remain unchanged.
+        If any parameters are unspecified or :py:const:`NO_CHANGE`, they will be left
+        as-is. Passing ``None`` for parameters for which ``None`` is not a valid value
+        will also result in the value being unchanged.
 
         :param subject: The subject (or title) of the topic (optional).
         :param body: The contents of the topic (optional).
@@ -589,15 +594,15 @@ class Topic(PostedMessage):
         """
         url = self.get_api_url(format="json")
         data = {}
-        if subject is not None:
+        if subject is not NO_CHANGE and subject is not None:
             data["subject"] = subject
-        if body is not None:
+        if body is not NO_CHANGE and body is not None:
             data["body"] = body
-        if stickied is not None:
+        if stickied is not NO_CHANGE and stickied is not None:
             data["stickied"] = stickied
-        if creator is not None:
-            data["createSource"] = creator.to_dict()
-        if attachments is not None:
+        if creator is not NO_CHANGE:
+            data["createSource"] = creator.to_dict() if creator is not None else None
+        if attachments is not NO_CHANGE and attachments is not None:
             data["attachments"] = {
                 "results": [attachment.get_file().get_raw_data() if attachment.get_storage_type() == Storage.STORAGE_TYPE_FILE else attachment.get_raw_data() for attachment in attachments]
             }
@@ -732,8 +737,8 @@ class ChatMessage(Message):
         }
         await self._ryver._session.post(url, json=data)
 
-    async def edit(self, body: str = None, creator: Creator = None, attachment: "Storage" = None, 
-                   from_user: "User" = None) -> None:
+    async def edit(self, message: str = NO_CHANGE, creator: Creator = NO_CHANGE, 
+                   attachment: "Storage" = NO_CHANGE, from_user: "User" = None) -> None:
         """
         Edit this message.
 
@@ -741,8 +746,6 @@ class ChatMessage(Message):
            You can only edit a message if it was sent by you (even if you are an
            admin). Attempting to edit another user's message will result in a 
            :py:exc:`aiohttp.ClientResponseError`.
-
-           Any fields that are left as None will not be modified.
 
            This also updates these properties in this object.
 
@@ -757,8 +760,12 @@ class ChatMessage(Message):
            is sending the message (the user currently logged in).
 
            It is not required to be set if the message is being sent to a forum/team.
+        
+        If any parameters are unspecified or :py:const:`NO_CHANGE`, they will be left
+        as-is. Passing ``None`` for parameters for which ``None`` is not a valid value
+        will also result in the value being unchanged.
 
-        :param body: The new message contents (optional).
+        :param message: The new message contents (optional).
         :param creator: The new creator (optional).
         :param attachment: An attachment for this message, e.g. a file or a link (optional).
         :param from_user: The user that is sending this message (the user currently logged in); **must** be set when using attachments in private messages (optional).
@@ -768,15 +775,18 @@ class ChatMessage(Message):
             self.get_chat_type(), self.get_chat_id(), "Chat.UpdateMessage()", format="json")
         data = {
             "id": self.get_id(),
-            "body": body,
         }
-        if creator is not None:
-            data["createSource"] = creator.to_dict()
-        if body is not None:
-            data["body"] = body
-        if attachment is not None:
-            chat = await self.get_chat()
-            data.update(await chat._process_attachment(body, attachment, from_user))
+        if message is not NO_CHANGE and message is not None:
+            data["body"] = message
+        if creator is not NO_CHANGE:
+            data["createSource"] = creator.to_dict() if creator is not None else None
+        if attachment is not NO_CHANGE:
+            # Clear attachment
+            if attachment is None:
+                data["embeds"] = {}
+            else:
+                chat = await self.get_chat()
+                data.update(await chat._process_attachment(message, attachment, from_user))
         await self._ryver._session.post(url, json=data)
         self._data.update(data)
 
@@ -1697,7 +1707,7 @@ class TaskCategory(Object):
         """
         return self.get_deferred_field("board", TYPE_TASK_BOARD)
 
-    async def edit(self, name: str = None, done: bool = None) -> None:
+    async def edit(self, name: str = NO_CHANGE, done: bool = NO_CHANGE) -> None:
         """
         Edit this category.
 
@@ -1708,16 +1718,19 @@ class TaskCategory(Object):
            ``done`` should **never** be set for the "Uncategorized" category, as its
            type cannot be modified. If set, a ``ValueError`` will be raised.
 
-        If any parameters are unspecified, that property will remain unchanged.
+        If any parameters are unspecified or :py:const:`NO_CHANGE`, they will be left
+        as-is. Passing ``None`` for parameters for which ``None`` is not a valid value
+        will also result in the value being unchanged.
 
         :param name: The name of this category (optional).
         :param done: Whether tasks moved to this category should be marked as done (optional).
+        :raises ValueError: If attempting to modify the type of the "Uncategorized" category.
         """
         url = self.get_api_url()
         data = {}
-        if name is not None:
+        if name is not NO_CHANGE and name is not None:
             data["name"] = name
-        if done is not None:
+        if done is not NO_CHANGE and done is not None:
             if self.get_category_type() == TaskCategory.CATEGORY_TYPE_UNCATEGORIZED:
                 raise ValueError(
                     "Cannot modify type of the 'Uncategorized' category!")
@@ -1726,9 +1739,7 @@ class TaskCategory(Object):
             else:
                 data["categoryType"] = TaskCategory.CATEGORY_TYPE_OTHER
         await self._ryver._session.patch(url, json=data)
-        self._data["name"] = data.get("name", self._data["name"])
-        self._data["categoryType"] = data.get(
-            "categoryType", self._data["categoryType"])
+        self._data.update(data)
 
     async def delete(self, move_to: "TaskCategory" = None) -> None:
         """
