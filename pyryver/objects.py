@@ -2121,6 +2121,84 @@ class Task(PostedMessage):
         }
         url = self.get_api_url()
         await self._ryver._session.patch(url, json=data)
+    
+    async def edit(self, subject: str = NO_CHANGE, body: str = NO_CHANGE, 
+                   category: "TaskCategory" = NO_CHANGE, 
+                   assignees: typing.Iterable[User] = NO_CHANGE, due_date: str = NO_CHANGE, 
+                   tags: typing.Union[typing.List[str], typing.List[TaskTag]] = NO_CHANGE,
+                   attachments: typing.Iterable["Storage"] = NO_CHANGE) -> None:
+        """
+        Edit this task.
+
+        .. note::
+           Admins can edit any task regardless of whether they created it.
+
+           The file attachments (if specified) will **replace** all existing attachments.
+
+           Additionally, this method also updates these properties in this object.
+        
+        .. note::
+           While a value of ``None`` for the category in :py:meth:`TaskBoard.create_task()`
+           will result in the task being placed in the "Uncategorized" category, 
+           ``None`` is not a valid value for the category in this method, and if used
+           will result in the category being unmodified.
+
+           This method does not support editing the checklist. To edit the checklist,
+           use :py:meth:`Task.get_checklist()`, :py:meth:`Task.set_checklist()` and
+           :py:meth:`Task.add_to_checklist()`.
+
+        If any parameters are unspecified or :py:const:`NO_CHANGE`, they will be left
+        as-is. Passing ``None`` for parameters for which ``None`` is not a valid value
+        will also result in the value being unchanged.
+
+        .. tip::
+           To attach files to the task, use :py:meth:`pyryver.ryver.Ryver.upload_file()`
+           to upload the files you wish to attach. Alternatively, use
+           :py:meth:`pyryver.ryver.Ryver.create_link()` for link attachments.
+
+        .. tip::
+           You can use :py:meth:`pyryver.util.datetime_to_iso8601()` to turn datetime
+           objects into timestamps that Ryver will accept.
+
+           Note that timezone info **must** be present in the timestamp. Otherwise, this
+           will result in a 400 Bad Request.
+
+        :param subject: The subject, or title of the task (optional).
+        :param body: The body, or description of the task (optional).
+        :param category: The category of the task; if None, the task will be uncategorized (optional).
+        :param assignees: A list of users to assign for this task (optional).
+        :param due_date: The due date, as an ISO 8601 formatted string **with a timezone offset** (optional).
+        :param tags: A list of tags of this task (optional). Can either be a list of strings or a list of ``TaskTag``s.
+        :param attachments: A list of attachments for this task (optional). Note: Use `Storage` objects, not `File` objects! These attachments could be links or files.
+        """
+        data = {}
+
+        if subject is not NO_CHANGE and subject is not None:
+            data["subject"] = subject
+        if body is not NO_CHANGE and body is not None:
+            data["body"] = body
+        if category is not NO_CHANGE and category is not None:
+            data["category"] = {
+                "id": category.get_id()
+            }
+        if assignees is not NO_CHANGE and assignees is not None:
+            data["assignees"] = {
+                "results": [{"__descriptor": user.get_name(), "id": user.get_id()} for user in assignees]
+            }
+        if tags is not NO_CHANGE and tags is not None:
+            # Convert TaskTags to strings
+            if isinstance(tags[0], TaskTag):
+                tags = [tag.get_name() for tag in tags]
+            data["tags"] = tags
+        if attachments is not NO_CHANGE and attachments is not None:
+            data["attachments"] = {
+                "results": [{"id": attachment.get_content_id()} for attachment in attachments]
+            }
+        if due_date is not NO_CHANGE and due_date is not None:
+            data["dueDate"] = due_date
+        url = self.get_api_url()
+        await self._ryver._session.patch(url, json=data)
+        self._data.update(data)
 
 
 class Notification(Object):
