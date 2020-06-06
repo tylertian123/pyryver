@@ -372,6 +372,7 @@ class Ryver:
 
         :param filename: The filename to send to Ryver. (this will show up in the UI if attached as an embed, for example)
         :param filedata: The file's raw data, sent directly to :py:meth:`aiohttp.FormData.add_field`.
+        :param filetype: The MIME type of the file.
         :return: The uploaded file, as a :py:class:`Storage` object.
         """
         url = self.get_api_url(

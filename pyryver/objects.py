@@ -1090,6 +1090,26 @@ class Chat(Object):
                 return None
             resp.raise_for_status()
             return TaskBoard(self._ryver, (await resp.json())["d"]["results"])
+    
+    async def delete_avatar(self) -> None:
+        """
+        Delete the avatar of this chat.
+        """
+        url = self.get_api_url(action="Contatta.Storage.DeleteAvatars()")
+        await self._ryver._session.post(url)
+    
+    async def set_avatar(self, filename: str, filedata: typing.Any, filetype: str = None) -> None:
+        """
+        Set the avatar of this chat.
+
+        A wrapper for :py:meth:`Storage.make_avatar_of()` and :py:meth:`Ryver.upload_file()`.
+
+        :param filename: The filename of the image.
+        :param filedata: The image's raw data, sent directly to :py:meth:`aiohttp.FormData.add_field`.
+        :param filetype: The MIME type of the file.
+        """
+        img = await self._ryver.upload_file(filename, filedata, filetype)
+        await img.make_avatar_of(self)
 
 
 class User(Chat):
@@ -2620,6 +2640,20 @@ class Storage(Object):
         url = self._ryver.get_api_url(
             Storage.STORAGE_TYPE_FILE, self.get_content_id(), format="json")
         await self._ryver._session.delete(url)
+    
+    async def make_avatar_of(self, chat: Chat) -> None:
+        """
+        Make this image an avatar of a chat.
+
+        :param chat: The chat to change the avatar for.
+        :raises ValueError: If the contents of this storage object is not a file.
+        """
+        url = self.get_api_url(action="Contatta.Storage.MakeAvatars()")
+        data = {
+            "id": chat.get_id(),
+            "type": chat.get_type(),
+        }
+        await self._ryver._session.post(url, json=data)
 
 
 TYPES_DICT = {
