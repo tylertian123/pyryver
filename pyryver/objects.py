@@ -1418,6 +1418,21 @@ class GroupChatMember(Object):
         """
         url = self.get_api_url(action="Remove()")
         await self._ryver._session.post(url)
+    
+    async def set_role(self, role: str) -> None:
+        """
+        Set the role of this member (regular member or admin).
+
+        The role should be one of the ``ROLE_`` constants in this class.
+
+        .. note::
+           This will also update the role stored in this object.
+
+        :param role: The new role of the member.
+        """
+        url = self.get_api_url(action=f"Role.Set(role='{role}')")
+        await self._ryver._session.post(url)
+        self._data["role"] = role
 
 
 class GroupChat(Chat):
@@ -1444,6 +1459,54 @@ class GroupChat(Chat):
         :return: The nickname of this forum/team.
         """
         return self._data["nickname"]
+    
+    def has_chat(self) -> bool:
+        """
+        Get whether this forum/team has a chat tab.
+
+        :return: Whether there is a chat tab for this forum/team.
+        """
+        return "chat" in self._data["tabs"]
+    
+    def has_topics(self) -> bool:
+        """
+        Get whether this forum/team has a topics tab.
+
+        :return: Whether there is a topics tab for this forum/team.
+        """
+        return "post" in self._data["tabs"]
+    
+    def has_tasks(self) -> bool:
+        """
+        Get whether this forum/team has a tasks tab.
+
+        :return: Whether there is a tasks tab for this forum/team.
+        """
+        return "task" in self._data["tabs"]
+
+    def does_announce_topics(self) -> bool:
+        """
+        Get whether new topics are announced with a chat message.
+
+        :return: Whether new topics are announced with a chat message.
+        """
+        return self._data["sharePosts"]
+    
+    def does_announce_tasks(self) -> bool:
+        """
+        Get whether new tasks are announced with a chat message.
+
+        :return: Whether new tasks are announced with a chat message.
+        """
+        return self._data["shareTasks"]
+    
+    def is_archived(self) -> bool:
+        """
+        Get whether this team/forum is archived.
+
+        :return: Whether the team/forum is archived.
+        """
+        return not self._data["active"]
 
     async def get_members(self, top: int = -1, skip: int = 0) -> typing.AsyncIterator[GroupChatMember]:
         """
@@ -1559,6 +1622,78 @@ class GroupChat(Chat):
             }
         async with self._ryver._session.post(url, json=data) as resp:
             return Topic(self._ryver, (await resp.json())["d"]["results"])
+    
+    async def change_settings(self, chat: bool = NO_CHANGE, topics: bool = NO_CHANGE, tasks: bool = NO_CHANGE, 
+                              announce_topics: bool = NO_CHANGE, announce_tasks: bool = NO_CHANGE) -> None:
+        """
+        Change the settings of this forum/team.
+
+        .. note::
+           The settings here contain only the settings in the "Settings" tab in the UI.
+        
+           This method also updates these properties in this object.
+
+        If any parameters are unspecified, :py:const:`NO_CHANGE`, or ``None``, they will
+        be left as-is.
+        
+        :param chat: Whether there should be a chat tab for this forum/team (optional).
+        :param topics: Whether there should be a topics tab for this forum/team (optional).
+        :param tasks: Whether there should be a tasks tab for this form/team (optional).
+        :param announce_topics: Whether new topics should be announced in the chat (optional).
+        :param announce_tasks: Whether new tasks should be announced in the chat (optional).
+        """
+        url = self.get_api_url()
+        tabs = self._data["tabs"] # type: typing.List[str]
+        # Update the tabs
+        if chat is not NO_CHANGE and chat is not None:
+            if chat and "chat" not in tabs:
+                tabs.append("chat")
+            elif not chat and "chat" in tabs:
+                tabs.remove("chat")
+        if topics is not NO_CHANGE and topics is not None:
+            if topics and "post" not in tabs:
+                tabs.append("post")
+            elif not topics and "post" in tabs:
+                tabs.remove("post")
+        if tasks is not NO_CHANGE and tasks is not None:
+            if tasks and "task" not in tabs:
+                tabs.append("task")
+            elif not tasks and "task" in tabs:
+                tabs.remove("task")
+        data = {
+            "tabs": tabs
+        }
+        if announce_topics is not NO_CHANGE and announce_topics is not None:
+            data["sharePosts"] = announce_topics
+        if announce_tasks is not NO_CHANGE and announce_tasks is not None:
+            data["shareTasks"] = announce_tasks
+        await self._ryver._session.patch(url, json=data)
+        self._data.update(data)
+    
+    async def set_archived(self, archived: bool) -> None:
+        """
+        Set whether this team/forum is archived.
+
+        .. note::
+           This method also updates the archived property of this object.
+
+        :param archived: Whether this team/forum should be archived.
+        """
+        url = self.get_api_url()
+        data = {
+            "active": not archived
+        }
+        await self._ryver._session.patch(url, json=data)
+        self._data["active"] = not archived
+    
+    async def delete(self) -> None:
+        """
+        Delete this forum/team.
+
+        As with most things, once it's deleted, there's no way to go back!
+        """
+        url = self.get_api_url()
+        await self._ryver._session.delete(url)
 
 
 class Forum(GroupChat):
