@@ -82,6 +82,9 @@ class Ryver:
         .. warning::
            This method is intended for internal use only.
 
+        :param obj_type: The type of the chats.
+        :param top: The max number of results (optional).
+        :param skip: The number of results to skip (optional).
         :return: The chats.
         """
         url = self.get_api_url(obj_type)
@@ -427,6 +430,82 @@ class Ryver:
         url = self.get_api_url(action="Ryver.Info()", format="json")
         async with self._session.get(url) as resp:
             return (await resp.json())["d"]
+    
+    async def invite_user(self, email: str, role: str = User.USER_TYPE_MEMBER, username: str = None, 
+                          display_name: str = None) -> None:
+        """
+        Invite a new user to the organization.
+
+        An optional username and display name can be specified to pre-populate those
+        values in the User Profile page that the person is asked to fill out when
+        they accept their invite.
+
+        :param email: The email of the user.
+        :param role: The role of the user (member or guest), one of the ``User.USER_TYPE_`` constants (optional).
+        :param username: The pre-populated username of this user (optional).
+        :param display_name: The pre-populated display name of this user (optional).
+        """
+        url = self.get_api_url(action="User.Invite()")
+        data = {
+            "email": email,
+            "type": role,
+        }
+        if username is not None:
+            data["username"] = username
+        if display_name is not None:
+            data["displayName"] = display_name
+        await self._session.post(url, json=data)
+
+    async def _create_groupchat(self, chat_type: str, name: str, nickname: str, about: str, description: str) -> GroupChat:
+        """
+        Create a forum or team.
+
+        .. warning::
+           This method is intended for internal use only.
+        
+        :param chat_type: The type (forum or team).
+        :param name: The name.
+        :param nickname: The nickname.
+        :param about: The "about" (or "purpose" in the UI).
+        :param description: The description.
+        :return: The created groupchat object.
+        """
+        url = self.get_api_url(action=chat_type)
+        data = {
+            "name": name
+        }
+        if nickname is not None:
+            data["nickname"] = nickname
+        if about is not None:
+            data["about"] = about
+        if description is not None:
+            data["description"] = description
+        async with self._session.post(url, json=data) as resp:
+            return TYPES_DICT[chat_type](self, (await resp.json())["d"]["results"])
+    
+    async def create_team(self, name: str, nickname: str = None, about: str = None, description: str = None) -> Team:
+        """
+        Create a new private team.
+
+        :param name: The name of this team.
+        :param nickname: The nickname of this team (optional).
+        :param about: The "about" (or "purpose" in the UI) of this team (optional).
+        :param description: The description of this team (optional).
+        :return: The created team object.
+        """
+        return await self._create_groupchat(TYPE_TEAM, name, nickname, about, description)
+    
+    async def create_forum(self, name: str, nickname: str = None, about: str = None, description: str = None) -> Forum:
+        """
+        Create a new open forum.
+
+        :param name: The name of this forum.
+        :param nickname: The nickname of this forum (optional).
+        :param about: The "about" (or "purpose" in the UI) of this forum (optional).
+        :param description: The description of this forum (optional).
+        :return: The created forum object.
+        """
+        return await self._create_groupchat(TYPE_FORUM, name, nickname, about, description)
 
     @sphinx_acontexmanager
     def get_live_session(self) -> ryver_ws.RyverWS:

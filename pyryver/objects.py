@@ -1119,6 +1119,9 @@ class User(Chat):
     :cvar ROLE_USER: Regular organization member. Admins also have this role in addition to ``ROLE_ADMIN``.
     :cvar ROLE_ADMIN: An org admin.
     :cvar ROLE_GUEST: A guest.
+
+    :cvar USER_TYPE_MEMBER: A member.
+    :cvar USER_TYPE_GUEST: A guest.
     """
 
     _OBJ_TYPE = TYPE_USER
@@ -1126,6 +1129,9 @@ class User(Chat):
     ROLE_USER = "ROLE_USER"
     ROLE_ADMIN = "ROLE_ADMIN"
     ROLE_GUEST = "ROLE_GUEST"
+
+    USER_TYPE_MEMBER = "member"
+    USER_TYPE_GUEST = "guest"
 
     def get_username(self) -> str:
         """
@@ -1208,6 +1214,17 @@ class User(Chat):
         :return: The user's roles in the organization.
         """
         return self._data["roles"]
+    
+    def get_user_type(self) -> str:
+        """
+        Get the type of this user (member or guest).
+
+        The returned value will be either :py:attr:`User.USER_TYPE_MEMBER` or
+        :py:attr:`User.USER_TYPE_GUEST`.
+
+        :return: The type of the user.
+        """
+        return self._data["type"]
 
     def is_admin(self) -> bool:
         """
