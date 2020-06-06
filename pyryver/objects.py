@@ -135,6 +135,9 @@ class Object(ABC):
         self._data = data
         self._id = data["id"]
 
+    def __eq__(self, other) -> bool:
+        return isinstance(other, Object) and other.get_id() == self.get_id()
+
     def get_ryver(self) -> "Ryver":
         """
         Get the Ryver session this object was retrieved from.
@@ -421,37 +424,29 @@ class PostedMessage(Message):
         return results
 
 
-class TopicReply(PostedMessage):
+class PostedComment(PostedMessage):
     """
-    A reply on a topic.
+    A topic reply or task comment.
     """
 
-    _OBJ_TYPE = TYPE_TOPIC_REPLY
+    _OBJ_TYPE = "__comment"
 
     # Override as a different field is used
     def get_body(self) -> str:
         """
-        Get the body of this reply.
+        Get the body of this comment/reply.
 
-        :return: The body of this reply.
+        :return: The body of this comment/reply.
         """
         return self._data["comment"]
-
-    async def get_topic(self) -> "Topic":
-        """
-        Get the topic this reply was sent to.
-
-        :return: The topic associated with this reply.
-        """
-        return await self.get_deferred_field("post", TYPE_TOPIC)
-
+    
     async def edit(self, message: str = NO_CHANGE, creator: Creator = NO_CHANGE, attachments: typing.Iterable["Storage"] = NO_CHANGE) -> None:
         """
-        Edit this topic reply.
+        Edit this comment/reply.
 
         .. note::
-           You can only edit a reply if it was sent by you (even if you are an
-           admin). Attempting to edit another user's reply will result in a 
+           You can only edit a comment/reply if it was sent by you (even if you are an
+           admin). Attempting to edit another user's comment/reply will result in a 
            :py:exc:`aiohttp.ClientResponseError`.
 
            The file attachments (if specified) will **replace** all existing attachments.
@@ -462,9 +457,9 @@ class TopicReply(PostedMessage):
         as-is. Passing ``None`` for parameters for which ``None`` is not a valid value
         will also result in the value being unchanged.
 
-        :param message: The contents of the topic (optional).
+        :param message: The contents of the comment/reply (optional).
         :param creator: The overridden creator (optional).
-        :param attachments: A number of attachments for this topic (optional). Note: Use `Storage` objects, not `File` objects! These attachments could be links or files.
+        :param attachments: A number of attachments for this comment/reply (optional). Note: Use `Storage` objects, not `File` objects! These attachments could be links or files.
         """
         url = self.get_api_url(format="json")
         data = {}
@@ -478,6 +473,22 @@ class TopicReply(PostedMessage):
             }
         await self._ryver._session.patch(url, json=data)
         self._data.update(data)
+
+
+class TopicReply(PostedComment):
+    """
+    A reply on a topic.
+    """
+
+    _OBJ_TYPE = TYPE_TOPIC_REPLY
+
+    async def get_topic(self) -> "Topic":
+        """
+        Get the topic this reply was sent to.
+
+        :return: The topic associated with this reply.
+        """
+        return await self.get_deferred_field("post", TYPE_TOPIC)
 
 
 class Topic(PostedMessage):
@@ -564,8 +575,7 @@ class Topic(PostedMessage):
         :param skip: Skip this many results (optional).
         :return: An async iterator for the replies of this topic.
         """
-        url = self._ryver.get_api_url(
-            TYPE_TOPIC_REPLY, format="json", filter=f"((post/id eq {self.get_id()}))")
+        url = self.get_api_url(action="comments", format="json")
         async for reply in self._ryver.get_all(url=url, top=top, skip=skip):
             yield TopicReply(self._ryver, reply)
 
@@ -1705,7 +1715,7 @@ class TaskCategory(Object):
 
         :return: The task board.
         """
-        return self.get_deferred_field("board", TYPE_TASK_BOARD)
+        return await self.get_deferred_field("board", TYPE_TASK_BOARD)
 
     async def edit(self, name: str = NO_CHANGE, done: bool = NO_CHANGE) -> None:
         """
@@ -1943,7 +1953,7 @@ class Task(PostedMessage):
 
         :return: The task board containing this task.
         """
-        return self.get_deferred_field("board", TYPE_TASK_BOARD)
+        return await self.get_deferred_field("board", TYPE_TASK_BOARD)
 
     async def get_task_category(self) -> TaskCategory:
         """
@@ -1951,7 +1961,7 @@ class Task(PostedMessage):
 
         :return: The category containing this task.
         """
-        return self.get_deferred_field("category", TYPE_TASK_CATEGORY)
+        return await self.get_deferred_field("category", TYPE_TASK_CATEGORY)
 
     async def get_assignees(self) -> typing.List[User]:
         """
@@ -1959,7 +1969,7 @@ class Task(PostedMessage):
 
         :return: The assignees of this task,.
         """
-        return self.get_deferred_field("assignees", TYPE_USER)
+        return await self.get_deferred_field("assignees", TYPE_USER)
 
     async def set_complete_date(self, time: str = "") -> None:
         """
@@ -2075,7 +2085,7 @@ class Task(PostedMessage):
         :return: The parent of this sub-task (checklist item), or None if this task is not a sub-task.
         """
         try:
-            return self.get_deferred_field("parent", TYPE_TASK)
+            return await self.get_deferred_field("parent", TYPE_TASK)
         except ValueError:
             return None
 
@@ -2199,6 +2209,67 @@ class Task(PostedMessage):
         url = self.get_api_url()
         await self._ryver._session.patch(url, json=data)
         self._data.update(data)
+    
+    async def get_comments(self, top: int = -1, skip: int = 0) -> typing.AsyncIterator["TaskComment"]:
+        """
+        Get all the comments on this task.
+
+        :param top: Maximum number of results; optional, if unspecified return all results.
+        :param skip: Skip this many results (optional).
+        :return: An async iterator for the comments of this task.
+        """
+        url = self.get_api_url(action="comments")
+        async for comment in self._ryver.get_all(url, top, skip):
+            yield TaskComment(self._ryver, comment)
+    
+    async def comment(self, message: str, creator: Creator = None, attachments: typing.Iterable["Storage"] = None) -> "TaskComment":
+        """
+        Comment on this task.
+
+        .. note::
+           For unknown reasons, overriding the creator does not seem to work for this method.
+
+        .. tip::
+           To attach files to the comment, use :py:meth:`pyryver.ryver.Ryver.upload_file()`
+           to upload the files you wish to attach. Alternatively, use
+           :py:meth:`pyryver.ryver.Ryver.create_link()` for link attachments.
+
+        :param message: The comment's contents.
+        :param creator: The overridden creator (optional). **Does not work.**
+        :param attachments: A number of attachments for this comment (optional). Note: Use `Storage` objects, not `File` objects! These attachments could be links or files.
+        :return: The created comment.
+        """
+        url = self._ryver.get_api_url(TYPE_TASK_COMMENT, format="json")
+        data = {
+            "comment": message,
+            "task": {
+                "id": self.get_id()
+            }
+        }
+        if creator is not None:
+            data["createSource"] = creator.to_dict()
+        if attachments:
+            data["attachments"] = {
+                "results": [attachment.get_file().get_raw_data() if attachment.get_storage_type() == Storage.STORAGE_TYPE_FILE else attachment.get_raw_data() for attachment in attachments]
+            }
+        async with self._ryver._session.post(url, json=data) as resp:
+            return TaskComment(self._ryver, (await resp.json())["d"]["results"])
+
+
+class TaskComment(PostedComment):
+    """
+    A comment on a task.
+    """
+
+    _OBJ_TYPE = TYPE_TASK_COMMENT
+
+    async def get_task(self) -> Task:
+        """
+        Get the task this comment is on.
+
+        :return: The task this comment is associated with.
+        """
+        return await self.get_deferred_field("task", TYPE_TASK)
 
 
 class Notification(Object):
@@ -2555,6 +2626,7 @@ TYPES_DICT = {
     Object._OBJ_TYPE: Object,
     Message._OBJ_TYPE: Message,
     PostedMessage._OBJ_TYPE: PostedMessage,
+    PostedComment._OBJ_TYPE: PostedComment,
     TopicReply._OBJ_TYPE: TopicReply,
     Topic._OBJ_TYPE: Topic,
     ChatMessage._OBJ_TYPE: ChatMessage,
@@ -2567,6 +2639,7 @@ TYPES_DICT = {
     TaskBoard._OBJ_TYPE: TaskBoard,
     TaskCategory._OBJ_TYPE: TaskCategory,
     Task._OBJ_TYPE: Task,
+    TaskComment._OBJ_TYPE: TaskComment,
     Notification._OBJ_TYPE: Notification,
     File._OBJ_TYPE: File,
     Storage._OBJ_TYPE: Storage,

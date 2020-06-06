@@ -21,6 +21,7 @@ TYPE_STORAGE = "storage"
 TYPE_TASK_BOARD = "taskBoards"
 TYPE_TASK_CATEGORY = "taskCategories"
 TYPE_TASK = "tasks"
+TYPE_TASK_COMMENT = "taskComments"
 
 # Note: messages aren't really a "real" type in the Ryver API
 # They're just here for the sake of completeness and to fit in with the rest of pyryver
@@ -40,6 +41,7 @@ ENTITY_TYPES = {
     TYPE_TASK_BOARD: "Entity.Tasks.TaskBoard",
     TYPE_TASK_CATEGORY: "Entity.Tasks.TaskCategory",
     TYPE_TASK: "Entity.Tasks.Task",
+    TYPE_TASK_COMMENT: "Entity.Tasks.TaskComment",
 }
 
 # Field names for get_obj_by_field
@@ -90,7 +92,7 @@ def get_type_from_entity(entity_type: str) -> str:
 _T = typing.TypeVar("T")
 
 
-async def retry_until_available(coro: typing.Awaitable[_T], *args, timeout: float = None, retry_delay: float = 0.5, **kwargs) -> _T:
+async def retry_until_available(action: typing.Callable[..., typing.Awaitable[_T]], *args, timeout: float = None, retry_delay: float = 0.5, **kwargs) -> _T:
     """
     Repeatedly tries to do some action (usually getting a resource) until the
     resource becomes available or a timeout elapses.
@@ -114,7 +116,7 @@ async def retry_until_available(coro: typing.Awaitable[_T], *args, timeout: floa
        a single future cannot be awaited multiple times, so a new one is created each
        time the function retries.
 
-    :param coro: The coroutine to run.
+    :param action: The coroutine to run.
     :param timeout: The timeout in seconds, or None for no timeout (optional).
     :param retry_delay: The duration in seconds to wait before trying again (optional).
     :return: The return value of the coroutine.
@@ -123,7 +125,7 @@ async def retry_until_available(coro: typing.Awaitable[_T], *args, timeout: floa
         try:
             while True:
                 try:
-                    return await coro(*args, **kwargs)
+                    return await action(*args, **kwargs)
                 except aiohttp.ClientResponseError as e:
                     if e.status == 404:
                         await asyncio.sleep(retry_delay)
