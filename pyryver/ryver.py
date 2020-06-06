@@ -432,7 +432,7 @@ class Ryver:
             return (await resp.json())["d"]
     
     async def invite_user(self, email: str, role: str = User.USER_TYPE_MEMBER, username: str = None, 
-                          display_name: str = None) -> None:
+                          display_name: str = None) -> User:
         """
         Invite a new user to the organization.
 
@@ -444,6 +444,7 @@ class Ryver:
         :param role: The role of the user (member or guest), one of the ``User.USER_TYPE_`` constants (optional).
         :param username: The pre-populated username of this user (optional).
         :param display_name: The pre-populated display name of this user (optional).
+        :return: The invited user object.
         """
         url = self.get_api_url(action="User.Invite()")
         data = {
@@ -454,7 +455,8 @@ class Ryver:
             data["username"] = username
         if display_name is not None:
             data["displayName"] = display_name
-        await self._session.post(url, json=data)
+        async with self._session.post(url, json=data) as resp:
+            return User(self, (await resp.json())["d"]["results"])
 
     async def _create_groupchat(self, chat_type: str, name: str, nickname: str, about: str, description: str) -> GroupChat:
         """

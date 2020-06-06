@@ -1292,6 +1292,28 @@ class User(Chat):
         # Admins also have the normal user role
         if role == User.ROLE_ADMIN:
             self._data["roles"].append(User.ROLE_USER)
+    
+    async def add_to_chat(self, chat: "GroupChat", role: str = None) -> None:
+        """
+        Add a user to a forum/team.
+
+        The ``role`` should be either :py:attr:`GroupChatMember.ROLE_MEMBER` or
+        :py:attr:`GroupChatMember.ROLE_ADMIN`. By default, new members are invited
+        as normal members.
+
+        :param chat: The forum/team to add to.
+        :param role: The role to invite the user as (member or admin) (optional).
+        """
+        url = self.get_api_url(action="User.AddToTeams()")
+        data = {
+            "teams": [
+                {
+                    "id": chat.get_id(),
+                    "role": role if role is not None else GroupChatMember.ROLE_MEMBER
+                }
+            ]
+        }
+        await self._ryver._session.post(url, json=data)
 
     async def create_topic(self, from_user: "User", subject: str, body: str, stickied: bool = False,
                            attachments: typing.Iterable["Storage"] = None, creator: Creator = None) -> Topic:
@@ -1389,6 +1411,13 @@ class GroupChatMember(Object):
         :return: Whether this user is a forum admin/team admin.
         """
         return GroupChatMember.ROLE_ADMIN == self.get_role()
+    
+    async def remove(self) -> None:
+        """
+        Remove this member from the forum/team.
+        """
+        url = self.get_api_url(action="Remove()")
+        await self._ryver._session.post(url)
 
 
 class GroupChat(Chat):
@@ -1434,29 +1463,58 @@ class GroupChat(Chat):
         async for member in self._ryver.get_all(url=url, top=top, skip=skip):
             yield GroupChatMember(self._ryver, member)
 
-    async def get_member(self, user_id: int) -> GroupChatMember:
+    async def get_member(self, user: typing.Union[int, User]) -> GroupChatMember:
         """
-        Get a member by user ID.
+        Get a member using either a User object or user ID.
 
         .. note::
            This gets the member as a :py:class:`GroupChatMember` object, which contain
            additional info such as whether the user is an admin of this chat.
 
-           To get the :py:class:`User` object, use :py:meth:`GroupChatMember.as_user()`.
-
         .. note::
-           The ID should be the **user** ID of this member, not the groupchat member ID.
+           If an ID is provided, it should be the **user** ID of this member, not the
+           groupchat member ID.
 
         If the user is not found, this method will return None.
 
-        :param user_id: The ID of the member.
+        :param user: The user, or the ID of the user.
         :return: The member, or None if not found.
         """
+        user_id = user.get_id() if isinstance(user, User) else user
         url = self.get_api_url("members", expand="member",
                                filter=f"(member/id eq {user_id})")
         async with self._ryver._session.get(url) as resp:
             member = (await resp.json())["d"]["results"]
         return GroupChatMember(self._ryver, member[0]) if member else None
+    
+    async def add_member(self, user: User, role: str = None) -> None:
+        """
+        Add a member to this forum or team.
+
+        This is a wrapper for :py:meth:`User.add_to_chat()`.
+
+        The ``role`` should be either :py:attr:`GroupChatMember.ROLE_MEMBER` or
+        :py:attr:`GroupChatMember.ROLE_ADMIN`. By default, new members are invited
+        as normal members.
+
+        :param user: The user to add.
+        :param role: The role to invite the user as (member or admin) (optional).
+        """
+        await user.add_to_chat(self, role)
+
+    async def remove_member(self, user: typing.Union[int, User]) -> None:
+        """
+        Remove a user from this forum/team.
+
+        Either a user ID or a user object can be used.
+
+        If the user is not in this forum/team, this method will do nothing.
+
+        :param user: The user or the ID of the user to remove.
+        """
+        member = await self.get_member(user)
+        if member is not None:
+            await member.remove()
 
     async def create_topic(self, subject: str, body: str, stickied: bool = False, creator: Creator = None,
                            attachments: typing.Iterable["Storage"] = None) -> Topic:
