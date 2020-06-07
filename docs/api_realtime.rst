@@ -32,6 +32,7 @@ Realtime Client
    .. automethod:: typing
       :async-with:
    .. automethod:: send_typing
+   .. automethod:: send_clear_typing
 
    .. autoattribute:: PRESENCE_AVAILABLE
    .. autoattribute:: PRESENCE_AWAY
