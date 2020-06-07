@@ -623,9 +623,53 @@ class Topic(PostedMessage):
 class ChatMessage(Message):
     """
     A Ryver chat message.
+
+    :cvar MSG_TYPE_PRIVATE: A private message between users.
+    :cvar MSG_TYPE_GROUPCHAT: A message sent to a group chat (team or forum).
     """
 
     _OBJ_TYPE = TYPE_MESSAGE
+
+    MSG_TYPE_PRIVATE = "chat"
+    MSG_TYPE_GROUPCHAT = "groupchat"
+
+    # Note: CHAT_MESSAGE is not a real subtype in the REST API, and is instead
+    # represented as no subtype. It is here only for completeness.
+    SUBTYPE_CHAT_MESSAGE = "chat"
+    SUBTYPE_TOPIC_ANNOUNCEMENT = "topic_share"
+    SUBTYPE_TASK_ANNOUNCEMENT = "task_share"
+
+    def get_msg_type(self) -> str:
+        """
+        Get the type of this message (private message or group chat message).
+
+        The returned value will be one of the ``MSG_TYPE_`` constants in this class.
+
+        :return: The type of this message.
+        """
+        return self._data["messageType"]
+    
+    def get_subtype(self) -> str:
+        """
+        Get the subtype of this message (regular message or topic/task announcement).
+
+        The returned value will be one of the ``SUBTYPE_`` constants in this class.
+
+        :return: The subtype of this message.
+        """
+        return self._data.get("subtype", ChatMessage.SUBTYPE_CHAT_MESSAGE)
+
+    def get_time(self) -> str:
+        """
+        Get the time this message was sent, as an ISO 8601 timestamp.
+
+        .. tip::
+           You can use :py:meth:`pyryver.util.iso8601_to_datetime()` to convert the 
+           timestamps returned by this method into a datetime.
+
+        :return: The time this message was sent, as an ISO 8601 timestamp.
+        """
+        return self._data["when"]
 
     def get_author_id(self) -> int:
         """
@@ -634,18 +678,6 @@ class ChatMessage(Message):
         :return: The author ID of the message.
         """
         return self._data["from"]["id"]
-
-    async def get_author(self) -> "User":
-        """
-        Get the author of this message, as a :py:class:`User` object.
-
-        .. tip::
-           For chat messages, you can get the author ID without sending any requests,
-           with :py:meth:`ChatMessage.get_author_id()`.
-
-        :return: The author of this message.
-        """
-        return self._ryver.get_object(TYPE_USER, self.get_author_id())
 
     def get_chat_type(self) -> str:
         """
@@ -691,6 +723,50 @@ class ChatMessage(Message):
             return File(self._ryver, self._data["extras"]["file"])
         else:
             return None
+    
+    def get_announced_topic_id(self) -> int:
+        """
+        Get the ID of the topic this message is announcing.
+
+        This is only a valid operation for messages that announce a new topic.
+        In other words, :py:meth:`ChatMessage.get_subtype()` must return
+        :py:attr:`ChatMessage.SUBTYPE_TOPIC_ANNOUNCEMENT`. If this message does not
+        announce a topic, this method will return ``None``.
+
+        :return: The ID of the topic that is announced by this message, or ``None``.
+        """
+        if "post" in self._data:
+            return self._data["post"]["id"]
+        else:
+            return None
+    
+    def get_announced_task_id(self) -> int:
+        """
+        Get the ID of the task this message is announcing.
+
+        This is only a valid operation for messages that announce a new task.
+        In other words, :py:meth:`ChatMessage.get_subtype()` must return
+        :py:attr:`ChatMessage.SUBTYPE_TASK_ANNOUNCEMENT`. If this message does not
+        announce a topic, this method will return ``None``.
+
+        :return: The ID of the task that is announced by this message, or ``None``.
+        """
+        if "task" in self._data:
+            return self._data["task"]["id"]
+        else:
+            return None
+
+    async def get_author(self) -> "User":
+        """
+        Get the author of this message, as a :py:class:`User` object.
+
+        .. tip::
+           For chat messages, you can get the author ID without sending any requests,
+           with :py:meth:`ChatMessage.get_author_id()`.
+
+        :return: The author of this message.
+        """
+        return self._ryver.get_object(TYPE_USER, self.get_author_id())
 
     async def get_chat(self) -> "Chat":
         """
