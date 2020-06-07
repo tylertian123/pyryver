@@ -35,7 +35,7 @@ class RyverWSTyping():
                 # Typing indicators clear after about 3 seconds
                 await asyncio.sleep(2.5)
         except asyncio.CancelledError:
-            pass
+            await self._rws.send_clear_typing(self._to)
 
     def start(self):
         """
@@ -47,8 +47,12 @@ class RyverWSTyping():
         """
         Stop sending the typing indicator.
 
-        Note that the typing indicator doesn't clear immediately. It will clear
-        by itself after about 3 seconds, or when a message is sent. 
+        .. note::
+           This method will attempt to clear the typing indicator using
+           :py:meth:`RyverWS.send_clear_typing()`. However, it only works in private
+           messages. Outside of private messages, the typing indicator doesn't clear
+           immediately. It will clear by itself after about 3 seconds, or when a message
+           is sent. 
         """
         self._typing_task_handle.cancel()
         await asyncio.gather(self._typing_task_handle)
@@ -171,16 +175,13 @@ class RyverWS():
                             # Remove from ack table
                             self._msg_ack_table[key].set_result(msg)
                             self._msg_ack_table.pop(key)
-                    elif msg["type"] == "chat":
-                        if self._on_chat:
-                            asyncio.ensure_future(self._on_chat(msg))
-                    elif msg["type"] == "chat_deleted":
-                        if self._on_chat_deleted:
-                            asyncio.ensure_future(self._on_chat_deleted(msg))
-                    elif msg["type"] == "chat_updated":
-                        if self._on_chat_updated:
-                            asyncio.ensure_future(self._on_chat_updated(msg))
-                    elif msg["type"] == "event":
+                    elif msg["type"] == "chat" and self._on_chat:
+                        asyncio.ensure_future(self._on_chat(msg))
+                    elif msg["type"] == "chat_deleted" and self._on_chat_deleted:
+                        asyncio.ensure_future(self._on_chat_deleted(msg))
+                    elif msg["type"] == "chat_updated" and self._on_chat_updated:
+                        asyncio.ensure_future(self._on_chat_updated(msg))
+                    elif msg["type"] == "event" and (msg["topic"] in self._on_event or "" in self._on_event):
                         handler = self._on_event.get(
                             msg["topic"], self._on_event.get("", None))
                         if handler:
@@ -301,17 +302,17 @@ class RyverWS():
             return func
         return _on_msg_type_inner
 
-    async def send_chat(self, to_chat: Chat, msg: str):
+    async def send_chat(self, to_chat: typing.Union[Chat, str], msg: str):
         """
         Send a chat message to a chat.
 
-        :param to_chat: The chat to send the message to.
+        :param to_chat: The chat or the JID of the chat to send the message to.
         :param msg: The message contents.
         :raises ClosedError: If connection closed or not yet opened.  
         """
         data = {
             "type": "chat",
-            "to": to_chat.get_jid(),
+            "to": to_chat.get_jid() if isinstance(to_chat, Chat) else to_chat,
             "text": msg
         }
         return await self._ws_send_msg(data)
@@ -319,6 +320,8 @@ class RyverWS():
     async def send_presence_change(self, presence: str):
         """
         Send a presence change message.
+
+        The presence change is global and not restricted to a single chat.
 
         :param presence: The new presence, one of the ``PRESENCE_`` constants.
         :raises ClosedError: If connection closed or not yet opened.  
@@ -328,20 +331,41 @@ class RyverWS():
             "presence": presence,
         })
 
-    async def send_typing(self, to_chat: Chat):
+    async def send_typing(self, to_chat: typing.Union[Chat, str]):
         """
-        Send a typing indicator to a chat identified by JID.
+        Send a typing indicator to a chat.
 
         The typing indicator automatically clears after a few seconds or when
-        a message is sent.
+        a message is sent. In private messages, you can also clear it with
+        :py:meth:`RyverWS.send_clear_typing()` (does not work for group chats).
 
-        :param to_chat: Where to send the typing status.
+        If you want to maintain the typing indicator for an extended operation,
+        consider using :py:meth:`RyverWS.typing()`, which returns an async context
+        manager that can be used to maintain the typing indicator for as long as desired.
+
+        :param to_chat: The chat or the JID of the chat to send the typing status to.
         :raises ClosedError: If connection closed or not yet opened.  
         """
         return await self._ws_send_msg({
             "type": "user_typing",
             "state": "composing",
-            "to": to_chat.get_jid()
+            "to": to_chat.get_jid() if isinstance(to_chat, Chat) else to_chat
+        })
+    
+    async def send_clear_typing(self, to_chat: typing.Union[Chat, str]):
+        """
+        Clear the typing indicator for a chat.
+
+        .. warning::
+           For unknown reasons, this method **only works in private messages**.
+
+        :param to_chat: The chat or the JID of the chat to clear the typing status for.
+        :raises ClosedError: If connection closed or not yet opened.  
+        """
+        return await self._ws_send_msg({
+            "type": "user_typing",
+            "state": "done",
+            "to": to_chat.get_jid() if isinstance(to_chat, Chat) else to_chat
         })
 
     @sphinx_acontexmanager
