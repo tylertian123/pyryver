@@ -43,6 +43,8 @@ class Ryver:
         if password is None and token is None:
             password = getpass()
 
+        self.org = org
+        
         self._url_prefix = "https://" + org + ".ryver.com/api/1/odata.svc/"
         if token is None:
             self._session = aiohttp.ClientSession(
@@ -161,7 +163,7 @@ class Ryver:
                 break
             skip += len(page)
 
-    async def get_object(self, obj_type: str, obj_id: int, **kwargs) -> Object:
+    async def get_object(self, obj_type: typing.Union[str, type], obj_id: int, **kwargs) -> typing.Type[Object]:
         """
         Get an object from Ryver with a type and ID.
 
@@ -171,10 +173,15 @@ class Ryver:
         The `Ryver Developer Docs <https://api.ryver.com/ryvrest_api_examples.html>`_
         contains documentation for some of these parameters.
 
-        :param obj_type: The type of the object to retrieve, a constant beginning with ``TYPE_`` in :ref:`pyryver.util <util-data-constants>`.
+        :param obj_type: The type of the object to retrieve, either a string type or the actual object type.
         :param obj_id: The object's ID.
+        :raises TypeError: If the object is not instantiable.
         :return: The object requested.
         """
+        if not isinstance(obj_type, str):
+            if not obj_type.is_instantiable():
+                raise TypeError(f"The type {obj_type.__name__} is not instantiable!")
+            obj_type = obj_type.get_type()
         async with self._session.get(self.get_api_url(obj_type, obj_id, action=None, **kwargs)) as resp:
             return TYPES_DICT[obj_type](self, (await resp.json())["d"]["results"])
 

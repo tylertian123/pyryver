@@ -157,14 +157,6 @@ class Object(ABC):
         """
         return self._id
 
-    def get_type(self) -> str:
-        """
-        Get the type of this object.
-
-        :return: The type of this object.
-        """
-        return self._OBJ_TYPE
-
     def get_entity_type(self) -> str:
         """
         Get the entity type of this object.
@@ -229,6 +221,23 @@ class Object(ABC):
         :return: The modification date of this object, or None if not supported.
         """
         return self._data.get("modifyDate", None)
+    
+    def get_app_link(self) -> str:
+        """
+        Get a link to this object that opens the app to this object.
+
+        .. note::
+           This method does not work for some types such as messages and topic/task
+           replies. Additionally, only types with :py:meth:`Object.is_instantiable()`
+           true can be linked to. Calling this method on an object of an invalid type
+           will result in a ``TypeError``.
+
+        :raises TypeError: If this object cannot be linked to.
+        :return: The in-app link for this object.
+        """
+        if not self.is_instantiable():
+            raise TypeError(f"The type {self.__class__.__name__} is not instantiable!")
+        return f"https://{self._ryver.org}.ryver.com/#{self.get_type()}/{self.get_id()}"
 
     async def get_deferred_field(self, field: str, field_type: str) -> typing.Any:
         """
@@ -296,6 +305,47 @@ class Object(ABC):
                 return None
         else:
             return None
+
+    @classmethod
+    def get_type(cls) -> str:
+        """
+        Get the type of this object.
+
+        :return: The type of this object.
+        """
+        return cls._OBJ_TYPE
+    
+    @classmethod
+    def is_instantiable(cls) -> bool:
+        """
+        Get whether this object type is instantiable.
+
+        Some types of objects cannot be instantiated, as they are actually not a part
+        of the REST API, such as :py:class:`Message`, :py:class:`Chat`, and other
+        abstract types. If the type can be instantiated, this class method will return
+        ``True``.
+
+        Note that even though a type may not be instantiable, its derived types could
+        still be. For example, :py:class:`Chat` is not instantiable, but one of its
+        derived types, :py:class:`User`, is instantiable.
+
+        :return: Whether this type is instantiable.
+        """
+        return not cls.get_type().startswith("__")
+
+    @classmethod
+    async def get_by_id(cls, ryver: "Ryver", obj_id: int) -> typing.Type["Object"]:
+        """
+        Retrieve an object of this type by ID.
+        
+        :param ryver: The Ryver session to retrieve the object from.
+        :param obj_id: The ID of the object to retrieve.
+        :raises TypeError: If this type is not instantiable.
+        :return: The object requested.
+        """
+        if not cls.is_instantiable():
+            raise TypeError(f"The type {cls.__name__} is not instantiable!")
+        return await ryver.get_object(cls.get_type(), obj_id)
 
 
 class Message(Object):
@@ -628,7 +678,7 @@ class ChatMessage(Message):
     :cvar MSG_TYPE_GROUPCHAT: A message sent to a group chat (team or forum).
     """
 
-    _OBJ_TYPE = TYPE_MESSAGE
+    _OBJ_TYPE = "__chatMessage"
 
     MSG_TYPE_PRIVATE = "chat"
     MSG_TYPE_GROUPCHAT = "groupchat"
@@ -1309,6 +1359,14 @@ class User(Chat):
         :return: Whether the user is an org admin.
         """
         return User.ROLE_ADMIN in self.get_roles()
+    
+    def accepted_invite(self) -> bool:
+        """
+        Get whether this user has accepted their user invite.
+
+        :return: Whether the user has accepted their invite.
+        """
+        return not self._data["newUser"]
 
     async def set_profile(self, display_name: str = None, role: str = None, about: str = None) -> None:
         """

@@ -23,16 +23,11 @@ TYPE_TASK_CATEGORY = "taskCategories"
 TYPE_TASK = "tasks"
 TYPE_TASK_COMMENT = "taskComments"
 
-# Note: messages aren't really a "real" type in the Ryver API
-# They're just here for the sake of completeness and to fit in with the rest of pyryver
-TYPE_MESSAGE = "messages"
-
 ENTITY_TYPES = {
     TYPE_USER: "Entity.User",
     TYPE_FORUM: "Entity.Forum",
     TYPE_TEAM: "Entity.Workroom",
     TYPE_TOPIC: "Entity.Post",
-    TYPE_MESSAGE: "Entity.ChatMessage",
     TYPE_TOPIC_REPLY: "Entity.Post.Comment",
     TYPE_NOTIFICATION: "Entity.UserNotification",
     TYPE_GROUPCHAT_MEMBER: "Entity.Workroom.Member",
