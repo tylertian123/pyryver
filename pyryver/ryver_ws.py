@@ -79,8 +79,11 @@ class RyverWS():
     :cvar PRESENCE_DO_NOT_DISTURB: "Do Not Disturb" presence (red stop sign).
     :cvar PRESENCE_OFFLINE: "Offline" presence (grey).
 
-    :cvar EVENT_REACTION_ADDED: A reaction was added to a message.
-    :cvar EVENT_REACTION_REMOVED: A reaction was removed from a message.
+    :cvar EVENT_REACTION_ADDED: A reaction was added to a message (includes topics, tasks and replies/comments).
+    :cvar EVENT_REACTION_REMOVED: A reaction was removed from a message (includes topics, tasks and replies/comments).
+    :cvar EVENT_TOPIC_CHANGED: A topic was changed (created, updated, deleted).
+    :cvar EVENT_TASK_CHANGED: A task was changed (created, updated, deleted).
+    :cvar EVENT_ENTITY_CHANGED: Some entity was changed (created, updated, deleted).
     :cvar EVENT_ALL: All unhandled events.
 
     :cvar MSG_TYPE_ALL: All unhandled message types.
@@ -93,8 +96,34 @@ class RyverWS():
     PRESENCE_DO_NOT_DISTURB = "dnd"
     PRESENCE_OFFLINE = "unavailable"
 
+    #: ``data`` field format:
+    #: - ``"type"``: The entity type of the thing that was reacted to.
+    #: - ``"id"``: The ID of the thing that was reacted to. String for chat messages,
+    #:   int for everything else.
+    #: - ``"userId"``: The ID of the user that reacted.
+    #: - ``"reaction"``: The name of the emoji that the user reacted with.
     EVENT_REACTION_ADDED = "/api/reaction/added"
+    #: ``data`` field format:
+    #: - ``"type"``: The entity type of the thing that was reacted to.
+    #: - ``"id"``: The ID of the thing that was reacted to. String for chat messages,
+    #:   int for everything else.
+    #: - ``"userId"``: The ID of the user that reacted.
+    #: - ``"reaction"``: The name of the emoji that the user reacted with.
     EVENT_REACTION_REMOVED = "/api/reaction/removed"
+    #: ``data`` field format:
+    #: - ``"created"``: A list of objects containing data for topics that were newly created.
+    #: - ``"updated"``: A list of objects containing data for topics that were updated.
+    #: - ``"deleted"``: A list of objects containing data for topics that were deleted.
+    EVENT_TOPIC_CHANGED = "/api/activityfeed/posts/changed"
+    #: ``data`` field format:
+    #: - ``"created"``: A list of objects containing data for tasks that were newly created.
+    #: - ``"updated"``: A list of objects containing data for tasks that were updated.
+    #: - ``"deleted"``: A list of objects containing data for tasks that were deleted.
+    EVENT_TASK_CHANGED = "/api/activityfeed/tasks/changed"
+    #: ``data`` field format:
+    #: - ``"change"``: The type of the change, could be "created", "updated", or "deleted".
+    #: - ``"entity"``: The entity that was changed and some of its data after the change.
+    EVENT_ENTITY_CHANGED = "/api/entity/changed"
     EVENT_ALL = ""
 
     MSG_TYPE_ALL = ""
@@ -281,8 +310,8 @@ class RyverWS():
 
     def on_msg_type(self, msg_type):
         """
-        The on message type coroutine decorator for a specific message type or all 
-        unhandled messages.
+        The on message type coroutine decorator for a specific websocket message
+        type or all unhandled websocket messages.
 
         This coroutine will be started as a task when a new message arrives with
         the specified type. If the msg_type is None or an empty string, it will
@@ -427,7 +456,7 @@ class RyverWS():
         self._rx_task_handle.cancel()
         await self._ws.close()
         # Terminate any messages waiting for acks with an exception
-        for _, future in self._msg_ack_table.items():
+        for future in self._msg_ack_table.values():
             future.set_exception(ClosedError("Connection closed"))
         # Wait until tasks terminate
         await asyncio.gather(self._ping_task_handle, self._rx_task_handle)

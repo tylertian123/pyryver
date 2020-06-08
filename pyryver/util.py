@@ -146,6 +146,8 @@ def iso8601_to_datetime(timestamp: str) -> datetime.datetime:
 
     :param timestamp: The ISO 8601 timestamp.
     """
+    if timestamp.endswith("Z"):
+        return datetime.datetime.strptime(timestamp, "%Y-%m-%dT%H:%M:%S").replace(tzinfo=datetime.timezone.utc)
     return datetime.datetime.strptime(timestamp, "%Y-%m-%dT%H:%M:%S%z")
 
 

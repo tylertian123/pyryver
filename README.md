@@ -14,10 +14,9 @@ Special thanks to [@mincrmatt12](https://github.com/mincrmatt12)!
 
 ## Installation
 `pyryver` is now on PyPI! You can install it with `python3 -m pip install --user pyryver`.
+More instructions can be found at [Read the Docs](https://pyryver.readthedocs.io/en/latest/index.html).
 
-You can also simply put `pyryver/pyryver.py` inside your project, and install everything in `requirements.txt`.
-
-`pyryver` requires Python >= 3.6 and the `aiohttp` library.
+`pyryver` requires Python >= 3.6 and the `aiohttp` library. 
 
 ## Supported Actions
 Here is a list of most of the major actions supported by `pyryver`. 

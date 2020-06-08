@@ -150,7 +150,7 @@ class Object(ABC):
         """
         Get the ID of this object.
 
-        For :py:class:`ChatMessage`s, this is a string. For all other types, it is
+        For a :py:class:`ChatMessage` this is a string. For all other types, it is
         an int.
 
         :return: The ID of this object.
@@ -676,6 +676,10 @@ class ChatMessage(Message):
 
     :cvar MSG_TYPE_PRIVATE: A private message between users.
     :cvar MSG_TYPE_GROUPCHAT: A message sent to a group chat (team or forum).
+
+    :cvar SUBTYPE_CHAT_MESSAGE: A regular chat message sent by a user.
+    :cvar SUBTYPE_TOPIC_ANNOUNCEMENT: An automatic chat message that announces the creation of a new topic.
+    :cvar SUBTYPE_TASK_ANNOUNCEMENT: An automatic chat message that announces the creation of a new task.
     """
 
     _OBJ_TYPE = "__chatMessage"
