@@ -1,6 +1,6 @@
 import aiohttp
 import typing
-from .doc import *
+from . import doc
 from getpass import getpass
 from pyryver import ryver_ws
 from pyryver.util import *
@@ -516,7 +516,7 @@ class Ryver:
         """
         return await self._create_groupchat(TYPE_FORUM, name, nickname, about, description)
 
-    @sphinx_acontexmanager
+    @doc.acontexmanager
     def get_live_session(self) -> ryver_ws.RyverWS:
         """
         Get a live session.

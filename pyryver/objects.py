@@ -15,7 +15,7 @@ class Creator:
     :param avatar: The overridden avatar (a url to an image)
     """
 
-    def __init__(self, name: str, avatar: str):
+    def __init__(self, name: str, avatar: str = ""):
         self.name = name
         self.avatar = avatar
 
@@ -238,6 +238,24 @@ class Object(ABC):
         if not self.is_instantiable():
             raise TypeError(f"The type {self.__class__.__name__} is not instantiable!")
         return f"https://{self._ryver.org}.ryver.com/#{self.get_type()}/{self.get_id()}"
+    
+    def get_creator(self) -> Creator:
+        """
+        Get the Creator of this object.
+
+        Note that this is different from the author. Creators are used to
+        override the display name and avatar of a user. If the username and 
+        avatar were not overridden, this will return None.
+
+        Not all objects support this operation. If not supported, this will return
+        ``None``.
+
+        :return: The overridden creator of this message.
+        """
+        if "createSource" in self._data and self._data["createSource"] is not None:
+            return Creator(self._data["createSource"]["displayName"], self._data["createSource"]["avatar"])
+        else:
+            return None
 
     async def get_deferred_field(self, field: str, field_type: str) -> typing.Any:
         """
@@ -364,21 +382,6 @@ class Message(Object):
         :return: The body of this message.
         """
         return self._data["body"]
-
-    def get_creator(self) -> Creator:
-        """
-        Get the Creator of this message.
-
-        Note that this is different from the author. Creators are used to
-        override the display name and avatar of a user. If the username and 
-        avatar were not overridden, this will return None.
-
-        :return: The overridden creator of this message.
-        """
-        if "createSource" in self._data and self._data["createSource"] is not None:
-            return Creator(self._data["createSource"]["displayName"], self._data["createSource"]["avatar"])
-        else:
-            return None
 
     async def get_author(self) -> "User":
         """
@@ -672,7 +675,14 @@ class Topic(PostedMessage):
 
 class ChatMessage(Message):
     """
-    A Ryver chat message.
+    A message that was sent to a chat.
+
+    .. note::
+       Chat message are actually not a part of the Ryver REST APIs, since they aren't
+       standalone objects (a chat is required to obtain one). As a result, they are a
+       bit different from the other objects. Their IDs are strings rather than ints,
+       and they are not instantiable (and therefore cannot be obtained from
+       :py:meth:`Ryver.get_object()` or :py:meth:`Object.get_by_id()`.)
 
     :cvar MSG_TYPE_PRIVATE: A private message between users.
     :cvar MSG_TYPE_GROUPCHAT: A message sent to a group chat (team or forum).

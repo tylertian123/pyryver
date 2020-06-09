@@ -1,4 +1,4 @@
-def sphinx_contextmanager(func):
+def contextmanager(func):
     """
     Sets ``__returns_contextmanager__`` of the function to true for sphinxcontrib-trio
     autodetection.
@@ -6,7 +6,7 @@ def sphinx_contextmanager(func):
     func.__returns_contextmanager__ = True
     return func
 
-def sphinx_acontexmanager(func):
+def acontexmanager(func):
     """
     Sets ``__returns_acontextmanager__`` of the function to true for sphinxcontrib-trio
     autodetection.

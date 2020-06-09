@@ -2,7 +2,7 @@ import asyncio
 import random
 import string
 import time
-from .doc import *
+from . import doc
 from pyryver.objects import *
 
 
@@ -397,7 +397,7 @@ class RyverWS():
             "to": to_chat.get_jid() if isinstance(to_chat, Chat) else to_chat
         })
 
-    @sphinx_acontexmanager
+    @doc.acontexmanager
     def typing(self, to_chat: Chat) -> RyverWSTyping:
         """
         Get an async context manager that keeps sending a typing indicator to a chat.
