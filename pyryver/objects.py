@@ -2,7 +2,7 @@ import aiohttp
 import datetime
 import typing
 from abc import ABC, abstractmethod
-from pyryver.util import *
+from .util import *
 
 
 class Creator:
@@ -3056,4 +3056,4 @@ def get_obj_by_field(objs: typing.Iterable[Object], field: str, value: typing.An
     return None
 
 
-from pyryver.ryver import *  # nopep8
+from .ryver import *  # nopep8

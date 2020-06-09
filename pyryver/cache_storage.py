@@ -84,4 +84,4 @@ class FileCacheStorage(AbstractCacheStorage):
             json.dump(obj_data, f)
 
 
-from pyryver.ryver import *  # nopep8
+from .ryver import *  # nopep8

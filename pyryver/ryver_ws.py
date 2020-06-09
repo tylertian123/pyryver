@@ -3,7 +3,8 @@ import random
 import string
 import time
 from . import doc
-from pyryver.objects import *
+from .objects import *
+from .ws_data import *
 
 
 class ClosedError(Exception):
@@ -73,29 +74,20 @@ class RyverWS():
 
     .. warning::
        This **does not work** when using a custom integration token to sign in.
-
-    :cvar PRESENCE_AVAILABLE: "Available" presence (green).
-    :cvar PRESENCE_AWAY: "Away" presence (yellow clock).
-    :cvar PRESENCE_DO_NOT_DISTURB: "Do Not Disturb" presence (red stop sign).
-    :cvar PRESENCE_OFFLINE: "Offline" presence (grey).
-
-    :cvar EVENT_REACTION_ADDED: A reaction was added to a message (includes topics, tasks and replies/comments).
-    :cvar EVENT_REACTION_REMOVED: A reaction was removed from a message (includes topics, tasks and replies/comments).
-    :cvar EVENT_TOPIC_CHANGED: A topic was changed (created, updated, deleted).
-    :cvar EVENT_TASK_CHANGED: A task was changed (created, updated, deleted).
-    :cvar EVENT_ENTITY_CHANGED: Some entity was changed (created, updated, deleted).
-    :cvar EVENT_ALL: All unhandled events.
-
-    :cvar MSG_TYPE_ALL: All unhandled message types.
     """
 
     _VALID_ID_CHARS = string.ascii_letters + string.digits
 
+    #: "Available" presence (green).
     PRESENCE_AVAILABLE = "available"
+    #: "Away" presence (yellow clock).
     PRESENCE_AWAY = "away"
+    #: "Do Not Disturb" presence (red stop sign).
     PRESENCE_DO_NOT_DISTURB = "dnd"
+    #: "Offline" presence (grey).
     PRESENCE_OFFLINE = "unavailable"
 
+    #: A reaction was added to a message (includes topics, tasks and replies/comments).
     #: ``data`` field format:
     #: - ``"type"``: The entity type of the thing that was reacted to.
     #: - ``"id"``: The ID of the thing that was reacted to. String for chat messages,
@@ -103,6 +95,7 @@ class RyverWS():
     #: - ``"userId"``: The ID of the user that reacted.
     #: - ``"reaction"``: The name of the emoji that the user reacted with.
     EVENT_REACTION_ADDED = "/api/reaction/added"
+    #: A reaction was removed from a message (includes topics, tasks and replies/comments).
     #: ``data`` field format:
     #: - ``"type"``: The entity type of the thing that was reacted to.
     #: - ``"id"``: The ID of the thing that was reacted to. String for chat messages,
@@ -110,23 +103,49 @@ class RyverWS():
     #: - ``"userId"``: The ID of the user that reacted.
     #: - ``"reaction"``: The name of the emoji that the user reacted with.
     EVENT_REACTION_REMOVED = "/api/reaction/removed"
+    #: A topic was changed (created, updated, deleted).
     #: ``data`` field format:
     #: - ``"created"``: A list of objects containing data for topics that were newly created.
     #: - ``"updated"``: A list of objects containing data for topics that were updated.
     #: - ``"deleted"``: A list of objects containing data for topics that were deleted.
     EVENT_TOPIC_CHANGED = "/api/activityfeed/posts/changed"
+    #: A task was changed (created, updated, deleted).
     #: ``data`` field format:
     #: - ``"created"``: A list of objects containing data for tasks that were newly created.
     #: - ``"updated"``: A list of objects containing data for tasks that were updated.
     #: - ``"deleted"``: A list of objects containing data for tasks that were deleted.
     EVENT_TASK_CHANGED = "/api/activityfeed/tasks/changed"
+    #: Some entity was changed (created, updated, deleted).
     #: ``data`` field format:
     #: - ``"change"``: The type of the change, could be "created", "updated", or "deleted".
     #: - ``"entity"``: The entity that was changed and some of its data after the change.
     EVENT_ENTITY_CHANGED = "/api/entity/changed"
+    #: All unhandled events.
     EVENT_ALL = ""
 
+    #: A chat message was received.
+    MSG_TYPE_CHAT = "chat"
+    #: A chat message was updated.
+    MSG_TYPE_CHAT_UPDATED = "chat_updated"
+    #: A chat message was deleted.
+    MSG_TYPE_CHAT_DELETED = "chat_deleted"
+    #: A user changed their presence.
+    MSG_TYPE_PRESENCE_CHANGED = "presence_change"
+    #: A user is typing in a chat.
+    MSG_TYPE_USER_TYPING = "user_typing"
+    #: An event occurred.
+    MSG_TYPE_EVENT = "event"
+    #: All unhandled messages.
     MSG_TYPE_ALL = ""
+
+    _HANDLER_DATA_TYPES = {
+        MSG_TYPE_CHAT: WSChatMessageData,
+        MSG_TYPE_CHAT_UPDATED: WSChatUpdatedData,
+        MSG_TYPE_CHAT_DELETED: WSChatDeletedData,
+        MSG_TYPE_PRESENCE_CHANGED: WSPresenceChangedData,
+        MSG_TYPE_USER_TYPING: WSUserTypingData,
+        MSG_TYPE_EVENT: WSEventData,
+    }
 
     def __init__(self, ryver: "Ryver"):
         self._ryver = ryver
@@ -136,9 +155,6 @@ class RyverWS():
         self._rx_task_handle = None
         self._ping_task_handle = None
 
-        self._on_chat = None
-        self._on_chat_deleted = None
-        self._on_chat_updated = None
         self._on_connection_loss = None
         self._on_msg_type = {}
         self._on_event = {}
@@ -163,6 +179,8 @@ class RyverWS():
     async def _ws_send_msg(self, msg: typing.Dict[str, typing.Any], timeout: float = None) -> None:
         """
         Send a message through the websocket.
+
+        An auto-generated message ID will be attached to the message to wait for acks.
 
         :param msg: The raw message data.
         :param timeout: The timeout for waiting for an ack. If None, waits forever.
@@ -195,6 +213,7 @@ class RyverWS():
             while True:
                 try:
                     msg = await self._ws.receive_json()
+                    # Handle acks
                     if msg["type"] == "ack":
                         # Find the message this ack is for
                         key = (msg["reply_to"], msg["reply_type"])
@@ -204,22 +223,18 @@ class RyverWS():
                             # Remove from ack table
                             self._msg_ack_table[key].set_result(msg)
                             self._msg_ack_table.pop(key)
-                    elif msg["type"] == "chat" and self._on_chat:
-                        asyncio.ensure_future(self._on_chat(msg))
-                    elif msg["type"] == "chat_deleted" and self._on_chat_deleted:
-                        asyncio.ensure_future(self._on_chat_deleted(msg))
-                    elif msg["type"] == "chat_updated" and self._on_chat_updated:
-                        asyncio.ensure_future(self._on_chat_updated(msg))
-                    elif msg["type"] == "event" and (msg["topic"] in self._on_event or "" in self._on_event):
-                        handler = self._on_event.get(
-                            msg["topic"], self._on_event.get("", None))
-                        if handler:
-                            asyncio.ensure_future(handler(msg))
+                    # Handle events
+                    elif msg["type"] == RyverWS.MSG_TYPE_EVENT and (msg["topic"] in self._on_event or "" in self._on_event):
+                        # 
+                        handler = self._on_event.get(msg["topic"]) or self._on_event.get("")
+                        asyncio.ensure_future(handler(WSEventData(self._ryver, msg)))
+                    # Handle all other message types
                     else:
-                        handler = self._on_msg_type.get(
-                            msg["type"], self._on_msg_type.get("", None))
+                        handler = self._on_msg_type.get(msg["type"], self._on_msg_type.get("", None))
                         if handler:
-                            asyncio.ensure_future(handler(msg))
+                            # Get the correct data type
+                            data_type = self._HANDLER_DATA_TYPES.get(msg["type"], WSMessageData)
+                            asyncio.ensure_future(handler(data_type(self._ryver, msg)))
                 except ValueError as e:
                     print(f"Error decoding JSON message: {e}")
                 except TypeError as e:
@@ -246,54 +261,81 @@ class RyverWS():
         except asyncio.CancelledError:
             return
 
-    def on_chat(self, func):
+    def on_chat(self, func: typing.Callable[[WSChatMessageData], typing.Awaitable]):
         """
-        The on chat message coroutine decorator.
+        Decorate a coroutine to be run when a new chat message is received.
 
         This coroutine will be started as a task when a new chat message arrives.
-        It should take a single argument, the chat message data.
+        It should take a single argument of type :py:class:`WSChatMessageData`, which
+        contains the data for the message.
         """
-        self._on_chat = func
+        self._on_msg_type[RyverWS.MSG_TYPE_CHAT] = func
         return func
 
-    def on_chat_deleted(self, func):
+    def on_chat_deleted(self, func: typing.Callable[[WSChatDeletedData], typing.Awaitable]):
         """
-        The on chat message deleted coroutine decorator.
+        Decorate a coroutine to be run when a chat message is deleted.
 
         This coroutine will be started as a task when a chat message is deleted.
-        It should take a single argument, the chat message data.
+        It should take a single argument of type :py:class:`WSChatDeletedData`, which
+        contains the data for the message.
         """
-        self._on_chat_deleted = func
+        self._on_msg_type[RyverWS.MSG_TYPE_CHAT_DELETED] = func
         return func
 
-    def on_chat_updated(self, func):
+    def on_chat_updated(self, func: typing.Callable[[WSChatUpdatedData], typing.Awaitable]):
         """
-        The on chat message updated coroutine decorator.
+        Decorate a coroutine to be run when a chat message is updated (edited).
 
         This coroutine will be started as a task when a chat message is updated.
-        It should take a single argument, the chat message data.
+        It should take a single argument of type :py:class:`WSChatUpdatedData`, which
+        contains the data for the message.
         """
-        self._on_chat_updated = func
+        self._on_msg_type[RyverWS.MSG_TYPE_CHAT_UPDATED] = func
+        return func
+    
+    def on_presence_changed(self, func: typing.Callable[[WSPresenceChangedData], typing.Awaitable]):
+        """
+        Decorate a coroutine to be run when a user's presence changed.
+
+        This coroutine will be started as a task when a user's presence changes.
+        It should take a single argument of type :py:class:`WSPresenceChangedData`, which
+        contains the data for the presence change.
+        """
+        self._on_msg_type[RyverWS.MSG_TYPE_PRESENCE_CHANGED] = func
+        return func
+    
+    def on_user_typing(self, func: typing.Callable[[WSUserTypingData], typing.Awaitable]):
+        """
+        Decorate a coroutine to be run when a user starts typing.
+
+        This coroutine will be started as a task when a user starts typing in a chat.
+        It should take a single argument of type :py:class:`WSUserTypingData`, which
+        contains the data for the user typing.
+        """
+        self._on_msg_type[RyverWS.MSG_TYPE_USER_TYPING] = func
         return func
 
-    def on_connection_loss(self, func):
+    def on_connection_loss(self, func: typing.Callable[[], typing.Awaitable]):
         """
-        The on connection loss coroutine decorator.
+        Decorate a coroutine to be run when the connection is lost.
 
         This coroutine will be started as a task when the connection is lost.
+        It should take no arguments.
         """
         self._on_connection_loss = func
         return func
 
     def on_event(self, event_type: str):
         """
-        The on event coroutine decorator for a specific event or all unhandled
-        events.
+        Decorate a coroutine to be run when an event occurs.
 
         This coroutine will be started as a task when a new event arrives with
-        the specified type. If the event_type is None or an empty string, it will
+        the specified type. If the ``event_type`` is None or an empty string, it will
         be called for all events that are unhandled.
-        It should take a single argument, the event data.
+
+        It should take a single argument of type :py:class:`WSEventData`, which
+        contains the data for the event.
 
         :param event_type: The event type to listen to, one of the constants in 
                            this class starting with ``EVENT_`` or 
@@ -303,20 +345,22 @@ class RyverWS():
         if event_type is None:
             event_type = ""
 
-        def _on_event_inner(func):
+        def _on_event_inner(func: typing.Callable[[WSEventData], typing.Awaitable]):
             self._on_event[event_type] = func
             return func
         return _on_event_inner
 
-    def on_msg_type(self, msg_type):
+    def on_msg_type(self, msg_type: str):
         """
-        The on message type coroutine decorator for a specific websocket message
-        type or all unhandled websocket messages.
+        Decorate a coroutine to be run when for a type of websocket messages or for all
+        unhandled messages.
 
-        This coroutine will be started as a task when a new message arrives with
-        the specified type. If the msg_type is None or an empty string, it will
-        be called for all messages that are unhandled.
-        It should take a single argument, the message data.
+        This coroutine will be started as a task when a new websocket message arrives
+        with the specified type. If the ``msg_type`` is None or an empty string, it
+        will be called for all messages that are otherwise unhandled.
+
+        It should take a single argument of type :py:class:`WSMessageData`, which
+        contains the data for the event.
 
         :param msg_type: The message type to listen to, one of the constants in 
                          this class starting with ``MSG_TYPE_`` or 
@@ -326,7 +370,7 @@ class RyverWS():
         if msg_type is None:
             msg_type = ""
 
-        def _on_msg_type_inner(func):
+        def _on_msg_type_inner(func: typing.Callable[[WSMessageData], typing.Awaitable]):
             self._on_msg_type[msg_type] = func
             return func
         return _on_msg_type_inner
@@ -340,7 +384,7 @@ class RyverWS():
         :raises ClosedError: If connection closed or not yet opened.  
         """
         data = {
-            "type": "chat",
+            "type": RyverWS.MSG_TYPE_CHAT,
             "to": to_chat.get_jid() if isinstance(to_chat, Chat) else to_chat,
             "text": msg
         }
@@ -356,7 +400,7 @@ class RyverWS():
         :raises ClosedError: If connection closed or not yet opened.  
         """
         return await self._ws_send_msg({
-            "type": "presence_change",
+            "type": RyverWS.MSG_TYPE_PRESENCE_CHANGED,
             "presence": presence,
         })
 
@@ -376,7 +420,7 @@ class RyverWS():
         :raises ClosedError: If connection closed or not yet opened.  
         """
         return await self._ws_send_msg({
-            "type": "user_typing",
+            "type": RyverWS.MSG_TYPE_USER_TYPING,
             "state": "composing",
             "to": to_chat.get_jid() if isinstance(to_chat, Chat) else to_chat
         })
@@ -392,7 +436,7 @@ class RyverWS():
         :raises ClosedError: If connection closed or not yet opened.  
         """
         return await self._ws_send_msg({
-            "type": "user_typing",
+            "type": RyverWS.MSG_TYPE_USER_TYPING,
             "state": "done",
             "to": to_chat.get_jid() if isinstance(to_chat, Chat) else to_chat
         })
@@ -477,4 +521,4 @@ class RyverWS():
         return "".join(random.choice(RyverWS._VALID_ID_CHARS) for x in range(9))
 
 
-from pyryver.ryver import * # nopep8
+from .ryver import * # nopep8

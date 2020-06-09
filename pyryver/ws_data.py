@@ -1,6 +1,6 @@
 import typing
-from pyryver.objects import *
-from pyryver.util import *
+from .objects import *
+from .util import *
 
 
 class WSMessageData:
@@ -36,6 +36,8 @@ class WSChatMessageData(WSMessageData):
     :ivar subtype: The subtype of the message. This will be one of the ``SUBTYPE_``
                    constants in :py:class:`ChatMessage`.
     :ivar attachment: The file attached to this message, or None if there isn't one.
+    :ivar creator: The overridden message creator (see :py:class:`Creator`), or None
+                   if there isn't one.
     """
 
     message_id: str
@@ -44,6 +46,7 @@ class WSChatMessageData(WSMessageData):
     text: str
     subtype: str
     attachment: File
+    creator: Creator
 
     def __init__(self, ryver: "Ryver", data: dict):
         super().__init__(ryver, data)
@@ -53,6 +56,10 @@ class WSChatMessageData(WSMessageData):
         self.text = data["text"]
         self.subtype = data.get("subtype", ChatMessage.SUBTYPE_CHAT_MESSAGE)
         self.attachment = File(ryver, data["extras"]) if "extras" in data else None
+        if "createSource" in data:
+            self.creator = Creator(data["createSource"]["displayName"], data["createSource"]["avatar"])
+        else:
+            self.creator = None
 
 
 class WSChatUpdatedData(WSChatMessageData):
@@ -106,7 +113,29 @@ class WSPresenceChangedData(WSMessageData):
         self.presence = data["presence"]
         self.from_jid = data["from"]
         self.client = data["client"]
-        self.timestamp = data["timestamp"]
+        self.timestamp = data["received"]
+
+
+class WSUserTypingData(WSMessageData):
+    """
+    The data for a user typing in :py:class:`pyryver.ryver_ws.RyverWS`.
+
+    :ivar from_jid: The JID of the user that started typing.
+    :ivar to_jid: The JID of the chat the user started typing in.
+    :ivar state: The "state" of the typing. This is almost always "composing" (for
+                 typing in progress), but it could also very rarely be "done", for
+                 when the user has finished typing.
+    """
+    
+    from_jid: str
+    to_jid: str
+    state: str
+
+    def __init__(self, ryver: "Ryver", data: dict):
+        super().__init__(ryver, data)
+        self.from_jid = data["from"]
+        self.to_jid = data["to"]
+        self.state = data["state"]
 
 
 class WSEventData(WSMessageData):
@@ -132,4 +161,4 @@ class WSEventData(WSMessageData):
         self.event_data = data["data"]
 
 
-from pyryver.ryver import * # nopep8
+from .ryver import * # nopep8

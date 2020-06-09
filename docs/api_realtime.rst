@@ -11,17 +11,29 @@ Realtime Client
       :decorator:
    .. automethod:: on_chat_updated
       :decorator:
-
+   .. automethod:: on_presence_changed
+      :decorator:
+   .. automethod:: on_user_typing
+      :decorator:
    .. automethod:: on_connection_loss
       :decorator:
 
    .. autoattribute:: EVENT_REACTION_ADDED
    .. autoattribute:: EVENT_REACTION_REMOVED
+   .. autoattribute:: EVENT_TOPIC_CHANGED
+   .. autoattribute:: EVENT_TASK_CHANGED
+   .. autoattribute:: EVENT_ENTITY_CHANGED
    .. autoattribute:: EVENT_ALL
 
    .. automethod:: on_event
       :decorator:
 
+   .. autoattribute:: MSG_TYPE_CHAT
+   .. autoattribute:: MSG_TYPE_CHAT_UPDATED
+   .. autoattribute:: MSG_TYPE_CHAT_DELETED
+   .. autoattribute:: MSG_TYPE_PRESENCE_CHANGED
+   .. autoattribute:: MSG_TYPE_USER_TYPING
+   .. autoattribute:: MSG_TYPE_EVENT
    .. autoattribute:: MSG_TYPE_ALL
 
    .. automethod:: on_msg_type

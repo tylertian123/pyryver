@@ -3,9 +3,9 @@ import typing
 from . import doc
 from getpass import getpass
 from pyryver import ryver_ws
-from pyryver.util import *
-from pyryver.objects import *
-from pyryver.cache_storage import *
+from .util import *
+from .objects import *
+from .cache_storage import *
 
 
 class Ryver:
