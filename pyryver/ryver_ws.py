@@ -93,7 +93,9 @@ class RyverWS():
     PRESENCE_OFFLINE = "unavailable"
 
     #: A reaction was added to a message (includes topics, tasks and replies/comments).
+    #:
     #: ``data`` field format:
+    #:
     #: - ``"type"``: The entity type of the thing that was reacted to.
     #: - ``"id"``: The ID of the thing that was reacted to. String for chat messages,
     #:   int for everything else.
@@ -101,7 +103,9 @@ class RyverWS():
     #: - ``"reaction"``: The name of the emoji that the user reacted with.
     EVENT_REACTION_ADDED = "/api/reaction/added"
     #: A reaction was removed from a message (includes topics, tasks and replies/comments).
+    #:
     #: ``data`` field format:
+    #:
     #: - ``"type"``: The entity type of the thing that was reacted to.
     #: - ``"id"``: The ID of the thing that was reacted to. String for chat messages,
     #:   int for everything else.
@@ -109,19 +113,25 @@ class RyverWS():
     #: - ``"reaction"``: The name of the emoji that the user reacted with.
     EVENT_REACTION_REMOVED = "/api/reaction/removed"
     #: A topic was changed (created, updated, deleted).
+    #:
     #: ``data`` field format:
+    #:
     #: - ``"created"``: A list of objects containing data for topics that were newly created.
     #: - ``"updated"``: A list of objects containing data for topics that were updated.
     #: - ``"deleted"``: A list of objects containing data for topics that were deleted.
     EVENT_TOPIC_CHANGED = "/api/activityfeed/posts/changed"
     #: A task was changed (created, updated, deleted).
+    #:
     #: ``data`` field format:
+    #:
     #: - ``"created"``: A list of objects containing data for tasks that were newly created.
     #: - ``"updated"``: A list of objects containing data for tasks that were updated.
     #: - ``"deleted"``: A list of objects containing data for tasks that were deleted.
     EVENT_TASK_CHANGED = "/api/activityfeed/tasks/changed"
     #: Some entity was changed (created, updated, deleted).
+    #:
     #: ``data`` field format:
+    #:
     #: - ``"change"``: The type of the change, could be "created", "updated", or "deleted".
     #: - ``"entity"``: The entity that was changed and some of its data after the change.
     EVENT_ENTITY_CHANGED = "/api/entity/changed"

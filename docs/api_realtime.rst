@@ -77,28 +77,21 @@ Callback Task Data Types
 
 .. autoclass:: WSMessageData
    :members:
-   :undoc-members:
 .. autoclass:: WSChatMessageData
    :members:
-   :undoc-members:
    :show-inheritance:
 .. autoclass:: WSChatUpdatedData
    :members:
-   :undoc-members:
    :show-inheritance:
 .. autoclass:: WSChatDeletedData
    :members:
-   :undoc-members:
    :show-inheritance:
 .. autoclass:: WSPresenceChangedData
    :members:
-   :undoc-members:
    :show-inheritance:
 .. autoclass:: WSUserTypingData
    :members:
-   :undoc-members:
    :show-inheritance:
 .. autoclass:: WSEventData
    :members:
-   :undoc-members:
    :show-inheritance:
