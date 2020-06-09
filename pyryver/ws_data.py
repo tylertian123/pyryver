@@ -1,3 +1,10 @@
+"""
+This module contains various data types used in :py:class:`RyverWS` callbacks.
+
+All ``@on_`` decorated coroutines are passed an instance of one of the types defined
+here when they are started.
+"""
+
 import typing
 from .objects import *
 from .util import *
@@ -99,7 +106,7 @@ class WSPresenceChangedData(WSMessageData):
     :ivar from_jid: The JID of the user that changed their presence.
     :ivar client: The client the user is using.
     :ivar timestamp: An ISO 8601 timestamp of this event. You can use
-                     :py:func:`pyryver.util.iso8601_to_datetime()` to conver it into a
+                     :py:func:`pyryver.util.iso8601_to_datetime()` to convert it into a
                      datetime.
     """
 

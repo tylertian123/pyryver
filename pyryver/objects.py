@@ -1,3 +1,8 @@
+"""
+This module contains various Ryver entities and other objects.
+"""
+
+
 import aiohttp
 import datetime
 import typing

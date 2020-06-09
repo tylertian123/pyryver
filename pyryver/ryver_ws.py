@@ -1,3 +1,8 @@
+"""
+This module contains the :py:class:`RyverWS` class, which allows you to respond to
+messages in real-time.
+"""
+
 import asyncio
 import random
 import string

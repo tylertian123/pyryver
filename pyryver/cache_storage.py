@@ -1,3 +1,17 @@
+"""
+Cache storages are used by :py:class:`Ryver` to cache organization data locally.
+
+In large organizations with lots of data, caching can be used to make the program load
+some organization data locally instead of fetching them from Ryver. This can
+significantly improve program startup times.
+
+Currently, the lists of all users, forums, and teams can be cached.
+
+.. seealso::
+   The :py:class:`Ryver` class
+"""
+
+
 import json
 import os
 import typing

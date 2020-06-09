@@ -1,3 +1,10 @@
+"""
+This module contains utilities used to help with documentation generation.
+
+It is not intended for public use.
+"""
+
+
 def contextmanager(func):
     """
     Sets ``__returns_contextmanager__`` of the function to true for sphinxcontrib-trio

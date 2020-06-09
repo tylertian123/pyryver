@@ -1,3 +1,8 @@
+"""
+This module contains the :py:class:`Ryver` class, which is the starting point for any
+application using pyryver.
+"""
+
 import aiohttp
 import typing
 from . import doc

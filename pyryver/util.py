@@ -1,3 +1,7 @@
+"""
+This module contains various contants and utilities for both internal and external use.
+"""
+
 import aiohttp
 import asyncio
 import datetime
