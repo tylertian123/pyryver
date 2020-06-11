@@ -29,7 +29,7 @@ class WSMessageData:
     def __init__(self, ryver: "Ryver", data: dict):
         self.ryver = ryver
         self.raw_data = data
-        self.ws_msg_type = data["type"]
+        self.ws_msg_type = data.get("type")
 
 
 class WSChatMessageData(WSMessageData):
@@ -57,14 +57,14 @@ class WSChatMessageData(WSMessageData):
 
     def __init__(self, ryver: "Ryver", data: dict):
         super().__init__(ryver, data)
-        self.message_id = data["key"]
-        self.from_jid = data["from"]
-        self.to_jid = data["to"]
-        self.text = data["text"]
+        self.message_id = data.get("key")
+        self.from_jid = data.get("from")
+        self.to_jid = data.get("to")
+        self.text = data.get("text")
         self.subtype = data.get("subtype", ChatMessage.SUBTYPE_CHAT_MESSAGE)
         self.attachment = File(ryver, data["extras"]) if "extras" in data else None
         if "createSource" in data:
-            self.creator = Creator(data["createSource"]["displayName"], data["createSource"]["avatar"])
+            self.creator = Creator(data["createSource"].get("displayName"), data["createSource"].get("avatar"))
         else:
             self.creator = None
 
@@ -76,7 +76,8 @@ class WSChatUpdatedData(WSChatMessageData):
     :ivar message_id: The ID of the message (a string).
     :ivar from_jid: The JID of the user that edited the message.
     :ivar to_jid: The JID of the chat this message was sent to.
-    :ivar text: The contents of the message after the edit.
+    :ivar text: The contents of the message after the edit. Note: In very rare
+                circumstances, this field is known to be ``None``.
     :ivar subtype: The subtype of the message. This will be one of the ``SUBTYPE_``
                    constants in :py:class:`ChatMessage`.
     :ivar attachment: The file attached to this message, or None if there isn't one.
@@ -117,10 +118,10 @@ class WSPresenceChangedData(WSMessageData):
 
     def __init__(self, ryver: "Ryver", data: dict):
         super().__init__(ryver, data)
-        self.presence = data["presence"]
-        self.from_jid = data["from"]
-        self.client = data["client"]
-        self.timestamp = data["received"]
+        self.presence = data.get("presence")
+        self.from_jid = data.get("from")
+        self.client = data.get("client")
+        self.timestamp = data.get("received")
 
 
 class WSUserTypingData(WSMessageData):
@@ -140,9 +141,9 @@ class WSUserTypingData(WSMessageData):
 
     def __init__(self, ryver: "Ryver", data: dict):
         super().__init__(ryver, data)
-        self.from_jid = data["from"]
-        self.to_jid = data["to"]
-        self.state = data["state"]
+        self.from_jid = data.get("from")
+        self.to_jid = data.get("to")
+        self.state = data.get("state")
 
 
 class WSEventData(WSMessageData):
@@ -164,8 +165,8 @@ class WSEventData(WSMessageData):
 
     def __init__(self, ryver: "Ryver", data: dict):
         super().__init__(ryver, data)
-        self.event_type = data["topic"]
-        self.event_data = data["data"]
+        self.event_type = data.get("topic")
+        self.event_data = data.get("data")
 
 
 from .ryver import * # nopep8
