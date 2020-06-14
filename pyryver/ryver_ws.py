@@ -171,6 +171,7 @@ class RyverWS():
         self._ping_task_handle = None
 
         self._on_connection_loss = None
+        self._on_error = None
         self._on_msg_type = {}
         self._on_event = {}
 
@@ -252,8 +253,12 @@ class RyverWS():
                             asyncio.ensure_future(handler(data_type(self._ryver, msg)))
                 except ValueError as e:
                     print(f"Error decoding JSON message: {e}")
+                    if self._on_error is not None:
+                        asyncio.ensure_future(self._on_error(e))
                 except TypeError as e:
                     print(f"Error: Unexpected binary message received: {e}")
+                    if self._on_error is not None:
+                        asyncio.ensure_future(self._on_error(e))
         except asyncio.CancelledError:
             return
 
@@ -337,8 +342,28 @@ class RyverWS():
 
         This coroutine will be started as a task when the connection is lost.
         It should take no arguments.
+
+        Applications are suggested to clean up and terminate immediately when the
+        connection is lost, as further actions could hang forever.
         """
         self._on_connection_loss = func
+        return func
+    
+    def on_error(self, func: typing.Callable[[typing.Union[TypeError, ValueError]], typing.Awaitable]):
+        """
+        Decorate a coroutine to be run when a connection error occurs.
+
+        This coroutine will be started as a task when an error occurs while waiting for
+        messages. It should take a single argument, which will either be a ``TypeError``
+        (if a binary message is received instead of JSON) or a ``ValueError`` (if
+        message is not valid JSON). This exception will be the one raised by
+        :py:meth:`aiohttp.ClientWebSocketResponse.receive_json()`.
+
+        Common reasons for errors include (but are not limited to) undetected connection
+        losses, bad auth, or internal errors. Applications are suggested to clean up and
+        terminate immediately when a websocket error occurs.
+        """
+        self._on_error = func
         return func
 
     def on_event(self, event_type: str):

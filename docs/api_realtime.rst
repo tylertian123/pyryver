@@ -17,6 +17,8 @@ Realtime Client
       :decorator:
    .. automethod:: on_connection_loss
       :decorator:
+   .. automethod:: on_error
+      :decorator:
 
    .. autoattribute:: EVENT_REACTION_ADDED
    .. autoattribute:: EVENT_REACTION_REMOVED
