@@ -262,7 +262,7 @@ class Object(ABC):
         else:
             return None
 
-    async def get_deferred_field(self, field: str, field_type: str) -> typing.Any:
+    async def get_deferred_field(self, field: str, field_type: str) -> typing.Union[typing.Type["Object"], typing.List[typing.Type["Object"]]]:
         """
         Get the value of a field of this object that exists, but is not included
         ("__deferred" in the Ryver API).
@@ -1236,6 +1236,84 @@ class Chat(Object):
             resp.raise_for_status()
             return TaskBoard(self._ryver, (await resp.json())["d"]["results"])
     
+    async def delete_task_board(self) -> bool:
+        """
+        Delete (or "reset", according to the UI) the task board of this chat.
+
+        This method will not yield an error even if there is no task board set up.
+        In those cases, it will simply return false.
+
+        :return: Whether the task board was deleted.
+        """
+        url = self.get_api_url(action="TaskBoard.Delete()")
+        async with self._ryver._session.post(url) as resp:
+            return (await resp.json())["d"]
+    
+    async def create_task_board(self, board_type: str, prefix: str = None, 
+                                categories: typing.List[typing.Union[str, typing.Tuple[str, str]]] = None,
+                                uncategorized_name: str = None) -> "TaskBoard":
+        """
+        Create the task board for this chat if it has not yet been set up.
+
+        The board type should be one of the :py:class:`TaskBoard` ``BOARD_TYPE_``
+        constants; it specified whether this task board should be a simple list or a
+        board with categories.
+
+        You can also specify a list of category names and optional category types to
+        pre-populate the task board with categories. Each entry in the list should
+        either be a string, which specifies the category name, or a tuple of the name
+        and the type of the category (a ``CATEGORY_TYPE_`` constant). The default
+        category type is :py:attr:`TaskCategory.CATEGORY_TYPE_OTHER`.
+
+        An "uncategorized" category is always automatically added. Therefore, the type
+        :py:attr:`TaskCategory.CATEGORY_TYPE_UNCATEGORIZED` cannot be used in the list.
+        You can, however, change the name of the default "Uncategorized" category by
+        specifying ``uncategorized_name``.
+
+        Categories should not be specified if the type of the task board is 
+        :py:attr:`TaskBoard.BOARD_TYPE_LIST`.
+
+        :param board_type: The type of the task board.
+        :param prefix: The task prefix (optional).
+        :param categories: A list of categories and optional types to pre-populate the
+                           task board with (see above) (optional).
+        :param uncategorized_name: The name for the default "Uncategorized" category.
+        """
+        data = {
+            "board": {
+                "type": board_type,
+                "prefix": prefix
+            }
+        }
+        if categories or uncategorized_name is not None:
+            cats = [
+                {
+                    "categoryType": TaskCategory.CATEGORY_TYPE_UNCATEGORIZED,
+                    "name": uncategorized_name if uncategorized_name is not None else "Uncategorized",
+                    "position": 0,
+                }
+            ]
+            if categories:
+                for i, category in enumerate(categories):
+                    if isinstance(category, tuple):
+                        cats.append({
+                            "categoryType": category[1],
+                            "name": category[0],
+                            "position": i + 1,
+                        })
+                    else:
+                        cats.append({
+                            "categoryType": TaskCategory.CATEGORY_TYPE_OTHER,
+                            "name": category,
+                            "position": i + 1,
+                        })
+            data["board"]["categories"] = {
+                "results": cats
+            }
+        url = self.get_api_url(action="TaskBoard.Create()")
+        async with self._ryver._session.post(url, json=data) as resp:
+            return TaskBoard(self._ryver, (await resp.json()))
+    
     async def delete_avatar(self) -> None:
         """
         Delete the avatar of this chat.
@@ -2041,6 +2119,29 @@ class TaskBoard(Object):
         url = self._ryver.get_api_url(TYPE_TASK)
         async with self._ryver._session.post(url, json=data) as resp:
             return Task(self._ryver, (await resp.json())["d"]["results"])
+    
+    async def get_chat(self) -> Chat:
+        """
+        Get the chat this task board is in.
+
+        If this task board is a public task board in a forum or team, a
+        :py:class:`GroupChat` object will be returned. If this task board is a personal
+        (user) task board, a :py:class:`User` object will be returned.
+
+        .. note::
+           API Detail: Although public task boards can be in either a forum or a team,
+           :py:class:`GroupChat` objects returned by this method will *always* be
+           instances of :py:class:`Team`, even if the task board exists in a forum.
+           There seems to be no way of determining whether the returned chat is actually
+           a forum or a team. However, as both forums/teams have the exact same methods,
+           this detail shouldn't matter.
+
+        :return: The forum/team/user this task board is in.
+        """
+        try:
+            return self.get_deferred_field("team", TYPE_TEAM)
+        except ValueError:
+            return self.get_deferred_field("user", TYPE_USER)
 
 
 class TaskCategory(Object):
