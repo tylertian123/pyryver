@@ -10,8 +10,8 @@ with open("requirements.txt", "r") as fh:
 setuptools.setup(
     name="pyryver",
     version=pyryver.__version__,
-    author="Tyler Tian",
-    author_email="tylertian123@gmail.com",
+    author="Tyler Tian, Matthew Mirvish",
+    author_email="tylertian123@gmail.com, matthew@mm12.xyz",
     description="An unofficial async Python library for Ryver.",
     long_description=long_description,
     long_description_content_type="text/markdown",

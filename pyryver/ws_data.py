@@ -62,7 +62,15 @@ class WSChatMessageData(WSMessageData):
         self.to_jid = data.get("to")
         self.text = data.get("text")
         self.subtype = data.get("subtype", ChatMessage.SUBTYPE_CHAT_MESSAGE)
-        self.attachment = File(ryver, data["extras"]) if "extras" in data else None
+        if "extras" in data and "file" in data["extras"]:
+            try:
+                self.attachment = File(ryver, data["extras"]["file"])
+            # Failsafe to make sure this never crashes even if the JSON does not contain
+            # the right data
+            except KeyError:
+                self.attachment = None
+        else:
+            self.attachment = None
         if "createSource" in data:
             self.creator = Creator(data["createSource"].get("displayName"), data["createSource"].get("avatar"))
         else:
