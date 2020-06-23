@@ -591,6 +591,14 @@ class Topic(PostedMessage):
             "archived": archived
         }
         await self._ryver._session.patch(url, json=data)
+    
+    async def unarchive(self) -> None:
+        """
+        Un-archive this topic.
+
+        This is the same as calling :py:meth:`Topic.archive()` with False.
+        """
+        await self.archive(False)
 
     async def reply(self, message: str, creator: Creator = None, attachments: typing.Iterable["Storage"] = None) -> TopicReply:
         """
@@ -2528,6 +2536,23 @@ class Task(PostedMessage):
         Mark this task as uncomplete.
         """
         await self.set_complete_date(None)
+    
+    async def archive(self, archived: bool = True) -> None:
+        """
+        Archive or un-archive this task.
+
+        :param archived: Whether the task should be archived.
+        """
+        url = self.get_api_url("Task.Archive()" if archived else "Task.Unarchive()")
+        await self._ryver._session.post(url)
+    
+    async def unarchive(self) -> None:
+        """
+        Un-archive this task.
+
+        This is the same as calling :py:meth:`Task.archive()` with False.
+        """
+        await self.archive(False)
 
     async def move(self, category: TaskCategory, position: int) -> None:
         """
