@@ -289,7 +289,7 @@ class Object(ABC):
         constructor = TYPES_DICT[field_type]
         # Check if the result should be a list
         if "results" in data:
-            return [constructor(self._ryver, obj_data) for obj_data in data]
+            return [constructor(self._ryver, obj_data) for obj_data in data["results"]]
         else:
             return constructor(self._ryver, data)
 
