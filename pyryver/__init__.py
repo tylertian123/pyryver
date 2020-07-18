@@ -13,4 +13,4 @@ from .ryver import *
 from .ryver_ws import *
 from .ws_data import *
 
-__version__ = "0.3.0"
+__version__ = "0.3.1"

@@ -261,9 +261,10 @@ class Ryver:
         - id
         - jid
         - username
-        - display_name
-        - name (same as display_name in this case)
+        - name/display_name
         - email
+
+        If using username or email to find the user, the search will be case-insensitive.
 
         Returns None if not found.
 
@@ -276,8 +277,12 @@ class Ryver:
         field, value = list(kwargs.items())[0]
         if field == "name":
             field = "display_name"
+        # Do a case insensitive search for usernames and emails
+        case_sensitive = True
+        if field == "username" or field == "email":
+            case_sensitive = False
         try:
-            return get_obj_by_field(self.users, FIELD_NAMES[field], value)
+            return get_obj_by_field(self.users, FIELD_NAMES[field], value, case_sensitive)
         except KeyError:
             raise ValueError("Invalid query parameter!")
 
@@ -295,6 +300,8 @@ class Ryver:
         - name
         - nickname
 
+        If using nickname to find the chat, the search will be case-insensitive.
+
         Returns None if not found.
 
         :return: The chat, or None if not found.
@@ -304,8 +311,12 @@ class Ryver:
         if len(kwargs.items()) != 1:
             raise ValueError("Only 1 query parameter can be specified!")
         field, value = list(kwargs.items())[0]
+        # Case-insensitive search for nicknames
+        case_sensitive = True
+        if field == "nickname":
+            case_sensitive = False
         try:
-            return get_obj_by_field(self.forums + self.teams, FIELD_NAMES[field], value)
+            return get_obj_by_field(self.forums + self.teams, FIELD_NAMES[field], value, case_sensitive)
         except KeyError:
             raise ValueError("Invalid query parameter!")
 
@@ -330,8 +341,14 @@ class Ryver:
         if len(kwargs.items()) != 1:
             raise ValueError("Only 1 query parameter can be specified!")
         field, value = list(kwargs.items())[0]
+        # Case-insensitive search for usernames, emails and nicknames
+        # If this function is used as intended as stated in the docs, these fields should never be used
+        # however they still function correctly, so for consistency they're still implemented
+        case_sensitive = True
+        if field == "username" or field == "email" or field == "nickname":
+            case_sensitive = False
         try:
-            return get_obj_by_field(self.forums + self.teams + self.users, FIELD_NAMES[field], value)
+            return get_obj_by_field(self.forums + self.teams + self.users, FIELD_NAMES[field], value, case_sensitive)
         except KeyError:
             raise ValueError("Invalid query parameter!")
 
