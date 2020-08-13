@@ -4,9 +4,12 @@ messages in real-time.
 """
 
 import asyncio
+import json
 import random
 import string
+import sys
 import time
+from aiohttp.http import WSMsgType
 from . import doc
 from .objects import *
 from .ws_data import *
@@ -171,7 +174,6 @@ class RyverWS():
         self._ping_task_handle = None
 
         self._on_connection_loss = None
-        self._on_error = None
         self._on_msg_type = {}
         self._on_event = {}
 
@@ -227,8 +229,23 @@ class RyverWS():
         """
         try:
             while True:
-                try:
-                    msg = await self._ws.receive_json()
+                raw_msg = await self._ws.receive()
+                if raw_msg.type != WSMsgType.TEXT:
+                    if raw_msg.type is not None and raw_msg.type < 0x100:
+                        sys.stderr.write(f"Warning: Wrong message type received, expected TEXT (0x1), got {raw_msg.type}. Message ignored.\n")
+                    else:
+                        sys.stderr.write(f"Error: Received unexpected aiohttp specific type for WS message: {raw_msg.type}. Killing connection.\n")
+                        async def _close():
+                            await self.close()
+                        asyncio.ensure_future(_close())
+                        # Block to force a context switch and make sure connection is closed
+                        await asyncio.sleep(0.2)
+                else:
+                    try:
+                        msg = json.loads(raw_msg.data)
+                    except json.JSONDecodeError as e:
+                        sys.stderr.write(f"Warning: Received invalid JSON: {e}. Message ignored.\n")
+                        continue
                     # Handle acks
                     if msg["type"] == "ack":
                         # Find the message this ack is for
@@ -251,14 +268,6 @@ class RyverWS():
                             # Get the correct data type
                             data_type = self._HANDLER_DATA_TYPES.get(msg["type"], WSMessageData)
                             asyncio.ensure_future(handler(data_type(self._ryver, msg)))
-                except ValueError as e:
-                    print(f"Error decoding JSON message: {e}")
-                    if self._on_error is not None:
-                        asyncio.ensure_future(self._on_error(e))
-                except TypeError as e:
-                    print(f"Error: Unexpected binary message received: {e}")
-                    if self._on_error is not None:
-                        asyncio.ensure_future(self._on_error(e))
         except asyncio.CancelledError:
             return
 
@@ -351,19 +360,14 @@ class RyverWS():
     
     def on_error(self, func: typing.Callable[[typing.Union[TypeError, ValueError]], typing.Awaitable]):
         """
-        Decorate a coroutine to be run when a connection error occurs.
+        Decorate a coroutine to be run when a connection error occurs. **No longer used.**
 
-        This coroutine will be started as a task when an error occurs while waiting for
-        messages. It should take a single argument, which will either be a ``TypeError``
-        (if a binary message is received instead of JSON) or a ``ValueError`` (if
-        message is not valid JSON). This exception will be the one raised by
-        :py:meth:`aiohttp.ClientWebSocketResponse.receive_json()`.
-
-        Common reasons for errors include (but are not limited to) undetected connection
-        losses, bad auth, or internal errors. Applications are suggested to clean up and
-        terminate immediately when a websocket error occurs.
+        .. deprecated:: 0.3.2
+           This decorator is no longer used and currently does not do anything. Instead,
+           when a non-recoverable error occurs, the connection will be closed
+           automatically. Other errors (wrong message type, invalid JSON) will be
+           ignored instead.
         """
-        self._on_error = func
         return func
 
     def on_event(self, event_type: str):
