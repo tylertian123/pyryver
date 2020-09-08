@@ -85,6 +85,10 @@ The contents of the ``msg`` parameter passed to our callback is an object of typ
 there are two fields our "bot" needs to care about: ``to_jid``, which specifies which chat the message was posted in, and ``text``, which is the content of the message. ``from_jid`` refers to the message's creator.
 Perhaps unintuitively, the ``to_jid`` field should be referring to our user's chat, since we're looking at a private DM. For group chats, you'd expect the chat's JID here.
 
+.. note::
+   Note that the callback will be called even if the message was sent by the current logged in user!
+   Therefore, even if you want to respond to messages from everyone, you should still make sure to check that ``from_jid`` is not the bot user's JID to avoid replying to your own messages.
+
 Notice how we're working with the chat's **JID** here, which is a string, as opposed to the regular ID, which is an integer.
 This is because the websocket system uses JIDs to refer to chats. Using this information, we can complete our terrible little bot:
 
