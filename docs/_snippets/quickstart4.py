@@ -5,7 +5,7 @@ async with pyryver.Ryver("organization_name", "username", "password") as ryver:
 
     async with ryver.get_live_session() as session:
         @session.on_chat
-        async def on_chat(msg):
+        async def on_chat(msg: pyryver.WSChatMessageData):
             pass
 
         await session.run_forever()

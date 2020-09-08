@@ -30,6 +30,10 @@ class WSMessageData:
         self.ryver = ryver
         self.raw_data = data
         self.ws_msg_type = data.get("type")
+    
+    # For (limited) backwards compatibility
+    def __getitem__(self, key):
+        return self.raw_data[key]
 
 
 class WSChatMessageData(WSMessageData):

@@ -14,8 +14,8 @@ async def main():
         # connect to the websockets interface
         async with ryver.get_live_session() as session:
             @session.on_chat
-            def on_message(msg):
-                print(msg["text"]) # print out the message's text
+            def on_message(msg: pyryver.WSChatMessageData):
+                print(msg.text) # print out the message's text
 
             # run until session.close()
             await session.run_forever()

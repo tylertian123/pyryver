@@ -81,11 +81,12 @@ There are a few things to notice here: firstly, that we can set event handlers w
 you want to declare these callbacks without having obtained the `pyryver.ryver_ws.RyverWS` instance yet), and secondly that the realtime API starts as soon as it is created. `pyryver.ryver_ws.RyverWS.run_forever()` is 
 a helper that will run until something calls `pyryver.ryver_ws.RyverWS.close()`, which can be called from within event callbacks safely.
 
-The contents of the ``msg`` parameter passed to our callback is currently just the raw JSON message from the Ryver WebSocket system. (documentation as to the fields present are available TODO) In the ``chat`` message,
-there are two fields our "bot" needs to care about: "to", which specifies which chat the message was posted in, and "text", which is the content of the message. "from" refers to the message's creator. Perhaps unintuitively, 
-the "to" field should be referring to our user's chat, since we're looking at a private DM. For group chats, you'd expect the chat's ID here.
+The contents of the ``msg`` parameter passed to our callback is an object of type `pyryver.ws_data.WSChatMessageData` that contains information about the message. In the ``chat`` message,
+there are two fields our "bot" needs to care about: ``to_jid``, which specifies which chat the message was posted in, and ``text``, which is the content of the message. ``from_jid`` refers to the message's creator.
+Perhaps unintuitively, the ``to_jid`` field should be referring to our user's chat, since we're looking at a private DM. For group chats, you'd expect the chat's JID here.
 
-In fact, you would expect the chat's **JID** here, since the websocket system uses JIDs to refer to chats. Using this information, we can complete our terrible little bot:
+Notice how we're working with the chat's **JID** here, which is a string, as opposed to the regular ID, which is an integer.
+This is because the websocket system uses JIDs to refer to chats. Using this information, we can complete our terrible little bot:
 
 .. note::
    The reason for the separate IDs is because the "ratatoskr" chat system appears to be built on XMPP, which uses these "JabberID"s to refer to users and groups.
@@ -93,8 +94,13 @@ In fact, you would expect the chat's **JID** here, since the websocket system us
 .. literalinclude:: _snippets/quickstart5.py
    :language: python3
 
+.. note::
+   Prior to v0.3.0, the ``msg`` parameter would have been a dict containing the raw JSON data of the message, and you would access the fields directly by name through dict lookups.
+   If you still wish to access the raw data of the message, all message objects passed to callbacks have a ``raw_data`` attribute that contains the dict. In v0.3.2, ``__getitem__()`` was implemented for message objects
+   to directly access the ``raw_data`` dict, providing (partial) backwards compatibility.
+
 Here we also added a connection loss handler with the `pyryver.ryver_ws.RyverWS.on_connection_loss()` decorator. The connection loss handler closes the session, which causes ``run_forever()`` to terminate, allowing the program to
-exit on connection loss instead of waiting forever.
+exit on connection loss instead of waiting forever. It is recommended to always have a connection loss handler if you're using ``run_forever()``.
 
 It's important to note here that although the non-realtime API is perfectly accessible (and sometimes necessary) to use in event callbacks, it's often faster to use corresponding methods in the `pyryver.ryver_ws.RyverWS` instance
 whenever possible. For some ephemeral actions like typing indicators and presence statuses, the realtime API is the *only* way to accomplish certain tasks.
