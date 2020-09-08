@@ -235,9 +235,7 @@ class RyverWS():
                         sys.stderr.write(f"Warning: Wrong message type received, expected TEXT (0x1), got {raw_msg.type}. Message ignored.\n")
                     else:
                         sys.stderr.write(f"Error: Received unexpected aiohttp specific type for WS message: {raw_msg.type}. Killing connection.\n")
-                        async def _close():
-                            await self.close()
-                        asyncio.ensure_future(_close())
+                        asyncio.ensure_future(self.close())
                         # Block to force a context switch and make sure connection is closed
                         await asyncio.sleep(0.2)
                 else:
@@ -352,8 +350,19 @@ class RyverWS():
         This coroutine will be started as a task when the connection is lost.
         It should take no arguments.
 
+        A connection loss is determined using a ping task. A ping is sent to Ryver once
+        every 10 seconds, and if the response takes over 5 seconds, this coroutine will
+        be started. (These numbers roughly match those used by the official web client.)
+
         Applications are suggested to clean up and terminate immediately when the
-        connection is lost, as further actions could hang forever.
+        connection is lost, especially when using :py:meth:`RyverWS.run_forever()`.
+        A simple but typical implementation is shown below:
+
+        .. code-block:: python
+           async with ryver.get_live_session() as session:
+               @session.on_connection_loss
+               async def on_connection_loss():
+                   await session.close()
         """
         self._on_connection_loss = func
         return func
@@ -366,7 +375,7 @@ class RyverWS():
            This decorator is no longer used and currently does not do anything. Instead,
            when a non-recoverable error occurs, the connection will be closed
            automatically. Other errors (wrong message type, invalid JSON) will be
-           ignored instead.
+           ignored.
         """
         return func
 
@@ -532,11 +541,6 @@ class RyverWS():
         Close the session.
 
         Any future operation after closing will result in a :py:exc:`ClosedError` being raised.
-
-        .. note::
-           By default, when the connection is lost, the session is not automatically closed.
-           You should use the :py:meth:`RyverWS.on_connection_lost()` decorator if you want
-           to implement this.
         """
         self._closed = True
         # Cancel all tasks
@@ -551,7 +555,17 @@ class RyverWS():
 
     async def run_forever(self):
         """
-        Run forever, or until the connection is closed.
+        Run forever, or until the connection is closed explicitly.
+
+        .. note::
+           By default, when the connection is lost, the session will *not* be
+           automatically closed. As a result, if no action is taken, this coroutine will
+           *not* exit on a connection loss. :py:meth:`RyverWS.close()` needs to be called
+           explicitly to make this coroutine return. 
+
+           You should use the :py:meth:`RyverWS.on_connection_loss()` decorator if you want
+           to automatically close the connection and return on connection loss. See its
+           documentation for an example.
         """
         await asyncio.gather(self._ping_task_handle, self._rx_task_handle)
 
