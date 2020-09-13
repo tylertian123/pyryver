@@ -394,7 +394,7 @@ class Message(Object):
 
         :return: The author of this message.
         """
-        return self.get_create_user()
+        return await self.get_create_user()
 
     async def react(self, emoji: str) -> None:
         """
@@ -843,7 +843,7 @@ class ChatMessage(Message):
 
         :return: The author of this message.
         """
-        return self._ryver.get_object(TYPE_USER, self.get_author_id())
+        return await self._ryver.get_object(TYPE_USER, self.get_author_id())
 
     async def get_chat(self) -> "Chat":
         """
@@ -2147,9 +2147,9 @@ class TaskBoard(Object):
         :return: The forum/team/user this task board is in.
         """
         try:
-            return self.get_deferred_field("team", TYPE_TEAM)
+            return await self.get_deferred_field("team", TYPE_TEAM)
         except ValueError:
-            return self.get_deferred_field("user", TYPE_USER)
+            return await self.get_deferred_field("user", TYPE_USER)
 
 
 class TaskCategory(Object):
