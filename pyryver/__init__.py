@@ -12,5 +12,4 @@ from .objects import *
 from .ryver import *
 from .ryver_ws import *
 from .ws_data import *
-
-__version__ = "0.3.3"
+from .version import __version__

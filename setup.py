@@ -1,5 +1,4 @@
 import setuptools
-import pyryver
 
 with open("README.md", "r") as fh:
     long_description = fh.read()
@@ -7,9 +6,13 @@ with open("README.md", "r") as fh:
 with open("requirements.txt", "r") as fh:
     install_requires = fh.read().splitlines()
 
+__version__ = ""
+with open("pyryver/version.py", "r") as fh:
+    exec(fh.read()) # pylint: disable=exec-used
+
 setuptools.setup(
     name="pyryver",
-    version=pyryver.__version__,
+    version=__version__,
     author="Tyler Tian, Matthew Mirvish",
     author_email="tylertian123@gmail.com, matthew@mm12.xyz",
     description="An unofficial async Python library for Ryver.",
