@@ -498,7 +498,8 @@ class PostedComment(PostedMessage):
         """
         return self._data["comment"]
     
-    async def edit(self, message: str = NO_CHANGE, creator: Creator = NO_CHANGE, attachments: typing.Iterable["Storage"] = NO_CHANGE) -> None:
+    async def edit(self, message: str = NO_CHANGE, creator: Creator = NO_CHANGE,
+                   attachments: typing.Iterable[typing.Union["Storage", "File"]] = NO_CHANGE) -> None:
         """
         Edit this comment/reply.
 
@@ -517,7 +518,7 @@ class PostedComment(PostedMessage):
 
         :param message: The contents of the comment/reply (optional).
         :param creator: The overridden creator (optional).
-        :param attachments: A number of attachments for this comment/reply (optional). Note: Use `Storage` objects, not `File` objects! These attachments could be links or files.
+        :param attachments: A number of attachments for this comment/reply (optional).
         """
         url = self.get_api_url(format="json")
         data = {}
@@ -527,7 +528,9 @@ class PostedComment(PostedMessage):
             data["createSource"] = creator.to_dict() if creator is not None else None
         if attachments is not NO_CHANGE and attachments is not None:
             data["attachments"] = {
-                "results": [attachment.get_file().get_raw_data() if attachment.get_storage_type() == Storage.STORAGE_TYPE_FILE else attachment.get_raw_data() for attachment in attachments]
+                "results": [attachment.get_file().get_raw_data() if isinstance(attachment, Storage) 
+                            and attachment.get_storage_type() == Storage.STORAGE_TYPE_FILE 
+                            else attachment.get_raw_data() for attachment in attachments]
             }
         await self._ryver._session.patch(url, json=data)
         self._data.update(data)
@@ -600,7 +603,8 @@ class Topic(PostedMessage):
         """
         await self.archive(False)
 
-    async def reply(self, message: str, creator: Creator = None, attachments: typing.Iterable["Storage"] = None) -> TopicReply:
+    async def reply(self, message: str, creator: Creator = None,
+                    attachments: typing.Iterable[typing.Union["Storage", "File"]] = None) -> TopicReply:
         """
         Reply to the topic.
 
@@ -614,7 +618,7 @@ class Topic(PostedMessage):
 
         :param message: The reply content
         :param creator: The overridden creator (optional). **Does not work.**
-        :param attachments: A number of attachments for this reply (optional). Note: Use `Storage` objects, not `File` objects! These attachments could be links or files.
+        :param attachments: A number of attachments for this reply (optional).
         :return: The created reply.
         """
         url = self._ryver.get_api_url(TYPE_TOPIC_REPLY, format="json")
@@ -628,7 +632,9 @@ class Topic(PostedMessage):
             data["createSource"] = creator.to_dict()
         if attachments:
             data["attachments"] = {
-                "results": [attachment.get_file().get_raw_data() if attachment.get_storage_type() == Storage.STORAGE_TYPE_FILE else attachment.get_raw_data() for attachment in attachments]
+                "results": [attachment.get_file().get_raw_data() if isinstance(attachment, Storage) 
+                            and attachment.get_storage_type() == Storage.STORAGE_TYPE_FILE 
+                            else attachment.get_raw_data() for attachment in attachments]
             }
         async with self._ryver._session.post(url, json=data) as resp:
             return TopicReply(self._ryver, (await resp.json())["d"]["results"])
@@ -646,7 +652,7 @@ class Topic(PostedMessage):
             yield TopicReply(self._ryver, reply)
 
     async def edit(self, subject: str = NO_CHANGE, body: str = NO_CHANGE, stickied: bool = NO_CHANGE,
-                   creator: Creator = NO_CHANGE, attachments: typing.Iterable["Storage"] = NO_CHANGE) -> None:
+                   creator: Creator = NO_CHANGE, attachments: typing.Iterable[typing.Union["Storage", "File"]] = NO_CHANGE) -> None:
         """
         Edit this topic.
 
@@ -666,7 +672,7 @@ class Topic(PostedMessage):
         :param body: The contents of the topic (optional).
         :param stickied: Whether to sticky (pin) this topic to the top of the list (optional).
         :param creator: The overridden creator (optional).
-        :param attachments: A number of attachments for this topic (optional). Note: Use `Storage` objects, not `File` objects! These attachments could be links or files.
+        :param attachments: A number of attachments for this topic (optional).
         """
         url = self.get_api_url(format="json")
         data = {}
@@ -680,7 +686,9 @@ class Topic(PostedMessage):
             data["createSource"] = creator.to_dict() if creator is not None else None
         if attachments is not NO_CHANGE and attachments is not None:
             data["attachments"] = {
-                "results": [attachment.get_file().get_raw_data() if attachment.get_storage_type() == Storage.STORAGE_TYPE_FILE else attachment.get_raw_data() for attachment in attachments]
+                "results": [attachment.get_file().get_raw_data() if isinstance(attachment, Storage) 
+                            and attachment.get_storage_type() == Storage.STORAGE_TYPE_FILE 
+                            else attachment.get_raw_data() for attachment in attachments]
             }
         await self._ryver._session.patch(url, json=data)
         self._data.update(data)
@@ -901,7 +909,7 @@ class ChatMessage(Message):
         await self._ryver._session.post(url, json=data)
 
     async def edit(self, message: str = NO_CHANGE, creator: Creator = NO_CHANGE, 
-                   attachment: "Storage" = NO_CHANGE, from_user: "User" = None) -> None:
+                   attachment: typing.Union["Storage", "File"] = NO_CHANGE, from_user: "User" = None) -> None:
         """
         Edit this message.
 
@@ -930,7 +938,7 @@ class ChatMessage(Message):
 
         :param message: The new message contents (optional).
         :param creator: The new creator (optional).
-        :param attachment: An attachment for this message, e.g. a file or a link (optional).
+        :param attachment: An attachment for this message, e.g. a file or a link (optional). Can be either a ``Storage`` or a ``File`` object.
         :param from_user: The user that is sending this message (the user currently logged in); **must** be set when using attachments in private messages (optional).
         :raises ValueError: If a ``from_user`` is not provided for a private message attachment.
         """
@@ -1007,7 +1015,8 @@ class Chat(Object):
         await self._ryver._session.patch(url, json=data)
         self._data["tagDefs"] = data["tagDefs"]
     
-    async def _process_attachment(self, message: str, attachment: "Storage", from_user: "User" = None) -> typing.Dict[str, typing.Any]:
+    async def _process_attachment(self, message: str, attachment: typing.Union["Storage", "File"],
+                                  from_user: "User" = None) -> typing.Dict[str, typing.Any]:
         """
         Process a ``Storage`` object for attaching to a chat message.
 
@@ -1015,7 +1024,7 @@ class Chat(Object):
            This method is intended for internal use only.
         
         :param message: The chat message.
-        :param attachment: The attachment to process.
+        :param attachment: The attachment to process. Can be either a ``Storage`` or a ``File`` object.
         :param from_user: The user that is sending this message (the user currently logged in); **must** be set when using attachments in private messages (optional).
         :raises ValueError: If a ``from_user`` is not provided for a private message attachment.
         :return: The data that can be used to send this message attachment.
@@ -1040,13 +1049,23 @@ class Chat(Object):
                 "inType": from_user.get_entity_type(),
                 "inName": from_user.get_name(),
             })
+        # Extract some values to be used later
+        if isinstance(attachment, File):
+            content_id = attachment.get_id()
+            content_url = attachment.get_url()
+            content_mime = attachment.get_MIME_type()
+        else:
+            content_id = attachment.get_content_id()
+            content_url = attachment.get_content_url()
+            content_mime = attachment.get_content_MIME_type()
+
         # PATCH to update the outAssociations of the file
-        patch_url = self._ryver.get_api_url(TYPE_FILE, attachment.get_content_id(), format="json")
+        patch_url = self._ryver.get_api_url(TYPE_FILE, content_id, format="json")
         await self._ryver._session.patch(patch_url, json={
             "outAssociations": out_assoc
         })
         # Now GET to get the embeds
-        embeds_url = self._ryver.get_api_url(TYPE_FILE, attachment.get_content_id(), select="embeds")
+        embeds_url = self._ryver.get_api_url(TYPE_FILE, content_id, select="embeds")
         async with self._ryver._session.get(embeds_url) as resp:
             embeds = await resp.json()
         data = {
@@ -1054,19 +1073,20 @@ class Chat(Object):
                 "file": {
                     "fileName": attachment.get_name(),
                     "fileSize": attachment.get_size(),
-                    "id": attachment.get_content_id(),
+                    "id": content_id,
                     "outAssociations": out_assoc,
-                    "url": attachment.get_content_url(),
-                    "fileType": attachment.get_content_MIME_type(),
+                    "url": content_url,
+                    "fileType": content_mime,
                     "chatBody": message
                 }
             },
             "embeds": embeds["d"]["results"]["embeds"],
-            "body": message + f"\n\n[{attachment.get_name()}]({attachment.get_content_url()})"
+            "body": message + f"\n\n[{attachment.get_name()}]({content_url})"
         }
         return data
 
-    async def send_message(self, message: str, creator: Creator = None, attachment: "Storage" = None, from_user: "User" = None) -> str:
+    async def send_message(self, message: str, creator: Creator = None,
+                           attachment: typing.Union["Storage", "File"] = None, from_user: "User" = None) -> str:
         """
         Send a message to this chat.
 
@@ -1089,7 +1109,7 @@ class Chat(Object):
 
         :param message: The message contents.
         :param creator: The overridden creator; optional, if unset uses the logged-in user's profile.
-        :param attachment: An attachment for this message, e.g. a file or a link (optional).
+        :param attachment: An attachment for this message, e.g. a file or a link (optional). Can be either a ``Storage`` or a ``File`` object.
         :param from_user: The user that is sending this message (the user currently logged in); **must** be set when using attachments in private messages (optional).
         :raises ValueError: If a ``from_user`` is not provided for a private message attachment.
         :return: The ID of the chat message that was sent.
@@ -1555,7 +1575,8 @@ class User(Chat):
         await self._ryver._session.post(url, json=data)
 
     async def create_topic(self, from_user: "User", subject: str, body: str, stickied: bool = False,
-                           attachments: typing.Iterable["Storage"] = None, creator: Creator = None) -> Topic:
+                           attachments: typing.Iterable[typing.Union["Storage", "File"]] = None,
+                           creator: Creator = None) -> Topic:
         """
         Create a topic in this user's DMs.
 
@@ -1570,7 +1591,7 @@ class User(Chat):
         :param subject: The subject (or title) of the new topic.
         :param body: The contents of the new topic.
         :param stickied: Whether to sticky (pin) this topic to the top of the list (optional, default False).
-        :param attachments: A number of attachments for this topic (optional). Note: Use `Storage` objects, not `File` objects! These attachments could be links or files.
+        :param attachments: A number of attachments for this topic (optional).
         :param creator: The overridden creator; optional, if unset uses the logged-in user's profile.
         :return: The created topic.
         """
@@ -1601,7 +1622,9 @@ class User(Chat):
             data["createSource"] = creator.to_dict()
         if attachments:
             data["attachments"] = {
-                "results": [attachment.get_file().get_raw_data() if attachment.get_storage_type() == Storage.STORAGE_TYPE_FILE else attachment.get_raw_data() for attachment in attachments]
+                "results": [attachment.get_file().get_raw_data() if isinstance(attachment, Storage) 
+                            and attachment.get_storage_type() == Storage.STORAGE_TYPE_FILE 
+                            else attachment.get_raw_data() for attachment in attachments]
             }
         async with self._ryver._session.post(url, json=data) as resp:
             return Topic(self._ryver, (await resp.json())["d"]["results"])
@@ -1819,7 +1842,7 @@ class GroupChat(Chat):
             await member.remove()
 
     async def create_topic(self, subject: str, body: str, stickied: bool = False, creator: Creator = None,
-                           attachments: typing.Iterable["Storage"] = None) -> Topic:
+                           attachments: typing.Iterable[typing.Union["Storage", "File"]] = None) -> Topic:
         """
         Create a topic in this chat.
 
@@ -1834,7 +1857,7 @@ class GroupChat(Chat):
         :param body: The contents of the new topic.
         :param stickied: Whether to sticky (pin) this topic to the top of the list (optional, default False).
         :param creator: The overridden creator; optional, if unset uses the logged-in user's profile.
-        :param attachments: A number of attachments for this topic (optional). Note: Use `Storage` objects, not `File` objects! These attachments could be links or files.
+        :param attachments: A number of attachments for this topic (optional).
         :return: The created topic.
         """
         url = self._ryver.get_api_url(TYPE_TOPIC)
@@ -1857,7 +1880,9 @@ class GroupChat(Chat):
             data["createSource"] = creator.to_dict()
         if attachments:
             data["attachments"] = {
-                "results": [attachment.get_file().get_raw_data() if attachment.get_storage_type() == Storage.STORAGE_TYPE_FILE else attachment.get_raw_data() for attachment in attachments]
+                "results": [attachment.get_file().get_raw_data() if isinstance(attachment, Storage) 
+                            and attachment.get_storage_type() == Storage.STORAGE_TYPE_FILE 
+                            else attachment.get_raw_data() for attachment in attachments]
             }
         async with self._ryver._session.post(url, json=data) as resp:
             return Topic(self._ryver, (await resp.json())["d"]["results"])
@@ -2065,7 +2090,7 @@ class TaskBoard(Object):
                           assignees: typing.Iterable[User] = None, due_date: str = None,
                           tags: typing.Union[typing.List[str], typing.List[TaskTag]] = None,
                           checklist: typing.Iterable[str] = None,
-                          attachments: typing.Iterable["Storage"] = None) -> "Task":
+                          attachments: typing.Iterable[typing.Union["Storage", "File"]] = None) -> "Task":
         """
         Create a task in this task board.
 
@@ -2091,7 +2116,7 @@ class TaskBoard(Object):
         :param due_date: The due date, as an ISO 8601 formatted string **with a timezone offset** (optional).
         :param tags: A list of tags of this task (optional). Can either be a list of strings or a list of ``TaskTag``s.
         :param checklist: A list of strings which are used as the item names for the checklist of this task (optional).
-        :param attachments: A list of attachments for this task (optional). Note: Use `Storage` objects, not `File` objects! These attachments could be links or files.
+        :param attachments: A list of attachments for this task (optional).
         :return: The created task.
         """
         data = {
@@ -2116,7 +2141,10 @@ class TaskBoard(Object):
             data["tags"] = tags
         if attachments:
             data["attachments"] = {
-                "results": [{"id": attachment.get_content_id()} for attachment in attachments]
+                "results": [{
+                    "id": attachment.get_id() if isinstance(attachment, File)
+                          else attachment.get_content_id()
+                } for attachment in attachments]
             }
         if due_date is not None:
             data["dueDate"] = due_date
@@ -2645,7 +2673,7 @@ class Task(PostedMessage):
                    category: "TaskCategory" = NO_CHANGE, 
                    assignees: typing.Iterable[User] = NO_CHANGE, due_date: str = NO_CHANGE, 
                    tags: typing.Union[typing.List[str], typing.List[TaskTag]] = NO_CHANGE,
-                   attachments: typing.Iterable["Storage"] = NO_CHANGE) -> None:
+                   attachments: typing.Iterable[typing.Union["Storage", "File"]] = NO_CHANGE) -> None:
         """
         Edit this task.
 
@@ -2688,7 +2716,7 @@ class Task(PostedMessage):
         :param assignees: A list of users to assign for this task (optional).
         :param due_date: The due date, as an ISO 8601 formatted string **with a timezone offset** (optional).
         :param tags: A list of tags of this task (optional). Can either be a list of strings or a list of ``TaskTag``s.
-        :param attachments: A list of attachments for this task (optional). Note: Use `Storage` objects, not `File` objects! These attachments could be links or files.
+        :param attachments: A list of attachments for this task (optional).
         """
         data = {}
 
@@ -2711,7 +2739,10 @@ class Task(PostedMessage):
             data["tags"] = tags
         if attachments is not NO_CHANGE and attachments is not None:
             data["attachments"] = {
-                "results": [{"id": attachment.get_content_id()} for attachment in attachments]
+                "results": [{
+                    "id": attachment.get_id() if isinstance(attachment, File)
+                          else attachment.get_content_id()
+                } for attachment in attachments]
             }
         if due_date is not NO_CHANGE and due_date is not None:
             data["dueDate"] = due_date
@@ -2731,7 +2762,8 @@ class Task(PostedMessage):
         async for comment in self._ryver.get_all(url, top, skip):
             yield TaskComment(self._ryver, comment)
     
-    async def comment(self, message: str, creator: Creator = None, attachments: typing.Iterable["Storage"] = None) -> "TaskComment":
+    async def comment(self, message: str, creator: Creator = None,
+                      attachments: typing.Iterable[typing.Union["Storage", "File"]] = None) -> "TaskComment":
         """
         Comment on this task.
 
@@ -2745,7 +2777,7 @@ class Task(PostedMessage):
 
         :param message: The comment's contents.
         :param creator: The overridden creator (optional). **Does not work.**
-        :param attachments: A number of attachments for this comment (optional). Note: Use `Storage` objects, not `File` objects! These attachments could be links or files.
+        :param attachments: A number of attachments for this comment (optional).
         :return: The created comment.
         """
         url = self._ryver.get_api_url(TYPE_TASK_COMMENT, format="json")
@@ -2759,7 +2791,9 @@ class Task(PostedMessage):
             data["createSource"] = creator.to_dict()
         if attachments:
             data["attachments"] = {
-                "results": [attachment.get_file().get_raw_data() if attachment.get_storage_type() == Storage.STORAGE_TYPE_FILE else attachment.get_raw_data() for attachment in attachments]
+                "results": [attachment.get_file().get_raw_data() if isinstance(attachment, Storage) 
+                            and attachment.get_storage_type() == Storage.STORAGE_TYPE_FILE 
+                            else attachment.get_raw_data() for attachment in attachments]
             }
         async with self._ryver._session.post(url, json=data) as resp:
             return TaskComment(self._ryver, (await resp.json())["d"]["results"])
