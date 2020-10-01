@@ -60,13 +60,13 @@ class RyverWSTyping():
         except asyncio.CancelledError:
             await self._rws.send_clear_typing(self._to)
 
-    def start(self):
+    def start(self) -> None:
         """
         Start sending the typing indicator.
         """
         self._typing_task_handle = asyncio.ensure_future(self._typing_task())
 
-    async def stop(self):
+    async def stop(self) -> None:
         """
         Stop sending the typing indicator.
 
@@ -228,7 +228,6 @@ class RyverWS():
         """
         Set whether the live session should attempt to auto-reconnect on connection loss.
 
-        TODO
         :param auto_reconnect: Whether to automatically reconnect.
         """
         self._auto_reconnect = auto_reconnect
@@ -422,17 +421,19 @@ class RyverWS():
         every 10 seconds, and if the response takes over 5 seconds, this coroutine will
         be started. (These numbers roughly match those used by the official web client.)
 
-        Applications are suggested to clean up and terminate immediately when the
-        connection is lost, especially when using :py:meth:`RyverWS.run_forever()`.
-        A simple but typical implementation is shown below:
+        If auto-reconnect is enabled, no action needs to be taken. Otherwise,
+        applications are suggested to clean up and terminate, or try to reconnect using
+        :py:meth:`RyverWS.try_reconnect()`. If :py:meth:`RyverWS.run_forever()` is used,
+        :py:meth:`RyverWS.terminate()` should be called to make it return, unless you
+        wish to reconnect.
 
-        TODO: Update
-
+        A simple but typical implementation is shown below for applications that do not
+        wish to recover:
         .. code-block:: python
            async with ryver.get_live_session() as session:
                @session.on_connection_loss
                async def on_connection_loss():
-                   await session.close()
+                   await session.terminate()
         """
         self._on_connection_loss = func
         return func
@@ -497,7 +498,7 @@ class RyverWS():
             return func
         return _on_msg_type_inner
 
-    async def send_chat(self, to_chat: typing.Union[Chat, str], msg: str):
+    async def send_chat(self, to_chat: typing.Union[Chat, str], msg: str) -> None:
         """
         Send a chat message to a chat.
 
@@ -512,7 +513,7 @@ class RyverWS():
         }
         return await self._ws_send_msg(data)
 
-    async def send_presence_change(self, presence: str):
+    async def send_presence_change(self, presence: str) -> None:
         """
         Send a presence change message.
 
@@ -526,7 +527,7 @@ class RyverWS():
             "presence": presence,
         })
 
-    async def send_typing(self, to_chat: typing.Union[Chat, str]):
+    async def send_typing(self, to_chat: typing.Union[Chat, str]) -> None:
         """
         Send a typing indicator to a chat.
 
@@ -547,7 +548,7 @@ class RyverWS():
             "to": to_chat.get_jid() if isinstance(to_chat, Chat) else to_chat
         })
     
-    async def send_clear_typing(self, to_chat: typing.Union[Chat, str]):
+    async def send_clear_typing(self, to_chat: typing.Union[Chat, str]) -> None:
         """
         Clear the typing indicator for a chat.
 
@@ -581,7 +582,7 @@ class RyverWS():
         """
         return RyverWSTyping(self, to_chat)
 
-    async def start(self, timeout: float = None):
+    async def start(self, timeout: float = None) -> None:
         """
         Start the session, or reconnect after a connection loss.
 
@@ -637,7 +638,7 @@ class RyverWS():
         except (aiohttp.ClientConnectionError, aiohttp.ClientResponseError, asyncio.TimeoutError):
             return False
 
-    async def close(self, cancel_rx: bool = True, cancel_ping: bool = True):
+    async def close(self, cancel_rx: bool = True, cancel_ping: bool = True) -> None:
         """
         Close the session.
 
@@ -645,7 +646,12 @@ class RyverWS():
         raised, unless the session is reconnected using :py:meth:`RyverWS.start()` or
         :py:meth:`RyverWS.try_reconnect()`.
 
-        TODO: Clarify terminate()
+        When used as an async context manager, this method does not need to be called.
+
+        .. note::
+           Since v0.4.0, this method no longer causes :py:meth:`RyverWS.run_forever()` to
+           return. Use :py:meth:`RyverWS.terminate()` if you want to close the session
+           and exit ``run_forever()``.
 
         :param cancel_rx: Whether to cancel the rx task. For internal use only.
         :param cancel_ping: Whether to cancel the ping task. For internal use only.
@@ -669,26 +675,30 @@ class RyverWS():
         elif cancel_ping:
             await self._ping_task_handle
     
-    async def terminate(self):
+    async def terminate(self) -> None:
         """
-        TODO
+        Close the session and cause :py:meth:`RyverWS.run_forever()` to return.
+
+        This method will have no effect if called twice.
         """
         if not self._closed:
             await self.close()
         if not self._done.done():
             self._done.set_result(None)
 
-    async def run_forever(self):
+    async def run_forever(self) -> None:
         """
-        Run forever, or until the connection is closed explicitly.
-
-        TODO: Update
+        Run forever, or until :py:meth:`RyverWS.terminate()` is called.
 
         .. note::
-           By default, when the connection is lost, the session will *not* be
-           automatically closed. As a result, if no action is taken, this coroutine will
-           *not* exit on a connection loss. :py:meth:`RyverWS.close()` needs to be called
-           explicitly to make this coroutine return. 
+           Since v0.4.0, this method will no longer return if :py:meth:`RyverWS.close()`
+           is called. :py:meth:`RyverWS.terminate()` must be called instead, which closes
+           the session if it is unclosed.
+
+        .. note::
+           By default, this method will only return if a fatal connection loss occurs and
+           auto-reconnect is not enabled. If the connection loss is recoverable, this
+           method will not return even if auto-reconnect is off.
 
            You should use the :py:meth:`RyverWS.on_connection_loss()` decorator if you want
            to automatically close the connection and return on connection loss. See its
@@ -698,7 +708,7 @@ class RyverWS():
             await self._done
 
     @staticmethod
-    def _create_id():
+    def _create_id() -> str:
         """
         Create a random message ID.
 

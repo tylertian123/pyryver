@@ -18,7 +18,7 @@ async with pyryver.Ryver("organization_name", "username", "password") as ryver:
 
         @session.on_connection_loss
         async def on_connection_loss():
-            # Make sure that the session is closed and run_forever() returns on connection loss
-            await session.close()
+            # Make sure that the session is terminated and run_forever() returns on connection loss
+            await session.terminate()
 
         await session.run_forever()

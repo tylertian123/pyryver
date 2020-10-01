@@ -284,7 +284,7 @@ class Ryver:
         try:
             return get_obj_by_field(self.users, FIELD_NAMES[field], value, case_sensitive)
         except KeyError:
-            raise ValueError("Invalid query parameter!")
+            raise ValueError("Invalid query parameter!") # pylint: disable=raise-missing-from
 
     def get_groupchat(self, **kwargs) -> GroupChat:
         """
@@ -318,7 +318,7 @@ class Ryver:
         try:
             return get_obj_by_field(self.forums + self.teams, FIELD_NAMES[field], value, case_sensitive)
         except KeyError:
-            raise ValueError("Invalid query parameter!")
+            raise ValueError("Invalid query parameter!") # pylint: disable=raise-missing-from
 
     def get_chat(self, **kwargs) -> Chat:
         """
@@ -350,7 +350,7 @@ class Ryver:
         try:
             return get_obj_by_field(self.forums + self.teams + self.users, FIELD_NAMES[field], value, case_sensitive)
         except KeyError:
-            raise ValueError("Invalid query parameter!")
+            raise ValueError("Invalid query parameter!") # pylint: disable=raise-missing-from
 
     async def get_notifs(self, unread: bool = False, top: int = -1, skip: int = 0) -> typing.AsyncIterator[Notification]:
         """

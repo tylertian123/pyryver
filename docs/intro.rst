@@ -103,8 +103,8 @@ This is because the websocket system uses JIDs to refer to chats. Using this inf
    If you still wish to access the raw data of the message, all message objects passed to callbacks have a ``raw_data`` attribute that contains the dict. In v0.3.2, ``__getitem__()`` was implemented for message objects
    to directly access the ``raw_data`` dict, providing (partial) backwards compatibility.
 
-Here we also added a connection loss handler with the `pyryver.ryver_ws.RyverWS.on_connection_loss()` decorator. The connection loss handler closes the session, which causes ``run_forever()`` to terminate, allowing the program to
-exit on connection loss instead of waiting forever. It is recommended to always have a connection loss handler if you're using ``run_forever()``.
+Here we also added a connection loss handler with the `pyryver.ryver_ws.RyverWS.on_connection_loss()` decorator. The connection loss handler calls ``terminate()``, which causes ``run_forever()`` to return, allowing the program to
+exit on connection loss instead of waiting forever. Alternatively, you could also make the session auto-reconnect by doing `ryver.get_live_session(auto_reconnect=True)` when starting the session.
 
 It's important to note here that although the non-realtime API is perfectly accessible (and sometimes necessary) to use in event callbacks, it's often faster to use corresponding methods in the `pyryver.ryver_ws.RyverWS` instance
 whenever possible. For some ephemeral actions like typing indicators and presence statuses, the realtime API is the *only* way to accomplish certain tasks.

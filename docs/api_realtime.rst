@@ -55,20 +55,33 @@ Realtime Client
 
    .. automethod:: send_presence_change
 
+   .. automethod:: is_connected
+   .. automethod:: set_auto_reconnect
+
+   .. automethod:: run_forever
+   .. automethod:: terminate
+
    .. note::
       If you use this class as an ``async with`` context manager, you don't need to call
-      these two methods, unless you want to break out of a `RyverWS.run_forever()`.
+      the following two methods.
 
    .. automethod:: start
    .. automethod:: close
-
-   .. automethod:: run_forever
 
 .. autoclass:: RyverWSTyping
    :members:
    :undoc-members:
 
+
+.. autoclass:: WSConnectionError
+   :members:
+   :show-inheritance:
+
 .. autoclass:: ClosedError
+   :members:
+   :show-inheritance:
+
+.. autoclass:: ConnectionLossError
    :members:
    :show-inheritance:
 
