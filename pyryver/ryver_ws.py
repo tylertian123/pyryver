@@ -15,13 +15,20 @@ from .objects import *
 from .ws_data import *
 
 
-class ClosedError(Exception):
+class WSConnectionError(Exception):
+    """
+    An exception raised by the real-time websockets session to indicate some kind of
+    connection issue.
+    """
+
+
+class ClosedError(WSConnectionError):
     """
     An exception raised to indicate that the session has been closed.
     """
 
 
-class ConnectionLossError(Exception):
+class ConnectionLossError(WSConnectionError):
     """
     An exception raised to indicate that the connection was lost in the middle of an
     operation.
@@ -184,6 +191,7 @@ class RyverWS():
         self._ping_task_handle = None
 
         self._on_connection_loss = None
+        self._on_reconnect = None
         self._on_msg_type = {}
         self._on_event = {}
 
@@ -271,13 +279,15 @@ class RyverWS():
                             for key, future in self._msg_ack_table.items():
                                 future.set_exception(ConnectionLossError(f"Connection lost while performing operation {key[1]}"))
                             self._msg_ack_table.clear()
-                            if self._on_connection_loss:
+                            if self._on_connection_loss is not None:
                                 asyncio.ensure_future(self._on_connection_loss())
                             if self._auto_reconnect:
                                 await self.close(cancel_rx=False)
                                 while not self.is_connected():
                                     await asyncio.sleep(5.0)
                                     await self.try_reconnect()
+                                if self._on_reconnect is not None:
+                                    asyncio.ensure_future(self._on_reconnect())
                         if not self._auto_reconnect:
                             # Has to be done inside a task as terminate() potentially calls close()
                             # which in turn waits for _rx_task to finish, creating a deadlock
@@ -340,6 +350,8 @@ class RyverWS():
                             while not self.is_connected():
                                 await asyncio.sleep(5.0)
                                 await self.try_reconnect()
+                            if self._on_reconnect is not None:
+                                asyncio.ensure_future(self._on_reconnect())
                 await asyncio.sleep(10)
         except asyncio.CancelledError:
             return
@@ -425,18 +437,15 @@ class RyverWS():
         self._on_connection_loss = func
         return func
     
-    def on_error(self, func: typing.Callable[[typing.Union[TypeError, ValueError]], typing.Awaitable]):
+    def on_reconnect(self, func: typing.Callable[[], typing.Awaitable]):
         """
-        Decorate a coroutine to be run when a connection error occurs. **No longer used.**
+        Decorate a coroutine to be run when auto-reconnect succeeds.
 
-        TODO: Remove
-
-        .. deprecated:: 0.3.2
-           This decorator is no longer used and currently does not do anything. Instead,
-           when a non-recoverable error occurs, the connection will be closed
-           automatically. Other errors (wrong message type, invalid JSON) will be
-           ignored.
+        This coroutine will be started as a task when auto-reconnect is successful. It
+        should take no arguments. If auto-reconnect is not enabled, this coroutine will
+        never be started.
         """
+        self._on_reconnect = func
         return func
 
     def on_event(self, event_type: str):
