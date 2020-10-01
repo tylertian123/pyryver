@@ -539,7 +539,7 @@ class Ryver:
         return await self._create_groupchat(TYPE_FORUM, name, nickname, about, description)
 
     @doc.acontexmanager
-    def get_live_session(self) -> ryver_ws.RyverWS:
+    def get_live_session(self, auto_reconnect: bool = False) -> ryver_ws.RyverWS:
         """
         Get a live session.
 
@@ -549,6 +549,7 @@ class Ryver:
         .. warning::
            Live sessions **do not work** when using a custom integration token.
 
+        :param auto_reconnect: Whether to automatically reconnect on connection loss.
         :return: The live websockets session.
         """
-        return ryver_ws.RyverWS(self)
+        return ryver_ws.RyverWS(self, auto_reconnect)
