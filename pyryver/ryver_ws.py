@@ -21,6 +21,13 @@ class ClosedError(Exception):
     """
 
 
+class ConnectionLossError(Exception):
+    """
+    An exception raised to indicate that the connection was lost in the middle of an
+    operation.
+    """
+
+
 class RyverWSTyping():
     """
     A context manager returned by :py:class:`RyverWS` to keep sending a typing
@@ -165,7 +172,7 @@ class RyverWS():
         MSG_TYPE_EVENT: WSEventData,
     }
 
-    def __init__(self, ryver: "Ryver"):
+    def __init__(self, ryver: "Ryver", auto_reconnect: bool = False):
         self._ryver = ryver
         self._ws = None
         self._msg_ack_table = {}
@@ -177,6 +184,9 @@ class RyverWS():
         self._on_msg_type = {}
         self._on_event = {}
 
+        self._auto_reconnect = auto_reconnect
+        self._done = asyncio.get_event_loop().create_future()
+
         self._closed = True
 
     async def __aenter__(self) -> "RyverWS":
@@ -184,7 +194,8 @@ class RyverWS():
         return self
 
     async def __aexit__(self, exc, *exc_info):
-        await self.close()
+        if not self._closed:
+            await self.close()
 
     def get_ryver(self) -> "Ryver":
         """
@@ -193,6 +204,23 @@ class RyverWS():
         :return: The Ryver session this live session was created from.
         """
         return self._ryver
+    
+    def is_connected(self) -> bool:
+        """
+        Get whether the websocket connection has been established.
+
+        :return: True if connected, False otherwise.
+        """
+        return not self._closed
+    
+    def set_auto_reconnect(self, auto_reconnect: bool) -> None:
+        """
+        Set whether the live session should attempt to auto-reconnect on connection loss.
+
+        TODO
+        :param auto_reconnect: Whether to automatically reconnect.
+        """
+        self._auto_reconnect = auto_reconnect
 
     async def _ws_send_msg(self, msg: typing.Dict[str, typing.Any], timeout: float = None) -> None:
         """
@@ -229,15 +257,26 @@ class RyverWS():
         """
         try:
             while True:
+                print("receiving data") # TODO: Remove
                 raw_msg = await self._ws.receive()
                 if raw_msg.type != WSMsgType.TEXT:
                     if raw_msg.type is not None and raw_msg.type < 0x100:
                         sys.stderr.write(f"Warning: Wrong message type received, expected TEXT (0x1), got {raw_msg.type}. Message ignored.\n")
                     else:
                         sys.stderr.write(f"Error: Received unexpected aiohttp specific type for WS message: {raw_msg.type}. Killing connection.\n")
-                        asyncio.ensure_future(self.close())
-                        # Block to force a context switch and make sure connection is closed
-                        await asyncio.sleep(0.2)
+                        # Connection lost!
+                        for key, future in self._msg_ack_table.items():
+                            future.set_exception(ConnectionLossError(f"Connection lost while performing operation {key[1]}"))
+                        self._msg_ack_table.clear()
+                        if self._on_connection_loss:
+                            asyncio.ensure_future(self._on_connection_loss())
+                        
+                        if not self._auto_reconnect:
+                            # Has to be done inside a task as terminate() potentially calls close()
+                            # which in turn waits for _rx_task to finish, creating a deadlock
+                            asyncio.ensure_future(self.terminate())
+                            # Block to force a context switch and make sure connection is closed
+                            await asyncio.sleep(0.1)
                 else:
                     try:
                         msg = json.loads(raw_msg.data)
@@ -249,7 +288,7 @@ class RyverWS():
                         # Find the message this ack is for
                         key = (msg["reply_to"], msg["reply_type"])
                         if key not in self._msg_ack_table:
-                            print("Error: Received ack for a message not in table")
+                            sys.stderr.write(f"Warning: Received ack for a message not in table: {key}\n")
                         else:
                             # Remove from ack table
                             self._msg_ack_table[key].set_result(msg)
@@ -282,6 +321,9 @@ class RyverWS():
                     }, timeout=5.0)
                 except asyncio.TimeoutError:
                     # Connection lost!
+                    for key, future in self._msg_ack_table.items():
+                        future.set_exception(ConnectionLossError(f"Connection lost while performing operation {key[1]}"))
+                    self._msg_ack_table.clear()
                     if self._on_connection_loss:
                         asyncio.ensure_future(self._on_connection_loss())
                 await asyncio.sleep(10)
@@ -358,6 +400,8 @@ class RyverWS():
         connection is lost, especially when using :py:meth:`RyverWS.run_forever()`.
         A simple but typical implementation is shown below:
 
+        TODO: Update
+
         .. code-block:: python
            async with ryver.get_live_session() as session:
                @session.on_connection_loss
@@ -370,6 +414,8 @@ class RyverWS():
     def on_error(self, func: typing.Callable[[typing.Union[TypeError, ValueError]], typing.Awaitable]):
         """
         Decorate a coroutine to be run when a connection error occurs. **No longer used.**
+
+        TODO: Remove
 
         .. deprecated:: 0.3.2
            This decorator is no longer used and currently does not do anything. Instead,
@@ -512,10 +558,18 @@ class RyverWS():
         """
         return RyverWSTyping(self, to_chat)
 
-    async def start(self):
+    async def start(self, timeout: float = None):
         """
-        Start the session.
+        Start the session, or reconnect after a connection loss.
+
+        .. note::
+           If there is an existing connection, it will be closed.
+
+        :param timeout: The connection timeout. If None, waits forever.
         """
+        if not self._closed:
+            await self.close()
+
         url = self._ryver.get_api_url(action="User.Login(client='pyryver')")
         async with self._ryver._session.post(url) as resp:
             login_info = (await resp.json())["d"]
@@ -524,17 +578,41 @@ class RyverWS():
         chat_url = login_info["services"]["chat"]
         self._ws = await self._ryver._session.ws_connect(chat_url)
 
-        self._closed = False
-        # Start the rx and ping tasks
+        # Start the rx task
         self._rx_task_handle = asyncio.ensure_future(self._rx_task())
-        self._ping_task_handle = asyncio.ensure_future(self._ping_task())
         # Authorize
-        await self._ws_send_msg({
-            "type": "auth",
-            "authorization": "Session " + session_id,
-            "agent": "Ryver",
-            "resource": "Contatta-" + str(int(time.time() * 1000))
-        })
+        try:
+            self._closed = False
+            await self._ws_send_msg({
+                "type": "auth",
+                "authorization": "Session " + session_id,
+                "agent": "Ryver",
+                "resource": "Contatta-" + str(int(time.time() * 1000))
+            }, timeout=timeout)
+        except:
+            self._closed = True
+            raise
+        # Start the ping task
+        self._ping_task_handle = asyncio.ensure_future(self._ping_task())
+
+    async def try_reconnect(self, timeout: float = None) -> bool:
+        """
+        Attempt to reconnect the websocket connection after a connection loss.
+
+        Instead of raising an exception, if the connection cannot be established, this
+        method will return False instead.
+
+        .. note::
+           If there is an existing connection, it will be closed.
+
+        :param timeout: The connection timeout. If None, waits forever.
+        :return: True if reconnection was successful; False otherwise.
+        """
+        try:
+            await self.start(timeout)
+            return True
+        except (aiohttp.ClientConnectionError, aiohttp.ClientResponseError, asyncio.TimeoutError):
+            return False
 
     async def close(self):
         """
@@ -550,12 +628,24 @@ class RyverWS():
         # Terminate any messages waiting for acks with an exception
         for future in self._msg_ack_table.values():
             future.set_exception(ClosedError("Connection closed"))
+        self._msg_ack_table.clear()
         # Wait until tasks terminate
         await asyncio.gather(self._ping_task_handle, self._rx_task_handle)
+    
+    async def terminate(self):
+        """
+        TODO
+        """
+        if not self._closed:
+            await self.close()
+        if not self._done.done():
+            self._done.set_result(None)
 
     async def run_forever(self):
         """
         Run forever, or until the connection is closed explicitly.
+
+        TODO: Update
 
         .. note::
            By default, when the connection is lost, the session will *not* be
@@ -567,7 +657,8 @@ class RyverWS():
            to automatically close the connection and return on connection loss. See its
            documentation for an example.
         """
-        await asyncio.gather(self._ping_task_handle, self._rx_task_handle)
+        if not self._done.done():
+            await self._done
 
     @staticmethod
     def _create_id():
