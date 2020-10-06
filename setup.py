@@ -1,3 +1,5 @@
+import importlib
+import os
 import setuptools
 
 with open("README.md", "r") as fh:
@@ -6,13 +8,22 @@ with open("README.md", "r") as fh:
 with open("requirements.txt", "r") as fh:
     install_requires = fh.read().splitlines()
 
-__version__ = ""
-with open("pyryver/version.py", "r") as fh:
-    exec(fh.read()) # pylint: disable=exec-used
+
+def get_lib_ver():
+    """
+    Magical function that loads the version from pyryver/version.py.
+
+    Credits to @mincrmatt12.
+    """
+    spec = importlib.util.spec_from_file_location("pyryver.version", os.path.join(os.path.dirname(__file__), "pyryver/version.py"))
+    version = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(version)
+    return version.__version__
+
 
 setuptools.setup(
     name="pyryver",
-    version=__version__,
+    version=get_lib_ver(),
     author="Tyler Tian, Matthew Mirvish",
     author_email="tylertian123@gmail.com, matthew@mm12.xyz",
     description="An unofficial async Python library for Ryver.",
