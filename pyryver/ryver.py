@@ -168,27 +168,40 @@ class Ryver:
                 break
             skip += len(page)
 
-    async def get_object(self, obj_type: typing.Union[str, type], obj_id: int, **kwargs) -> typing.Type[Object]:
+    async def get_object(self, obj_type: typing.Union[str, type], obj_id: int = None,
+                         **kwargs) -> typing.Union[typing.Type[Object], typing.List[typing.Type[Object]]]:
         """
-        Get an object from Ryver with a type and ID.
+        Get an object or multiple objects from Ryver with a type and optionally ID.
 
         If extra keyword arguments are supplied, they are appended to the request
         as additional query parameters. Possible values include ``top``, ``skip``, 
         ``select``, ``expand`` and more. 
         The `Ryver Developer Docs <https://api.ryver.com/ryvrest_api_examples.html>`_
-        contains documentation for some of these parameters.
+        or `OData Specification <https://www.odata.org/documentation/odata-version-2-0/uri-conventions/>`_
+        contains documentation for some of these parameters. (Note: The link is to Odata
+        2.0 instead of 4.0 because the 2.0 page seems to be much more readable.)
+
+        With this method, you can get objects by properties other than ID. The following
+        example gets one or more objects by display name:
+        .. code-block:: python
+           # Note that this will return an array, even if there is only 1 result
+           user = await ryver.get_object(pyryver.User, filter=f"displayName eq '{name}'")
 
         :param obj_type: The type of the object to retrieve, either a string type or the actual object type.
-        :param obj_id: The object's ID.
+        :param obj_id: The object's ID (optional).
         :raises TypeError: If the object is not instantiable.
-        :return: The object requested.
+        :return: The object or list of objects requested.
         """
         if not isinstance(obj_type, str):
             if not obj_type.is_instantiable():
                 raise TypeError(f"The type {obj_type.__name__} is not instantiable!")
             obj_type = obj_type.get_type()
         async with self._session.get(self.get_api_url(obj_type, obj_id, action=None, **kwargs)) as resp:
-            return TYPES_DICT[obj_type](self, (await resp.json())["d"]["results"])
+            data = (await resp.json())["d"]["results"]
+            if isinstance(data, list):
+                return [TYPES_DICT[obj_type](self, obj_data) for obj_data in data]
+            else:
+                return TYPES_DICT[obj_type](self, (await resp.json())["d"]["results"])
 
     async def load_users(self) -> None:
         """
