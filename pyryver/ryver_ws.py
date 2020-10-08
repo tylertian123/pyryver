@@ -429,7 +429,9 @@ class RyverWS():
 
         A simple but typical implementation is shown below for applications that do not
         wish to recover:
+
         .. code-block:: python
+
            async with ryver.get_live_session() as session:
                @session.on_connection_loss
                async def on_connection_loss():
@@ -572,7 +574,8 @@ class RyverWS():
         Useful for wrapping long running operations to make sure the typing indicator
         is kept, like:
 
-        .. code:: python3
+        .. code-block:: python
+
            async with session.typing(chat):
                print("do something silly")
                await asyncio.sleep(4)

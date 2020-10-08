@@ -183,7 +183,9 @@ class Ryver:
 
         With this method, you can get objects by properties other than ID. The following
         example gets one or more objects by display name:
+
         .. code-block:: python
+
            # Note that this will return an array, even if there is only 1 result
            user = await ryver.get_object(pyryver.User, filter=f"displayName eq '{name}'")
 

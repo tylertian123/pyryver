@@ -106,7 +106,9 @@ async def retry_until_available(action: typing.Callable[..., typing.Awaitable[_T
 
     For example, this snippet will try to get a message from a chat by ID with a timeout
     of 5 seconds, retrying after 1 second if a 404 occurs:
+
     .. code-block:: python
+
        message = await pyryver.retry_until_available(chat.get_message, message_id, timeout=5.0, retry_delay=1.0)
 
     .. note::
