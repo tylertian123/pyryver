@@ -232,15 +232,17 @@ class RyverWS():
         """
         self._auto_reconnect = auto_reconnect
 
-    async def _ws_send_msg(self, msg: typing.Dict[str, typing.Any], timeout: float = None) -> None:
+    async def _ws_send_msg(self, msg: typing.Dict[str, typing.Any], timeout: float = 5.0) -> None:
         """
         Send a message through the websocket.
 
         An auto-generated message ID will be attached to the message to wait for acks.
 
         :param msg: The raw message data.
-        :param timeout: The timeout for waiting for an ack. If None, waits forever.
-        :raises ClosedError: If connection closed or not yet opened.    
+        :param timeout: The timeout for waiting for an ack. If None, waits forever. By
+                        default waits for 5s.
+        :raises asyncio.TimeoutError: On ack timeout.
+        :raises ClosedError: If connection closed or not yet opened.
         """
         if self._closed:
             raise ClosedError("Connection not started or already closed!")
@@ -500,36 +502,41 @@ class RyverWS():
             return func
         return _on_msg_type_inner
 
-    async def send_chat(self, to_chat: typing.Union[Chat, str], msg: str) -> None:
+    async def send_chat(self, to_chat: typing.Union[Chat, str], msg: str, timeout: float = 5.0) -> None:
         """
         Send a chat message to a chat.
 
         :param to_chat: The chat or the JID of the chat to send the message to.
         :param msg: The message contents.
+        :param timeout: The timeout for waiting for an ack. If None, waits forever. By
+                        default waits for 5s.
+        :raises asyncio.TimeoutError: On ack timeout.
         :raises ClosedError: If connection closed or not yet opened.  
         """
-        data = {
+        return await self._ws_send_msg({
             "type": RyverWS.MSG_TYPE_CHAT,
             "to": to_chat.get_jid() if isinstance(to_chat, Chat) else to_chat,
             "text": msg
-        }
-        return await self._ws_send_msg(data)
+        }, timeout)
 
-    async def send_presence_change(self, presence: str) -> None:
+    async def send_presence_change(self, presence: str, timeout: float = 5.0) -> None:
         """
         Send a presence change message.
 
         The presence change is global and not restricted to a single chat.
 
         :param presence: The new presence, one of the ``PRESENCE_`` constants.
+        :param timeout: The timeout for waiting for an ack. If None, waits forever. By
+                        default waits for 5s.
+        :raises asyncio.TimeoutError: On ack timeout.
         :raises ClosedError: If connection closed or not yet opened.  
         """
         return await self._ws_send_msg({
             "type": RyverWS.MSG_TYPE_PRESENCE_CHANGED,
             "presence": presence,
-        })
+        }, timeout)
 
-    async def send_typing(self, to_chat: typing.Union[Chat, str]) -> None:
+    async def send_typing(self, to_chat: typing.Union[Chat, str], timeout: float = 5.0) -> None:
         """
         Send a typing indicator to a chat.
 
@@ -542,15 +549,18 @@ class RyverWS():
         manager that can be used to maintain the typing indicator for as long as desired.
 
         :param to_chat: The chat or the JID of the chat to send the typing status to.
+        :param timeout: The timeout for waiting for an ack. If None, waits forever. By
+                        default waits for 5s.
+        :raises asyncio.TimeoutError: On ack timeout.
         :raises ClosedError: If connection closed or not yet opened.  
         """
         return await self._ws_send_msg({
             "type": RyverWS.MSG_TYPE_USER_TYPING,
             "state": "composing",
             "to": to_chat.get_jid() if isinstance(to_chat, Chat) else to_chat
-        })
+        }, timeout)
     
-    async def send_clear_typing(self, to_chat: typing.Union[Chat, str]) -> None:
+    async def send_clear_typing(self, to_chat: typing.Union[Chat, str], timeout: float = 5.0) -> None:
         """
         Clear the typing indicator for a chat.
 
@@ -558,13 +568,16 @@ class RyverWS():
            For unknown reasons, this method **only works in private messages**.
 
         :param to_chat: The chat or the JID of the chat to clear the typing status for.
+        :param timeout: The timeout for waiting for an ack. If None, waits forever. By
+                        default waits for 5s.
+        :raises asyncio.TimeoutError: On ack timeout.
         :raises ClosedError: If connection closed or not yet opened.  
         """
         return await self._ws_send_msg({
             "type": RyverWS.MSG_TYPE_USER_TYPING,
             "state": "done",
             "to": to_chat.get_jid() if isinstance(to_chat, Chat) else to_chat
-        })
+        }, timeout)
 
     @doc.acontexmanager
     def typing(self, to_chat: Chat) -> RyverWSTyping:
@@ -585,14 +598,15 @@ class RyverWS():
         """
         return RyverWSTyping(self, to_chat)
 
-    async def start(self, timeout: float = None) -> None:
+    async def start(self, timeout: float = 5.0) -> None:
         """
         Start the session, or reconnect after a connection loss.
 
         .. note::
            If there is an existing connection, it will be closed.
 
-        :param timeout: The connection timeout. If None, waits forever.
+        :param timeout: The connection timeout in seconds. If None, waits forever.
+                        By default, waits for 5 seconds.
         """
         if not self._closed:
             await self.close()
