@@ -79,7 +79,7 @@ can be obtained with `Ryver.get_live_session()`. Unlike the rest of the API, the
 
 There are a few things to notice here: firstly, that we can set event handlers with the various ``on_`` decorators of the `pyryver.ryver_ws.RyverWS` instance (you could also call these directly like any other decorator if
 you want to declare these callbacks without having obtained the `pyryver.ryver_ws.RyverWS` instance yet), and secondly that the realtime API starts as soon as it is created. `pyryver.ryver_ws.RyverWS.run_forever()` is 
-a helper that will run until something calls `pyryver.ryver_ws.RyverWS.close()`, which can be called from within event callbacks safely.
+a helper that will run until something calls `pyryver.ryver_ws.RyverWS.terminate()`, which can be called from within event callbacks safely.
 
 The contents of the ``msg`` parameter passed to our callback is an object of type `pyryver.ws_data.WSChatMessageData` that contains information about the message. In the ``chat`` message,
 there are two fields our "bot" needs to care about: ``to_jid``, which specifies which chat the message was posted in, and ``text``, which is the content of the message. ``from_jid`` refers to the message's creator.
