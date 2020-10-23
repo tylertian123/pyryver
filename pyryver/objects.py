@@ -20,6 +20,8 @@ class Creator:
     :param avatar: The overridden avatar (a url to an image)
     """
 
+    __slots__ = ("name", "avatar")
+
     def __init__(self, name: str, avatar: str = ""):
         self.name = name
         self.avatar = avatar
@@ -54,6 +56,8 @@ class TaskTag:
     :param background_color: The background color.
     :param border_color: The border color.
     """
+
+    __slots__ = ("_data")
 
     def __init__(self, name: str, text_color: str, background_color: str, border_color: str):
         self._data = {
@@ -142,6 +146,9 @@ class Object(ABC):
 
     def __eq__(self, other) -> bool:
         return isinstance(other, Object) and other.get_id() == self.get_id()
+    
+    def __hash__(self) -> int:
+        return self.get_id()
 
     def get_ryver(self) -> "Ryver":
         """

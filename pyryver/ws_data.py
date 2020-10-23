@@ -21,6 +21,8 @@ class WSMessageData:
                        listed there do not cover all valid values of this field.
     :ivar raw_data: The raw websocket message data.
     """
+
+    __slots__ = ("ryver", "ws_msg_type", "raw_data")
     
     ryver: "Ryver"
     ws_msg_type: str
@@ -50,6 +52,8 @@ class WSChatMessageData(WSMessageData):
     :ivar creator: The overridden message creator (see :py:class:`Creator`), or None
                    if there isn't one.
     """
+
+    __slots__ = ("message_id", "from_jid", "to_jid", "text", "subtype", "attachment", "creator")
 
     message_id: str
     from_jid: str
@@ -95,6 +99,8 @@ class WSChatUpdatedData(WSChatMessageData):
     :ivar attachment: The file attached to this message, or None if there isn't one.
     """
 
+    __slots__ = ()
+
 
 class WSChatDeletedData(WSChatMessageData):
     """
@@ -109,6 +115,8 @@ class WSChatDeletedData(WSChatMessageData):
     :ivar attachment: The file attached to this message, or None if there isn't one.
     """
 
+    __slots__ = ()
+
 
 class WSPresenceChangedData(WSMessageData):
     """
@@ -122,6 +130,8 @@ class WSPresenceChangedData(WSMessageData):
                      :py:func:`pyryver.util.iso8601_to_datetime()` to convert it into a
                      datetime.
     """
+
+    __slots__ = ("presence", "from_jid", "client", "timestamp")
 
     presence: str
     from_jid: str
@@ -146,6 +156,8 @@ class WSUserTypingData(WSMessageData):
                  typing in progress), but it could also very rarely be "done", for
                  when the user has finished typing.
     """
+
+    __slots__ = ("from_jid", "to_jid", "state")
     
     from_jid: str
     to_jid: str
@@ -171,6 +183,8 @@ class WSEventData(WSMessageData):
                       format of some events are documented in the docs of the
                       ``EVENT_`` constants.
     """
+
+    __slots__ = ("event_type", "event_data")
     
     event_type: str
     event_data: typing.Dict[str, typing.Any]
