@@ -294,6 +294,8 @@ class Ryver:
 
         Returns None if not found.
 
+        :raises ValueError: If users are not loaded, or zero or multiple query parameters
+                            are specified.
         :return: The user, or None of not found.
         """
         if self.users is None:
@@ -312,12 +314,12 @@ class Ryver:
         except KeyError:
             raise ValueError("Invalid query parameter!") # pylint: disable=raise-missing-from
 
-    def get_groupchat(self, **kwargs) -> typing.Optional[GroupChat]:
+    def get_groupchat(self, forums: bool = True, teams: bool = True, **kwargs) -> typing.Optional[GroupChat]:
         """
         Get a specific forum/team.
 
         If no query parameters are supplied, more than one query parameters are
-        supplied or forums/teams are not loaded, raises :py:class:`ValueError`.
+        supplied or the list to search is not loaded, raises :py:class:`ValueError`.
 
         Allowed query parameters are:
 
@@ -330,10 +332,19 @@ class Ryver:
 
         Returns None if not found.
 
+        .. versionchanged:: 0.4.0
+           Added parameters ``forums`` and ``teams``.
+
+        :forums: Whether to search the list of forums.
+        :teams: Whether to search the list of teams.
+        :raises ValueError: If the list to search is not loaded, or zero or multiple
+                            query parameters are specified.
         :return: The chat, or None if not found.
         """
-        if self.forums is None or self.teams is None:
-            raise ValueError("Forums/teams not loaded")
+        if forums and self.forums is None:
+            raise ValueError("Forums not loaded!")
+        if teams and self.teams is None:
+            raise ValueError("Teams not loaded!")
         if len(kwargs.items()) != 1:
             raise ValueError("Only 1 query parameter can be specified!")
         field, value = list(kwargs.items())[0]
@@ -342,9 +353,62 @@ class Ryver:
         if field == "nickname":
             case_sensitive = False
         try:
-            return get_obj_by_field(self.forums + self.teams, FIELD_NAMES[field], value, case_sensitive)
+            obj = None
+            if forums:
+                obj = get_obj_by_field(self.forums, FIELD_NAMES[field], value, case_sensitive)
+            if teams and obj is None:
+                obj = get_obj_by_field(self.teams, FIELD_NAMES[field], value, case_sensitive)
+            return obj
         except KeyError:
             raise ValueError("Invalid query parameter!") # pylint: disable=raise-missing-from
+    
+    def get_forum(self, **kwargs) -> typing.Optional[Forum]:
+        """
+        Get a specific forum.
+
+        If no query parameters are supplied, more than one query parameters are
+        supplied or forums are not loaded, raises :py:class:`ValueError`.
+
+        Allowed query parameters are:
+
+        - id
+        - jid
+        - name
+        - nickname
+
+        If using nickname to find the chat, the search will be case-insensitive.
+
+        Returns None if not found.
+
+        :raises ValueError: If forums are not loaded, or zero or multiple query
+                            parameters are specified.
+        :return: The chat, or None if not found.
+        """
+        return self.get_groupchat(forums=True, teams=False, **kwargs)
+    
+    def get_team(self, **kwargs) -> typing.Optional[Forum]:
+        """
+        Get a specific team.
+
+        If no query parameters are supplied, more than one query parameters are
+        supplied or teams are not loaded, raises :py:class:`ValueError`.
+
+        Allowed query parameters are:
+
+        - id
+        - jid
+        - name
+        - nickname
+
+        If using nickname to find the chat, the search will be case-insensitive.
+
+        Returns None if not found.
+
+        :raises ValueError: If teams are not loaded, or zero or multiple query
+                            parameters are specified.
+        :return: The chat, or None if not found.
+        """
+        return self.get_groupchat(forums=False, teams=True, **kwargs)
 
     def get_chat(self, **kwargs) -> typing.Optional[Chat]:
         """
@@ -360,6 +424,8 @@ class Ryver:
 
         Returns None if not found.
 
+        :raises ValueError: If not all chats are loaded, or zero or multiple query
+                            parameters are specified.
         :return: The chat, or None if not found.
         """
         if self.forums is None or self.teams is None or self.users is None:
