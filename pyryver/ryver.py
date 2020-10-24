@@ -39,8 +39,9 @@ class Ryver:
     :param cache: The aforementioned cache (optional).
     """
 
-    def __init__(self, org: str = None, user: str = None, password: str = None, token: str = None,
-                 cache: typing.Type[AbstractCacheStorage] = None):
+    def __init__(self, org: typing.Optional[str] = None, user: typing.Optional[str] = None,
+                 password: typing.Optional[str] = None, token: typing.Optional[str] = None,
+                 cache: typing.Optional[typing.Type[AbstractCacheStorage]] = None):
         if org is None:
             org = input("Organization: ")
         if user is None and token is None:
@@ -110,7 +111,8 @@ class Ryver:
         """
         await self._session.close()
 
-    def get_api_url(self, obj_type: str = None, obj_id: int = None, action: str = None, **kwargs) -> str:
+    def get_api_url(self, obj_type: typing.Optional[str] = None, obj_id: typing.Optional[int] = None,
+                    action: typing.Optional[str] = None, **kwargs) -> str:
         """
         Get the URL for making an API request.
 
@@ -126,7 +128,9 @@ class Ryver:
         The `Ryver Developer Docs <https://api.ryver.com/ryvrest_api_examples.html>`_
         contains documentation for some of these parameters.
 
-        :param obj_type: The type of the object to work with for this API request, a constant beginning with ``TYPE_`` in :ref:`pyryver.util <util-data-constants>` (optional).
+        :param obj_type: The type of the object to work with for this API request, a
+                         constant beginning with ``TYPE_`` in
+                         :ref:`pyryver.util <util-data-constants>` (optional).
         :param obj_id: The object's ID (optional).
         :param action: The action to take on the object (optional).
         :return: The formatted API url.
@@ -170,12 +174,12 @@ class Ryver:
                 page = (await resp.json())["d"]["results"]
 
             for i in page:
-                yield i
+                yield i #NOSONAR
             if not page or top == 0:
                 break
             skip += len(page)
 
-    async def get_object(self, obj_type: typing.Union[str, type], obj_id: int = None,
+    async def get_object(self, obj_type: typing.Union[str, type], obj_id: typing.Optional[int] = None,
                          **kwargs) -> typing.Union[typing.Type[Object], typing.List[typing.Type[Object]]]:
         """
         Get an object or multiple objects from Ryver with a type and optionally ID.
@@ -271,7 +275,7 @@ class Ryver:
         if self.teams is None:
             await self.load_teams()
 
-    def get_user(self, **kwargs) -> User:
+    def get_user(self, **kwargs) -> typing.Optional[User]:
         """
         Get a specific user.
 
@@ -308,7 +312,7 @@ class Ryver:
         except KeyError:
             raise ValueError("Invalid query parameter!") # pylint: disable=raise-missing-from
 
-    def get_groupchat(self, **kwargs) -> GroupChat:
+    def get_groupchat(self, **kwargs) -> typing.Optional[GroupChat]:
         """
         Get a specific forum/team.
 
@@ -342,7 +346,7 @@ class Ryver:
         except KeyError:
             raise ValueError("Invalid query parameter!") # pylint: disable=raise-missing-from
 
-    def get_chat(self, **kwargs) -> Chat:
+    def get_chat(self, **kwargs) -> typing.Optional[Chat]:
         """
         Get a specific forum/team/user.
 
@@ -391,7 +395,7 @@ class Ryver:
                 TYPE_NOTIFICATION, format="json", orderby="modifyDate desc")
 
         async for notif in self.get_all(url=url, top=top, skip=skip):
-            yield Notification(self, notif)
+            yield Notification(self, notif) #NOSONAR
 
     async def mark_all_notifs_read(self) -> int:
         """
@@ -415,7 +419,7 @@ class Ryver:
         async with self._session.post(url) as resp:
             return (await resp.json())["d"]["count"]
 
-    async def upload_file(self, filename: str, filedata: typing.Any, filetype: str = None) -> Storage:
+    async def upload_file(self, filename: str, filedata: typing.Any, filetype: typing.Optional[str] = None) -> Storage:
         """
         Upload a file to Ryver (for attaching to messages).
 
@@ -482,8 +486,8 @@ class Ryver:
         async with self._session.get(url) as resp:
             return (await resp.json())["d"]
     
-    async def invite_user(self, email: str, role: str = User.USER_TYPE_MEMBER, username: str = None, 
-                          display_name: str = None) -> User:
+    async def invite_user(self, email: str, role: str = User.USER_TYPE_MEMBER, username: typing.Optional[str] = None, 
+                          display_name: typing.Optional[str] = None) -> User:
         """
         Invite a new user to the organization.
 
@@ -536,7 +540,8 @@ class Ryver:
         async with self._session.post(url, json=data) as resp:
             return TYPES_DICT[chat_type](self, (await resp.json())["d"]["results"])
     
-    async def create_team(self, name: str, nickname: str = None, about: str = None, description: str = None) -> Team:
+    async def create_team(self, name: str, nickname: typing.Optional[str] = None, about: typing.Optional[str] = None,
+                          description: typing.Optional[str] = None) -> Team:
         """
         Create a new private team.
 
@@ -548,7 +553,8 @@ class Ryver:
         """
         return await self._create_groupchat(TYPE_TEAM, name, nickname, about, description)
     
-    async def create_forum(self, name: str, nickname: str = None, about: str = None, description: str = None) -> Forum:
+    async def create_forum(self, name: str, nickname: typing.Optional[str] = None, about: typing.Optional[str] = None,
+                           description: typing.Optional[str] = None) -> Forum:
         """
         Create a new open forum.
 
