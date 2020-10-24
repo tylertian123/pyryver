@@ -70,7 +70,7 @@ NOTIF_PREDICATE_COMMENT = "commented_on"
 NOTIF_PREDICATE_TASK_COMPLETED = "completed"
 
 
-def get_type_from_entity(entity_type: str) -> str:
+def get_type_from_entity(entity_type: str) -> typing.Optional[str]:
     """
     Gets the object type from the entity type.
 
@@ -91,7 +91,8 @@ def get_type_from_entity(entity_type: str) -> str:
 _T = typing.TypeVar("T")
 
 
-async def retry_until_available(action: typing.Callable[..., typing.Awaitable[_T]], *args, timeout: float = None, retry_delay: float = 0.5, **kwargs) -> _T:
+async def retry_until_available(action: typing.Callable[..., typing.Awaitable[_T]], *args,
+                                timeout: typing.Optional[float] = None, retry_delay: float = 0.5, **kwargs) -> _T:
     """
     Repeatedly tries to do some action (usually getting a resource) until the
     resource becomes available or a timeout elapses.
