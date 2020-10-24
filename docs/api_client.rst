@@ -10,6 +10,8 @@ Session
    
    .. automethod:: get_chat
    .. automethod:: get_user
+   .. automethod:: get_forum
+   .. automethod:: get_team
    .. automethod:: get_groupchat
 
    .. automethod:: get_object
