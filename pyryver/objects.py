@@ -25,6 +25,9 @@ class Creator:
     def __init__(self, name: str, avatar: str = ""):
         self.name = name
         self.avatar = avatar
+    
+    def __repr__(self) -> str:
+        return f"pyryver.Creator(name={self.name}, avatar={self.avatar})"
 
     def to_dict(self) -> dict:
         """
@@ -68,6 +71,9 @@ class TaskTag:
                 "border": border_color,
             }
         }
+    
+    def __repr__(self) -> str:
+        return f"pyryver.TaskTag(name={self.get_name()}, text_color={self.get_text_color()}, background_color={self.get_background_color}, border_color={self.get_border_color})"
 
     @classmethod
     def from_data(cls, data: dict) -> "TaskTag":
@@ -155,6 +161,9 @@ class Object(ABC):
     
     def __hash__(self) -> int:
         return self.get_id()
+    
+    def __repr__(self) -> str:
+        return f"pyryver.{type(self).__name__}(id={self._id})"
     
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
@@ -753,6 +762,9 @@ class ChatMessage(Message):
     SUBTYPE_CHAT_MESSAGE = "chat"
     SUBTYPE_TOPIC_ANNOUNCEMENT = "topic_share"
     SUBTYPE_TASK_ANNOUNCEMENT = "task_share"
+
+    def __repr__(self) -> str:
+        return f"pyryver.ChatMessage(id={self._id}, chat_id={self.get_chat_id()})"
 
     def get_msg_type(self) -> str:
         """

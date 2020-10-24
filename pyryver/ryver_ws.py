@@ -199,6 +199,9 @@ class RyverWS():
         self._done = asyncio.get_event_loop().create_future()
 
         self._closed = True
+    
+    def __repr__(self) -> str:
+        return f"pyryver.RyverWS(ryver={repr(self._ryver)})"
 
     async def __aenter__(self) -> "RyverWS":
         await self.start()

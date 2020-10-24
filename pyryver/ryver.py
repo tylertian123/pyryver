@@ -48,7 +48,8 @@ class Ryver:
         if password is None and token is None:
             password = getpass()
 
-        self.org = org
+        self._org = org
+        self._user = user
         
         self._url_prefix = "https://" + org + ".ryver.com/api/1/odata.svc/"
         if token is None:
@@ -71,6 +72,12 @@ class Ryver:
             self.users = None
             self.forums = None
             self.teams = None
+
+    def __repr__(self) -> str:
+        if self._user is not None:
+            return f"pyryver.Ryver(org={self._org}, user={self._user})"
+        else:
+            return f"pyryver.Ryver(org={self._org})"
 
     async def __aenter__(self) -> "Ryver":
         await self._session.__aenter__()
