@@ -128,6 +128,10 @@ class TaskTag:
         return self._data["colors"]["border"]
 
 
+#: A dict that maps internal strings for object types to classes.
+TYPES_DICT = {}
+
+
 class Object(ABC):
     """
     Base class for all Ryver objects.
@@ -135,6 +139,8 @@ class Object(ABC):
     :param ryver: The parent :py:class:`pyryver.pyryver.Ryver` instance.
     :param data: The object's data.
     """
+
+    __slots__ = ("_ryver", "_data", "_id")
 
     # The _OBJ_TYPE of each class inheriting from Object is used during object creation to determine the type
     _OBJ_TYPE = "__object"
@@ -149,6 +155,11 @@ class Object(ABC):
     
     def __hash__(self) -> int:
         return self.get_id()
+    
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        # Register types in the dict
+        TYPES_DICT[cls._OBJ_TYPE] = cls
 
     def get_ryver(self) -> "Ryver":
         """
@@ -383,6 +394,8 @@ class Message(Object):
     Any generic Ryver message, with an author, body, and reactions.
     """
 
+    __slots__ = ()
+
     _OBJ_TYPE = "__message"
 
     def get_body(self) -> str:
@@ -462,6 +475,8 @@ class PostedMessage(Message):
     A topic, task, topic reply, etc.
     """
 
+    __slots__ = ()
+
     _OBJ_TYPE = "__postedMessage"
 
     async def get_attachments(self) -> typing.List["Storage"]:
@@ -493,6 +508,8 @@ class PostedComment(PostedMessage):
     """
     A topic reply or task comment.
     """
+
+    __slots__ = ()
 
     _OBJ_TYPE = "__comment"
 
@@ -548,6 +565,8 @@ class TopicReply(PostedComment):
     A reply on a topic.
     """
 
+    __slots__ = ()
+
     _OBJ_TYPE = TYPE_TOPIC_REPLY
 
     async def get_topic(self) -> "Topic":
@@ -563,6 +582,8 @@ class Topic(PostedMessage):
     """
     A Ryver topic in a chat.
     """
+
+    __slots__ = ()
 
     _OBJ_TYPE = TYPE_TOPIC
 
@@ -719,6 +740,8 @@ class ChatMessage(Message):
     :cvar SUBTYPE_TOPIC_ANNOUNCEMENT: An automatic chat message that announces the creation of a new topic.
     :cvar SUBTYPE_TASK_ANNOUNCEMENT: An automatic chat message that announces the creation of a new task.
     """
+
+    __slots__ = ()
 
     _OBJ_TYPE = "__chatMessage"
 
@@ -975,6 +998,8 @@ class Chat(Object):
 
     E.g. Teams, forums, user DMs, etc.
     """
+
+    __slots__ = ()
 
     _OBJ_TYPE = "__chat"
 
@@ -1382,6 +1407,8 @@ class User(Chat):
     :cvar USER_TYPE_GUEST: A guest.
     """
 
+    __slots__ = ()
+
     _OBJ_TYPE = TYPE_USER
 
     ROLE_USER = "ROLE_USER"
@@ -1647,6 +1674,8 @@ class GroupChatMember(Object):
     :cvar ROLE_ADMIN: Forum/team admin.
     """
 
+    __slots__ = ()
+
     _OBJ_TYPE = TYPE_GROUPCHAT_MEMBER
 
     ROLE_MEMBER = "ROLE_TEAM_MEMBER"
@@ -1708,6 +1737,8 @@ class GroupChat(Chat):
     """
     A Ryver team or forum.
     """
+
+    __slots__ = ()
 
     _OBJ_TYPE = "__groupChat"
 
@@ -1972,6 +2003,8 @@ class Forum(GroupChat):
     A Ryver forum.
     """
 
+    __slots__ = ()
+
     _OBJ_TYPE = TYPE_FORUM
 
 
@@ -1979,6 +2012,8 @@ class Team(GroupChat):
     """
     A Ryver team.
     """
+
+    __slots__ = ()
 
     _OBJ_TYPE = TYPE_TEAM
 
@@ -1990,6 +2025,8 @@ class TaskBoard(Object):
     :cvar BOARD_TYPE_BOARD: A task board with categories.
     :cvar BOARD_TYPE_LIST: A task list (i.e. a task board without categories).
     """
+
+    __slots__ = ()
 
     _OBJ_TYPE = TYPE_TASK_BOARD
 
@@ -2196,6 +2233,8 @@ class TaskCategory(Object):
     :cvar CATEGORY_TYPE_OTHER: Other categories (user-created and not marked as done).
     """
 
+    __slots__ = ()
+
     _OBJ_TYPE = TYPE_TASK_CATEGORY
 
     CATEGORY_TYPE_UNCATEGORIZED = "uncategorized"
@@ -2369,6 +2408,8 @@ class Task(PostedMessage):
     """
     A Ryver task.
     """
+
+    __slots__ = ()
 
     _OBJ_TYPE = TYPE_TASK
 
@@ -2811,6 +2852,8 @@ class TaskComment(PostedComment):
     A comment on a task.
     """
 
+    __slots__ = ()
+
     _OBJ_TYPE = TYPE_TASK_COMMENT
 
     async def get_task(self) -> Task:
@@ -2831,6 +2874,8 @@ class Notification(Object):
     :cvar PREDICATE_COMMENT: A topic was commented on.
     :cvar PREDICATE_TASK_COMPLETED: A task was completed.
     """
+
+    __slots__ = ()
 
     _OBJ_TYPE = TYPE_NOTIFICATION
 
@@ -2999,6 +3044,8 @@ class File(Object):
     An uploaded file.
     """
 
+    __slots__ = ()
+
     _OBJ_TYPE = TYPE_FILE
 
     def get_title(self) -> str:
@@ -3078,6 +3125,8 @@ class Storage(Object):
     :cvar STORAGE_TYPE_FILE: An uploaded file.
     :cvar STORAGE_TYPE_LINK: A link.
     """
+
+    __slots__ = ()
 
     _OBJ_TYPE = TYPE_STORAGE
 
@@ -3184,30 +3233,6 @@ class Storage(Object):
             "type": chat.get_type(),
         }
         await self._ryver._session.post(url, json=data)
-
-
-TYPES_DICT = {
-    Object._OBJ_TYPE: Object,
-    Message._OBJ_TYPE: Message,
-    PostedMessage._OBJ_TYPE: PostedMessage,
-    PostedComment._OBJ_TYPE: PostedComment,
-    TopicReply._OBJ_TYPE: TopicReply,
-    Topic._OBJ_TYPE: Topic,
-    ChatMessage._OBJ_TYPE: ChatMessage,
-    Chat._OBJ_TYPE: Chat,
-    User._OBJ_TYPE: User,
-    GroupChatMember._OBJ_TYPE: GroupChatMember,
-    GroupChat._OBJ_TYPE: GroupChat,
-    Forum._OBJ_TYPE: Forum,
-    Team._OBJ_TYPE: Team,
-    TaskBoard._OBJ_TYPE: TaskBoard,
-    TaskCategory._OBJ_TYPE: TaskCategory,
-    Task._OBJ_TYPE: Task,
-    TaskComment._OBJ_TYPE: TaskComment,
-    Notification._OBJ_TYPE: Notification,
-    File._OBJ_TYPE: File,
-    Storage._OBJ_TYPE: Storage,
-}
 
 
 def get_obj_by_field(objs: typing.Iterable[Object], field: str, value: typing.Any, case_sensitive: str = True) -> Object:
