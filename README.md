@@ -69,8 +69,9 @@ async def main():
         await ryver.load_chats()
         # Get the bot's user
         me = ryver.get_user(username="my_username")
-        # Connect to the websockets interface
-        async with ryver.get_live_session() as session:
+        # Connect to the websocket interface
+        # Enable auto-reconnects
+        async with ryver.get_live_session(auto_reconnect=True) as session:
             @session.on_chat
             async def on_message(msg: pyryver.WSChatMessageData):
                 print(msg.text) # print out the message's text
@@ -81,12 +82,8 @@ async def main():
                     # This could be either a user (for a private message) or a forum/team
                     chat = ryver.get_chat(jid=msg.to_jid)
                     await chat.send_message("hi")
-            
-            @session.on_connection_loss
-            async def on_connection_loss():
-                await session.close()
 
-            # run until session.close() is called
+            # run until session.terminate() is called
             await session.run_forever()
 
 asyncio.get_event_loop().run_until_complete(main())

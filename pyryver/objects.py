@@ -428,7 +428,7 @@ class Message(Object):
 
     async def react(self, emoji: str) -> None:
         """
-        React to this task with an emoji. 
+        React to this message with an emoji. 
 
         .. note::
            This method does **not** update the reactions property of this object.
