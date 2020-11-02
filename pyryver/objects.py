@@ -2003,6 +2003,24 @@ class GroupChat(Chat):
         """
         url = self.get_api_url()
         await self._ryver._session.delete(url)
+    
+    async def join(self) -> None:
+        """
+        Join this forum/team as the current logged in user.
+        """
+        await self._ryver._session.post(self.get_api_url("Team.Join()", format="json"))
+    
+    async def leave(self) -> None:
+        """
+        Leave this forum/team as the current logged in user.
+
+        .. note::
+           This is not the same as selecting "Close and keep closed" in the UI. With
+           this, the user will no longer show up in the members list of the forum/team,
+           whereas "Close and keep closed" will still keep the user in the forum/team and
+           only update the notification settings.
+        """
+        await self._ryver._session.post(self.get_api_url("Team.Leave()", format="json"))
 
 
 class Forum(GroupChat):
