@@ -163,8 +163,13 @@ class Object(ABC):
     def __hash__(self) -> int:
         return self.get_id()
     
-    def __repr__(self) -> str:
-        return f"pyryver.{type(self).__name__}(id={self._id})"
+    def __repr__(self, **kwargs) -> str:
+        try:
+            kwargs["name"] = f"'{self.get_name()}'"
+        except (AttributeError, TypeError):
+            pass
+        args = "".join(f", {k}={v}" for k, v in kwargs.items())
+        return f"pyryver.{type(self).__name__}(id={self._id}{args})"
     
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
@@ -407,6 +412,11 @@ class Message(Object):
     __slots__ = ()
 
     _OBJ_TYPE = "__message"
+
+    def __repr__(self, **kwargs) -> str:
+        body = self.get_body()
+        body = body if len(body) < 100 else body[:100] + "..."
+        return super().__repr__(body=repr(body), **kwargs)
 
     def get_body(self) -> str:
         """
@@ -765,8 +775,8 @@ class ChatMessage(Message):
     SUBTYPE_TOPIC_ANNOUNCEMENT = "topic_share"
     SUBTYPE_TASK_ANNOUNCEMENT = "task_share"
 
-    def __repr__(self) -> str:
-        return f"pyryver.ChatMessage(id={self._id}, chat_id={self.get_chat_id()})"
+    def __repr__(self, **kwargs) -> str:
+        return super().__repr__(chat_id=self.get_chat_id(), **kwargs)
 
     def get_msg_type(self) -> str:
         """

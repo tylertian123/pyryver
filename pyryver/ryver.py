@@ -76,9 +76,9 @@ class Ryver:
 
     def __repr__(self) -> str:
         if self._user is not None:
-            return f"pyryver.Ryver(org={self._org}, user={self._user})"
+            return f"pyryver.Ryver(org='{self._org}', user='{self._user}')"
         else:
-            return f"pyryver.Ryver(org={self._org})"
+            return f"pyryver.Ryver(org='{self._org}')"
 
     async def __aenter__(self) -> "Ryver":
         await self._session.__aenter__()
