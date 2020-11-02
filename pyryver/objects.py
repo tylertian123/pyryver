@@ -313,13 +313,20 @@ class Object(ABC):
         :return: The expanded value of this field as an object or a list of objects.
         :raises ValueError: When the field cannot be expanded.
         """
+        constructor = TYPES_DICT[field_type]
+        # First check if the field is present
+        if field in self._data and "__deferred" not in self._data[field]:
+            if "results" in self._data[field]:
+                return [constructor(self._ryver, obj_data) for obj_data in self._data[field]["results"]]
+            else:
+                return constructor(self._ryver, self._data[field])
         url = self.get_api_url(expand=field, select=field)
         async with self._ryver._session.get(url) as resp:
             data = (await resp.json())["d"]["results"][field]
         if "__deferred" in data:
             raise ValueError(
                 "Cannot obtain field! The field cannot be expanded for some reason.")
-        constructor = TYPES_DICT[field_type]
+        self._data[field] = data
         # Check if the result should be a list
         if "results" in data:
             return [constructor(self._ryver, obj_data) for obj_data in data["results"]]
@@ -1680,13 +1687,19 @@ class GroupChatMember(Object):
         """
         return self._data["role"]
 
-    def as_user(self) -> User:
+    async def as_user(self) -> User:
         """
         Get this member as a :py:class:`User` object.
 
         :return: The member as a ``User`` object.
         """
-        return User(self._ryver, self._data["member"])
+        return await self.get_deferred_field("member", TYPE_USER)
+    
+    def get_name(self) -> str:
+        """
+        Get the display name of this member.
+        """
+        return self._data["extras"]["displayName"]
 
     def is_admin(self) -> bool:
         """
