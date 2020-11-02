@@ -3129,7 +3129,8 @@ class File(Object):
 
         :return: The downloaded file data, as raw bytes.
         """
-        async with self._ryver._session.get(self.get_url()) as resp:
+        # Same as above, this seems to be the only way to send the request without the auth header
+        async with aiohttp.request("GET", self.get_url()) as resp:
             resp.raise_for_status()
             return await resp.content.read()
 
