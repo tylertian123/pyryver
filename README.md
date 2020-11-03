@@ -8,10 +8,8 @@
 `pyryver` is an unofficial async Python library for Ryver.
 It provides a simple and sane way of automating tasks on Ryver and building bots, without the need to set up Hubot or Botkit.
 
-Note that since it is still in major version 0, there may be small changes to the API any time.
+*`pyryver` is still in major version 0, so breaking changes may be introduced any time. Please check changelogs carefully.*
 However, we will attempt to make it as backwards-compatible as possible (excluding version 0.1.0).
-
-Version 0.3.0 is now stable! It is highly recommended due to the API cleanups and Tasks support.
 
 Special thanks to [@mincrmatt12](https://github.com/mincrmatt12)!
 
@@ -37,7 +35,7 @@ Documentation and examples can be found on [Read the Docs](https://pyryver.readt
 
 If you want to see an example of `pyryver` being used in a real project, check out [LaTeX Bot](https://github.com/tylertian123/ryver-latexbot).
 
-Here's an example demonstrating how to send a message:
+Here's an example demonstrating how to send a message (v0.4.0 API):
 ```py
 import pyryver
 import asyncio
@@ -57,7 +55,7 @@ async def main():
 asyncio.get_event_loop().run_until_complete(main())
 ```
 
-Here's an example demonstrating how to get your bot to respond in real-time:
+Here's an example demonstrating how to get your bot to respond in real-time (v0.4.0 API):
 ```py
 import pyryver
 import asyncio
