@@ -281,7 +281,8 @@ class RyverWS():
                         if self.is_connected():
                             # Connection lost!
                             for key, future in self._msg_ack_table.items():
-                                future.set_exception(ConnectionLossError(f"Connection lost while performing operation {key[1]}"))
+                                if not future.done:
+                                    future.set_exception(ConnectionLossError(f"Connection lost while performing operation {key[1]}"))
                             self._msg_ack_table.clear()
                             if self._on_connection_loss is not None:
                                 asyncio.ensure_future(self._on_connection_loss())
@@ -344,7 +345,8 @@ class RyverWS():
                     if self.is_connected():
                         # Connection lost!
                         for key, future in self._msg_ack_table.items():
-                            future.set_exception(ConnectionLossError(f"Connection lost while performing operation {key[1]}"))
+                            if not future.done():
+                                future.set_exception(ConnectionLossError(f"Connection lost while performing operation {key[1]}"))
                         self._msg_ack_table.clear()
                         if self._on_connection_loss is not None:
                             asyncio.ensure_future(self._on_connection_loss())
@@ -685,7 +687,8 @@ class RyverWS():
         await self._ws.close()
         # Terminate any messages waiting for acks with an exception
         for future in self._msg_ack_table.values():
-            future.set_exception(ClosedError("Connection closed"))
+            if not future.done():
+                future.set_exception(ClosedError("Connection closed"))
         self._msg_ack_table.clear()
         # Wait until tasks terminate
         if cancel_rx and cancel_ping:
