@@ -335,8 +335,8 @@ class Ryver:
         .. versionchanged:: 0.4.0
            Added parameters ``forums`` and ``teams``.
 
-        :forums: Whether to search the list of forums.
-        :teams: Whether to search the list of teams.
+        :param forums: Whether to search the list of forums.
+        :param teams: Whether to search the list of teams.
         :raises ValueError: If the list to search is not loaded, or zero or multiple
                             query parameters are specified.
         :return: The chat, or None if not found.
