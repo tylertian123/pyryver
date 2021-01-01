@@ -3,16 +3,19 @@ This module contains the :py:class:`RyverWS` class, which allows you to respond 
 messages in real-time.
 """
 
+import aiohttp
 import asyncio
 import json
 import random
 import string
 import sys
 import time
+import typing
 from aiohttp.http import WSMsgType
 from . import doc
-from .objects import *
-from .ws_data import *
+from . import objects
+from . import ryver as ryver_ # pylint: disable=unused-import
+from . import ws_data
 
 
 class WSConnectionError(Exception):
@@ -43,7 +46,7 @@ class RyverWSTyping():
     You should not create this class yourself, rather use `RyverWS.start_typing()` instead.
     """
 
-    def __init__(self, rws: "RyverWS", to: Chat):
+    def __init__(self, rws: "RyverWS", to: "objects.Chat"):
         self._rws = rws
         self._to = to
         self._typing_task_handle = None
@@ -75,7 +78,7 @@ class RyverWSTyping():
            :py:meth:`RyverWS.send_clear_typing()`. However, it only works in private
            messages. Outside of private messages, the typing indicator doesn't clear
            immediately. It will clear by itself after about 3 seconds, or when a message
-           is sent. 
+           is sent.
         """
         self._typing_task_handle.cancel()
         await asyncio.gather(self._typing_task_handle)
@@ -90,7 +93,7 @@ class RyverWSTyping():
 
 class RyverWS():
     """
-    A live Ryver session using websockets. 
+    A live Ryver session using websockets.
 
     You can construct this manually, although it is recommended to use `Ryver.get_live_session()`.
 
@@ -174,15 +177,15 @@ class RyverWS():
     MSG_TYPE_ALL = ""
 
     _HANDLER_DATA_TYPES = {
-        MSG_TYPE_CHAT: WSChatMessageData,
-        MSG_TYPE_CHAT_UPDATED: WSChatUpdatedData,
-        MSG_TYPE_CHAT_DELETED: WSChatDeletedData,
-        MSG_TYPE_PRESENCE_CHANGED: WSPresenceChangedData,
-        MSG_TYPE_USER_TYPING: WSUserTypingData,
-        MSG_TYPE_EVENT: WSEventData,
+        MSG_TYPE_CHAT: ws_data.WSChatMessageData,
+        MSG_TYPE_CHAT_UPDATED: ws_data.WSChatUpdatedData,
+        MSG_TYPE_CHAT_DELETED: ws_data.WSChatDeletedData,
+        MSG_TYPE_PRESENCE_CHANGED: ws_data.WSPresenceChangedData,
+        MSG_TYPE_USER_TYPING: ws_data.WSUserTypingData,
+        MSG_TYPE_EVENT: ws_data.WSEventData,
     }
 
-    def __init__(self, ryver: "Ryver", auto_reconnect: bool = False):
+    def __init__(self, ryver: "ryver_.Ryver", auto_reconnect: bool = False):
         self._ryver = ryver
         self._ws = None
         self._msg_ack_table = {}
@@ -199,7 +202,7 @@ class RyverWS():
         self._done = asyncio.get_event_loop().create_future()
 
         self._closed = True
-    
+
     def __repr__(self) -> str:
         return f"pyryver.RyverWS(ryver={repr(self._ryver)})"
 
@@ -211,14 +214,14 @@ class RyverWS():
         if not self._closed:
             await self.close()
 
-    def get_ryver(self) -> "Ryver":
+    def get_ryver(self) -> "ryver_.Ryver":
         """
         Get the Ryver session this live session was created from.
 
         :return: The Ryver session this live session was created from.
         """
         return self._ryver
-    
+
     def is_connected(self) -> bool:
         """
         Get whether the websocket connection has been established.
@@ -226,7 +229,7 @@ class RyverWS():
         :return: True if connected, False otherwise.
         """
         return not self._closed
-    
+
     def set_auto_reconnect(self, auto_reconnect: bool) -> None:
         """
         Set whether the live session should attempt to auto-reconnect on connection loss.
@@ -317,15 +320,15 @@ class RyverWS():
                             self._msg_ack_table.pop(key)
                     # Handle events
                     elif msg["type"] == RyverWS.MSG_TYPE_EVENT and (msg["topic"] in self._on_event or "" in self._on_event):
-                        # 
+                        #
                         handler = self._on_event.get(msg["topic"]) or self._on_event.get("")
-                        asyncio.ensure_future(handler(WSEventData(self._ryver, msg)))
+                        asyncio.ensure_future(handler(ws_data.WSEventData(self._ryver, msg)))
                     # Handle all other message types
                     else:
                         handler = self._on_msg_type.get(msg["type"], self._on_msg_type.get("", None))
                         if handler:
                             # Get the correct data type
-                            data_type = self._HANDLER_DATA_TYPES.get(msg["type"], WSMessageData)
+                            data_type = self._HANDLER_DATA_TYPES.get(msg["type"], ws_data.WSMessageData)
                             asyncio.ensure_future(handler(data_type(self._ryver, msg)))
         except asyncio.CancelledError:
             return
@@ -362,57 +365,57 @@ class RyverWS():
         except asyncio.CancelledError:
             return
 
-    def on_chat(self, func: typing.Callable[[WSChatMessageData], typing.Awaitable]):
+    def on_chat(self, func: typing.Callable[[ws_data.WSChatMessageData], typing.Awaitable]):
         """
         Decorate a coroutine to be run when a new chat message is received.
 
         This coroutine will be started as a task when a new chat message arrives.
-        It should take a single argument of type :py:class:`WSChatMessageData`, which
-        contains the data for the message.
+        It should take a single argument of type :py:class:`ws_data.WSChatMessageData`,
+        which contains the data for the message.
         """
         self._on_msg_type[RyverWS.MSG_TYPE_CHAT] = func
         return func
 
-    def on_chat_deleted(self, func: typing.Callable[[WSChatDeletedData], typing.Awaitable]):
+    def on_chat_deleted(self, func: typing.Callable[[ws_data.WSChatDeletedData], typing.Awaitable]):
         """
         Decorate a coroutine to be run when a chat message is deleted.
 
         This coroutine will be started as a task when a chat message is deleted.
-        It should take a single argument of type :py:class:`WSChatDeletedData`, which
-        contains the data for the message.
+        It should take a single argument of type :py:class:`ws_data.WSChatDeletedData`,
+        which contains the data for the message.
         """
         self._on_msg_type[RyverWS.MSG_TYPE_CHAT_DELETED] = func
         return func
 
-    def on_chat_updated(self, func: typing.Callable[[WSChatUpdatedData], typing.Awaitable]):
+    def on_chat_updated(self, func: typing.Callable[[ws_data.WSChatUpdatedData], typing.Awaitable]):
         """
         Decorate a coroutine to be run when a chat message is updated (edited).
 
         This coroutine will be started as a task when a chat message is updated.
-        It should take a single argument of type :py:class:`WSChatUpdatedData`, which
-        contains the data for the message.
+        It should take a single argument of type :py:class:`ws_data.WSChatUpdatedData`,
+        which contains the data for the message.
         """
         self._on_msg_type[RyverWS.MSG_TYPE_CHAT_UPDATED] = func
         return func
-    
-    def on_presence_changed(self, func: typing.Callable[[WSPresenceChangedData], typing.Awaitable]):
+
+    def on_presence_changed(self, func: typing.Callable[[ws_data.WSPresenceChangedData], typing.Awaitable]):
         """
         Decorate a coroutine to be run when a user's presence changed.
 
         This coroutine will be started as a task when a user's presence changes.
-        It should take a single argument of type :py:class:`WSPresenceChangedData`, which
-        contains the data for the presence change.
+        It should take a single argument of type :py:class:`ws_data.WSPresenceChangedData`,
+        which contains the data for the presence change.
         """
         self._on_msg_type[RyverWS.MSG_TYPE_PRESENCE_CHANGED] = func
         return func
-    
-    def on_user_typing(self, func: typing.Callable[[WSUserTypingData], typing.Awaitable]):
+
+    def on_user_typing(self, func: typing.Callable[[ws_data.WSUserTypingData], typing.Awaitable]):
         """
         Decorate a coroutine to be run when a user starts typing.
 
         This coroutine will be started as a task when a user starts typing in a chat.
-        It should take a single argument of type :py:class:`WSUserTypingData`, which
-        contains the data for the user typing.
+        It should take a single argument of type :py:class:`ws_data.WSUserTypingData`,
+        which contains the data for the user typing.
         """
         self._on_msg_type[RyverWS.MSG_TYPE_USER_TYPING] = func
         return func
@@ -446,7 +449,7 @@ class RyverWS():
         """
         self._on_connection_loss = func
         return func
-    
+
     def on_reconnect(self, func: typing.Callable[[], typing.Awaitable]):
         """
         Decorate a coroutine to be run when auto-reconnect succeeds.
@@ -466,18 +469,18 @@ class RyverWS():
         the specified type. If the ``event_type`` is None or an empty string, it will
         be called for all events that are unhandled.
 
-        It should take a single argument of type :py:class:`WSEventData`, which
+        It should take a single argument of type :py:class:`ws_data.WSEventData`, which
         contains the data for the event.
 
-        :param event_type: The event type to listen to, one of the constants in 
-                           this class starting with ``EVENT_`` or 
-                           :py:attr:`RyverWS.EVENT_ALL` to receive all otherwise 
+        :param event_type: The event type to listen to, one of the constants in
+                           this class starting with ``EVENT_`` or
+                           :py:attr:`RyverWS.EVENT_ALL` to receive all otherwise
                            unhandled messages.
         """
         if event_type is None:
             event_type = ""
 
-        def _on_event_inner(func: typing.Callable[[WSEventData], typing.Awaitable]):
+        def _on_event_inner(func: typing.Callable[[ws_data.WSEventData], typing.Awaitable]):
             self._on_event[event_type] = func
             return func
         return _on_event_inner
@@ -494,20 +497,20 @@ class RyverWS():
         It should take a single argument of type :py:class:`WSMessageData`, which
         contains the data for the event.
 
-        :param msg_type: The message type to listen to, one of the constants in 
-                         this class starting with ``MSG_TYPE_`` or 
+        :param msg_type: The message type to listen to, one of the constants in
+                         this class starting with ``MSG_TYPE_`` or
                          :py:attr:`RyverWS.MSG_TYPE_ALL` to receive all otherwise
                          unhandled messages.
         """
         if msg_type is None:
             msg_type = ""
 
-        def _on_msg_type_inner(func: typing.Callable[[WSMessageData], typing.Awaitable]):
+        def _on_msg_type_inner(func: typing.Callable[[ws_data.WSMessageData], typing.Awaitable]):
             self._on_msg_type[msg_type] = func
             return func
         return _on_msg_type_inner
 
-    async def send_chat(self, to_chat: typing.Union[Chat, str], msg: str, timeout: float = 5.0) -> None:
+    async def send_chat(self, to_chat: typing.Union["objects.Chat", str], msg: str, timeout: float = 5.0) -> None:
         """
         Send a chat message to a chat.
 
@@ -516,11 +519,11 @@ class RyverWS():
         :param timeout: The timeout for waiting for an ack. If None, waits forever. By
                         default waits for 5s.
         :raises asyncio.TimeoutError: On ack timeout.
-        :raises ClosedError: If connection closed or not yet opened.  
+        :raises ClosedError: If connection closed or not yet opened.
         """
         return await self._ws_send_msg({
             "type": RyverWS.MSG_TYPE_CHAT,
-            "to": to_chat.get_jid() if isinstance(to_chat, Chat) else to_chat,
+            "to": to_chat.get_jid() if isinstance(to_chat, objects.Chat) else to_chat,
             "text": msg
         }, timeout)
 
@@ -534,14 +537,14 @@ class RyverWS():
         :param timeout: The timeout for waiting for an ack. If None, waits forever. By
                         default waits for 5s.
         :raises asyncio.TimeoutError: On ack timeout.
-        :raises ClosedError: If connection closed or not yet opened.  
+        :raises ClosedError: If connection closed or not yet opened.
         """
         return await self._ws_send_msg({
             "type": RyverWS.MSG_TYPE_PRESENCE_CHANGED,
             "presence": presence,
         }, timeout)
 
-    async def send_typing(self, to_chat: typing.Union[Chat, str], timeout: float = 5.0) -> None:
+    async def send_typing(self, to_chat: typing.Union["objects.Chat", str], timeout: float = 5.0) -> None:
         """
         Send a typing indicator to a chat.
 
@@ -557,15 +560,15 @@ class RyverWS():
         :param timeout: The timeout for waiting for an ack. If None, waits forever. By
                         default waits for 5s.
         :raises asyncio.TimeoutError: On ack timeout.
-        :raises ClosedError: If connection closed or not yet opened.  
+        :raises ClosedError: If connection closed or not yet opened.
         """
         return await self._ws_send_msg({
             "type": RyverWS.MSG_TYPE_USER_TYPING,
             "state": "composing",
-            "to": to_chat.get_jid() if isinstance(to_chat, Chat) else to_chat
+            "to": to_chat.get_jid() if isinstance(to_chat, objects.Chat) else to_chat
         }, timeout)
-    
-    async def send_clear_typing(self, to_chat: typing.Union[Chat, str], timeout: float = 5.0) -> None:
+
+    async def send_clear_typing(self, to_chat: typing.Union["objects.Chat", str], timeout: float = 5.0) -> None:
         """
         Clear the typing indicator for a chat.
 
@@ -576,16 +579,16 @@ class RyverWS():
         :param timeout: The timeout for waiting for an ack. If None, waits forever. By
                         default waits for 5s.
         :raises asyncio.TimeoutError: On ack timeout.
-        :raises ClosedError: If connection closed or not yet opened.  
+        :raises ClosedError: If connection closed or not yet opened.
         """
         return await self._ws_send_msg({
             "type": RyverWS.MSG_TYPE_USER_TYPING,
             "state": "done",
-            "to": to_chat.get_jid() if isinstance(to_chat, Chat) else to_chat
+            "to": to_chat.get_jid() if isinstance(to_chat, objects.Chat) else to_chat
         }, timeout)
 
     @doc.acontexmanager
-    def typing(self, to_chat: Chat) -> RyverWSTyping:
+    def typing(self, to_chat: "objects.Chat") -> RyverWSTyping:
         """
         Get an async context manager that keeps sending a typing indicator to a chat.
 
@@ -697,7 +700,7 @@ class RyverWS():
             await self._rx_task_handle
         elif cancel_ping:
             await self._ping_task_handle
-    
+
     async def terminate(self) -> None:
         """
         Close the session and cause :py:meth:`RyverWS.run_forever()` to return.
@@ -737,7 +740,4 @@ class RyverWS():
 
         :return: The random message ID.
         """
-        return "".join(random.choice(RyverWS._VALID_ID_CHARS) for x in range(9))
-
-
-from .ryver import * # nopep8
+        return "".join(random.choice(RyverWS._VALID_ID_CHARS) for _ in range(9))

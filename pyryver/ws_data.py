@@ -6,8 +6,8 @@ here when they are started.
 """
 
 import typing
-from .objects import *
-from .util import *
+from . import objects
+from . import ryver as ryver_ # pylint: disable=unused-import
 
 
 class WSMessageData:
@@ -23,16 +23,16 @@ class WSMessageData:
     """
 
     __slots__ = ("ryver", "ws_msg_type", "raw_data")
-    
-    ryver: "Ryver"
+
+    ryver: "ryver_.Ryver"
     ws_msg_type: str
     raw_data: typing.Dict[str, typing.Any]
 
-    def __init__(self, ryver: "Ryver", data: dict):
+    def __init__(self, ryver: "ryver_.Ryver", data: dict):
         self.ryver = ryver
         self.raw_data = data
         self.ws_msg_type = data.get("type")
-    
+
     # For (limited) backwards compatibility
     def __getitem__(self, key):
         return self.raw_data[key]
@@ -60,19 +60,19 @@ class WSChatMessageData(WSMessageData):
     to_jid: str
     text: str
     subtype: str
-    attachment: File
-    creator: Creator
+    attachment: "objects.File"
+    creator: "objects.Creator"
 
-    def __init__(self, ryver: "Ryver", data: dict):
+    def __init__(self, ryver: "ryver_.Ryver", data: dict):
         super().__init__(ryver, data)
         self.message_id = data.get("key")
         self.from_jid = data.get("from")
         self.to_jid = data.get("to")
         self.text = data.get("text")
-        self.subtype = data.get("subtype", ChatMessage.SUBTYPE_CHAT_MESSAGE)
+        self.subtype = data.get("subtype", objects.ChatMessage.SUBTYPE_CHAT_MESSAGE)
         if "extras" in data and "file" in data["extras"]:
             try:
-                self.attachment = File(ryver, data["extras"]["file"])
+                self.attachment = objects.File(ryver, data["extras"]["file"])
             # Failsafe to make sure this never crashes even if the JSON does not contain
             # the right data
             except KeyError:
@@ -80,7 +80,7 @@ class WSChatMessageData(WSMessageData):
         else:
             self.attachment = None
         if "createSource" in data:
-            self.creator = Creator(data["createSource"].get("displayName"), data["createSource"].get("avatar"))
+            self.creator = objects.Creator(data["createSource"].get("displayName"), data["createSource"].get("avatar"))
         else:
             self.creator = None
 
@@ -138,7 +138,7 @@ class WSPresenceChangedData(WSMessageData):
     client: str
     timestamp: str
 
-    def __init__(self, ryver: "Ryver", data: dict):
+    def __init__(self, ryver: "ryver_.Ryver", data: dict):
         super().__init__(ryver, data)
         self.presence = data.get("presence")
         self.from_jid = data.get("from")
@@ -158,12 +158,12 @@ class WSUserTypingData(WSMessageData):
     """
 
     __slots__ = ("from_jid", "to_jid", "state")
-    
+
     from_jid: str
     to_jid: str
     state: str
 
-    def __init__(self, ryver: "Ryver", data: dict):
+    def __init__(self, ryver: "ryver_.Ryver", data: dict):
         super().__init__(ryver, data)
         self.from_jid = data.get("from")
         self.to_jid = data.get("to")
@@ -185,14 +185,11 @@ class WSEventData(WSMessageData):
     """
 
     __slots__ = ("event_type", "event_data")
-    
+
     event_type: str
     event_data: typing.Dict[str, typing.Any]
 
-    def __init__(self, ryver: "Ryver", data: dict):
+    def __init__(self, ryver: "ryver_.Ryver", data: dict):
         super().__init__(ryver, data)
         self.event_type = data.get("topic")
         self.event_data = data.get("data")
-
-
-from .ryver import * # nopep8

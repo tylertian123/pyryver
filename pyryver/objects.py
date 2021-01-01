@@ -7,7 +7,44 @@ import aiohttp
 import datetime
 import typing
 from abc import ABC, abstractmethod
-from .util import *
+from . import ryver as ryver_ # pylint: disable=unused-import
+from . import util
+
+
+#: This constant is used in the various ``edit()`` methods.
+#: It's used to indicate that there should be no change to the value of a field,
+#: in the cases where ``None`` is a valid value.
+NO_CHANGE = type('no_change', (), {"__repr__": lambda x: "NO_CHANGE"})()
+
+TYPE_USER = "users"
+TYPE_FORUM = "forums"
+TYPE_TEAM = "workrooms"
+TYPE_TOPIC = "posts"
+TYPE_TOPIC_REPLY = "postComments"
+TYPE_NOTIFICATION = "userNotifications"
+TYPE_GROUPCHAT_MEMBER = "workroomMembers"
+TYPE_FILE = "files"
+TYPE_STORAGE = "storage"
+TYPE_TASK_BOARD = "taskBoards"
+TYPE_TASK_CATEGORY = "taskCategories"
+TYPE_TASK = "tasks"
+TYPE_TASK_COMMENT = "taskComments"
+
+ENTITY_TYPES = {
+    TYPE_USER: "Entity.User",
+    TYPE_FORUM: "Entity.Forum",
+    TYPE_TEAM: "Entity.Workroom",
+    TYPE_TOPIC: "Entity.Post",
+    TYPE_TOPIC_REPLY: "Entity.Post.Comment",
+    TYPE_NOTIFICATION: "Entity.UserNotification",
+    TYPE_GROUPCHAT_MEMBER: "Entity.Workroom.Member",
+    TYPE_FILE: "Entity.File",
+    TYPE_STORAGE: "Entity.Storage",
+    TYPE_TASK_BOARD: "Entity.Tasks.TaskBoard",
+    TYPE_TASK_CATEGORY: "Entity.Tasks.TaskCategory",
+    TYPE_TASK: "Entity.Tasks.Task",
+    TYPE_TASK_COMMENT: "Entity.Tasks.TaskComment",
+}
 
 
 class Creator:
@@ -25,7 +62,7 @@ class Creator:
     def __init__(self, name: str, avatar: str = ""):
         self.name = name
         self.avatar = avatar
-    
+
     def __repr__(self) -> str:
         return f"pyryver.Creator(name={self.name}, avatar={self.avatar})"
 
@@ -72,7 +109,7 @@ class TaskTag:
                 "border": border_color,
             }
         }
-    
+
     def __repr__(self) -> str:
         return f"pyryver.TaskTag(name={self.get_name()}, text_color={self.get_text_color()}, background_color={self.get_background_color}, border_color={self.get_border_color})"
 
@@ -152,17 +189,17 @@ class Object(ABC):
     # The _OBJ_TYPE of each class inheriting from Object is used during object creation to determine the type
     _OBJ_TYPE = "__object"
 
-    def __init__(self, ryver: "Ryver", data: dict):
-        self._ryver = ryver  # type: Ryver
+    def __init__(self, ryver: "ryver_.Ryver", data: dict):
+        self._ryver = ryver
         self._data = data
         self._id = data["id"]
 
     def __eq__(self, other) -> bool:
         return isinstance(other, Object) and other.get_id() == self.get_id()
-    
+
     def __hash__(self) -> int:
         return self.get_id()
-    
+
     def __repr__(self, **kwargs) -> str:
         try:
             kwargs["name"] = f"'{self.get_name()}'"
@@ -170,13 +207,13 @@ class Object(ABC):
             pass
         args = "".join(f", {k}={v}" for k, v in kwargs.items())
         return f"pyryver.{type(self).__name__}(id={self._id}{args})"
-    
+
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
         # Register types in the dict
         TYPES_DICT[cls._OBJ_TYPE] = cls
 
-    def get_ryver(self) -> "Ryver":
+    def get_ryver(self) -> "ryver_.Ryver":
         """
         Get the Ryver session this object was retrieved from.
 
@@ -201,7 +238,7 @@ class Object(ABC):
 
         :return: The entity type of this object, or if no entity of such type exists, ``<unknown>``.
         """
-        return ENTITY_TYPES.get(self.get_type(), "<unknown>")
+        return util.ENTITY_TYPES.get(self.get_type(), "<unknown>")
 
     def get_raw_data(self) -> dict:
         """
@@ -237,7 +274,7 @@ class Object(ABC):
            None.
 
         .. tip::
-           You can use :py:meth:`pyryver.util.iso8601_to_datetime()` to convert the 
+           You can use :py:meth:`pyryver.util.iso8601_to_datetime()` to convert the
            timestamps returned by this method into a datetime.
 
         :return: The creation date of this object, or None if not supported.
@@ -253,13 +290,13 @@ class Object(ABC):
            None.
 
         .. tip::
-           You can use :py:meth:`pyryver.util.iso8601_to_datetime()` to convert the 
+           You can use :py:meth:`pyryver.util.iso8601_to_datetime()` to convert the
            timestamps returned by this method into a datetime.
 
         :return: The modification date of this object, or None if not supported.
         """
         return self._data.get("modifyDate", None)
-    
+
     def get_app_link(self) -> str:
         """
         Get a link to this object that opens the app to this object.
@@ -276,13 +313,13 @@ class Object(ABC):
         if not self.is_instantiable():
             raise TypeError(f"The type {self.__class__.__name__} is not instantiable!")
         return f"https://{self._ryver.org}.ryver.com/#{self.get_type()}/{self.get_id()}"
-    
+
     def get_creator(self) -> typing.Optional[Creator]:
         """
         Get the Creator of this object.
 
         Note that this is different from the author. Creators are used to
-        override the display name and avatar of a user. If the username and 
+        override the display name and avatar of a user. If the username and
         avatar were not overridden, this will return None.
 
         Not all objects support this operation. If not supported, this will return
@@ -377,7 +414,7 @@ class Object(ABC):
         :return: The type of this object.
         """
         return cls._OBJ_TYPE
-    
+
     @classmethod
     def is_instantiable(cls) -> bool:
         """
@@ -397,10 +434,10 @@ class Object(ABC):
         return not cls.get_type().startswith("__")
 
     @classmethod
-    async def get_by_id(cls, ryver: "Ryver", obj_id: int) -> typing.Type["Object"]:
+    async def get_by_id(cls, ryver: "ryver_.Ryver", obj_id: int) -> typing.Type["Object"]:
         """
         Retrieve an object of this type by ID.
-        
+
         :param ryver: The Ryver session to retrieve the object from.
         :param obj_id: The ID of the object to retrieve.
         :raises TypeError: If this type is not instantiable.
@@ -445,7 +482,7 @@ class Message(Object):
 
     async def react(self, emoji: str) -> None:
         """
-        React to this message with an emoji. 
+        React to this message with an emoji.
 
         .. note::
            This method does **not** update the reactions property of this object.
@@ -548,7 +585,7 @@ class PostedComment(PostedMessage):
         :return: The body of this comment/reply.
         """
         return self._data["comment"]
-    
+
     async def edit(self, message: typing.Optional[str] = NO_CHANGE, creator: typing.Optional[Creator] = NO_CHANGE,
                    attachments: typing.Optional[typing.Iterable[typing.Union["Storage", "File"]]] = NO_CHANGE) -> None:
         """
@@ -556,7 +593,7 @@ class PostedComment(PostedMessage):
 
         .. note::
            You can only edit a comment/reply if it was sent by you (even if you are an
-           admin). Attempting to edit another user's comment/reply will result in a 
+           admin). Attempting to edit another user's comment/reply will result in a
            :py:exc:`aiohttp.ClientResponseError`.
 
            The file attachments (if specified) will **replace** all existing attachments.
@@ -579,8 +616,8 @@ class PostedComment(PostedMessage):
             data["createSource"] = creator.to_dict() if creator is not None else None
         if attachments is not NO_CHANGE and attachments is not None:
             data["attachments"] = {
-                "results": [attachment.get_file().get_raw_data() if isinstance(attachment, Storage) 
-                            and attachment.get_storage_type() == Storage.STORAGE_TYPE_FILE 
+                "results": [attachment.get_file().get_raw_data() if isinstance(attachment, Storage)
+                            and attachment.get_storage_type() == Storage.STORAGE_TYPE_FILE
                             else attachment.get_raw_data() for attachment in attachments]
             }
         await self._ryver._session.patch(url, json=data)
@@ -649,7 +686,7 @@ class Topic(PostedMessage):
             "archived": archived
         }
         await self._ryver._session.patch(url, json=data)
-    
+
     async def unarchive(self) -> None:
         """
         Un-archive this topic.
@@ -687,14 +724,14 @@ class Topic(PostedMessage):
             data["createSource"] = creator.to_dict()
         if attachments:
             data["attachments"] = {
-                "results": [attachment.get_file().get_raw_data() if isinstance(attachment, Storage) 
-                            and attachment.get_storage_type() == Storage.STORAGE_TYPE_FILE 
+                "results": [attachment.get_file().get_raw_data() if isinstance(attachment, Storage)
+                            and attachment.get_storage_type() == Storage.STORAGE_TYPE_FILE
                             else attachment.get_raw_data() for attachment in attachments]
             }
         async with self._ryver._session.post(url, json=data) as resp:
             return TopicReply(self._ryver, (await resp.json())["d"]["results"])
 
-    async def get_replies(self, top: int = -1, skip: int = 0) -> typing.AsyncIterator[TopicReply]:
+    async def get_replies(self, top: int = -1, skip: int = 0) -> typing.AsyncIterable[TopicReply]:
         """
         Get all the replies to this topic.
 
@@ -742,8 +779,8 @@ class Topic(PostedMessage):
             data["createSource"] = creator.to_dict() if creator is not None else None
         if attachments is not NO_CHANGE and attachments is not None:
             data["attachments"] = {
-                "results": [attachment.get_file().get_raw_data() if isinstance(attachment, Storage) 
-                            and attachment.get_storage_type() == Storage.STORAGE_TYPE_FILE 
+                "results": [attachment.get_file().get_raw_data() if isinstance(attachment, Storage)
+                            and attachment.get_storage_type() == Storage.STORAGE_TYPE_FILE
                             else attachment.get_raw_data() for attachment in attachments]
             }
         await self._ryver._session.patch(url, json=data)
@@ -794,7 +831,7 @@ class ChatMessage(Message):
         :return: The type of this message.
         """
         return self._data["messageType"]
-    
+
     def get_subtype(self) -> str:
         """
         Get the subtype of this message (regular message or topic/task announcement).
@@ -810,7 +847,7 @@ class ChatMessage(Message):
         Get the time this message was sent, as an ISO 8601 timestamp.
 
         .. tip::
-           You can use :py:meth:`pyryver.util.iso8601_to_datetime()` to convert the 
+           You can use :py:meth:`pyryver.util.iso8601_to_datetime()` to convert the
            timestamps returned by this method into a datetime.
 
         :return: The time this message was sent, as an ISO 8601 timestamp.
@@ -831,7 +868,7 @@ class ChatMessage(Message):
 
         :return: The type of the chat this message was sent to.
         """
-        return get_type_from_entity(self._data["to"]["__metadata"]["type"])
+        return util.get_type_from_entity(self._data["to"]["__metadata"]["type"])
 
     def get_chat_id(self) -> int:
         """
@@ -869,7 +906,7 @@ class ChatMessage(Message):
             return File(self._ryver, self._data["extras"]["file"])
         else:
             return None
-    
+
     def get_announced_topic_id(self) -> typing.Optional[int]:
         """
         Get the ID of the topic this message is announcing.
@@ -885,7 +922,7 @@ class ChatMessage(Message):
             return self._data["post"]["id"]
         else:
             return None
-    
+
     def get_announced_task_id(self) -> typing.Optional[int]:
         """
         Get the ID of the task this message is announcing.
@@ -925,7 +962,7 @@ class ChatMessage(Message):
     # Override Message.react() because a different URL is used
     async def react(self, emoji: str) -> None:
         """
-        React to this task with an emoji. 
+        React to this task with an emoji.
 
         .. note::
            This method does **not** update the reactions property of this object.
@@ -969,14 +1006,14 @@ class ChatMessage(Message):
         }
         await self._ryver._session.post(url, json=data)
 
-    async def edit(self, message: typing.Optional[str] = NO_CHANGE, creator: typing.Optional[Creator] = NO_CHANGE, 
+    async def edit(self, message: typing.Optional[str] = NO_CHANGE, creator: typing.Optional[Creator] = NO_CHANGE,
                    attachment: typing.Optional[typing.Union["Storage", "File"]] = NO_CHANGE, from_user: typing.Optional["User"] = None) -> None:
         """
         Edit this message.
 
         .. note::
            You can only edit a message if it was sent by you (even if you are an
-           admin). Attempting to edit another user's message will result in a 
+           admin). Attempting to edit another user's message will result in a
            :py:exc:`aiohttp.ClientResponseError`.
 
            This also updates these properties in this object.
@@ -992,7 +1029,7 @@ class ChatMessage(Message):
            is sending the message (the user currently logged in).
 
            It is not required to be set if the message is being sent to a forum/team.
-        
+
         If any parameters are unspecified or :py:const:`NO_CHANGE`, they will be left
         as-is. Passing ``None`` for parameters for which ``None`` is not a valid value
         will also result in the value being unchanged.
@@ -1077,7 +1114,7 @@ class Chat(Object):
         url = self.get_api_url()
         await self._ryver._session.patch(url, json=data)
         self._data["tagDefs"] = data["tagDefs"]
-    
+
     async def _process_attachment(self, message: str, attachment: typing.Union["Storage", "File"],
                                   from_user: "User" = None) -> typing.Dict[str, typing.Any]:
         """
@@ -1085,7 +1122,7 @@ class Chat(Object):
 
         .. warning::
            This method is intended for internal use only.
-        
+
         :param message: The chat message.
         :param attachment: The attachment to process. Can be either a ``Storage`` or a ``File`` object.
         :param from_user: The user that is sending this message (the user currently logged in); **must** be set when using attachments in private messages (optional).
@@ -1168,7 +1205,7 @@ class Chat(Object):
 
            It is not required to be set if the message is being sent to a forum/team.
 
-        Returns the ID of the chat message sent (**not** the message object itself). 
+        Returns the ID of the chat message sent (**not** the message object itself).
         Note that message IDs are strings.
 
         :param message: The message contents.
@@ -1189,7 +1226,7 @@ class Chat(Object):
         async with self._ryver._session.post(url, json=data) as resp:
             return (await resp.json())["d"]["id"]
 
-    async def get_topics(self, archived: bool = False, top: int = -1, skip: int = 0) -> typing.AsyncIterator[Topic]:
+    async def get_topics(self, archived: bool = False, top: int = -1, skip: int = 0) -> typing.AsyncIterable[Topic]:
         """
         Get all the topics in this chat.
 
@@ -1226,7 +1263,7 @@ class Chat(Object):
            There is a chance that this method might result in a 404 Not Found for
            messages that were sent recently (such as when using the realtime
            websocket API (:py:class:`pyryver.ryver_ws.RyverWS`) to respond to
-           messages), as those messages have not been fully added to Ryver's 
+           messages), as those messages have not been fully added to Ryver's
            database yet.
 
            You can use :py:func:`pyryver.util.retry_until_available()` to wrap
@@ -1253,7 +1290,7 @@ class Chat(Object):
            There is a chance that this method might result in a 404 Not Found for
            messages that were sent recently (such as when using the realtime
            websocket API (:py:class:`pyryver.ryver_ws.RyverWS`) to respond to
-           messages), as those messages have not been fully added to Ryver's 
+           messages), as those messages have not been fully added to Ryver's
            database yet.
 
            You can use :py:func:`pyryver.util.retry_until_available()` to wrap
@@ -1290,7 +1327,7 @@ class Chat(Object):
                 return None
             resp.raise_for_status()
             return TaskBoard(self._ryver, (await resp.json())["d"]["results"])
-    
+
     async def delete_task_board(self) -> bool:
         """
         Delete (or "reset", according to the UI) the task board of this chat.
@@ -1303,8 +1340,8 @@ class Chat(Object):
         url = self.get_api_url(action="TaskBoard.Delete()")
         async with self._ryver._session.post(url) as resp:
             return (await resp.json())["d"]
-    
-    async def create_task_board(self, board_type: str, prefix: typing.Optional[str] = None, 
+
+    async def create_task_board(self, board_type: str, prefix: typing.Optional[str] = None,
                                 categories: typing.Optional[typing.List[typing.Union[str, typing.Tuple[str, str]]]] = None,
                                 uncategorized_name: typing.Optional[str] = None) -> "TaskBoard":
         """
@@ -1325,7 +1362,7 @@ class Chat(Object):
         You can, however, change the name of the default "Uncategorized" category by
         specifying ``uncategorized_name``.
 
-        Categories should not be specified if the type of the task board is 
+        Categories should not be specified if the type of the task board is
         :py:attr:`TaskBoard.BOARD_TYPE_LIST`.
 
         :param board_type: The type of the task board.
@@ -1368,14 +1405,14 @@ class Chat(Object):
         url = self.get_api_url(action="TaskBoard.Create()")
         async with self._ryver._session.post(url, json=data) as resp:
             return TaskBoard(self._ryver, (await resp.json()))
-    
+
     async def delete_avatar(self) -> None:
         """
         Delete the avatar of this chat.
         """
         url = self.get_api_url(action="Contatta.Storage.DeleteAvatars()")
         await self._ryver._session.post(url)
-    
+
     async def set_avatar(self, filename: str, filedata: typing.Any, filetype: typing.Optional[str] = None) -> None:
         """
         Set the avatar of this chat.
@@ -1441,7 +1478,7 @@ class User(Chat):
         """
         Get this user's role in their profile.
 
-        .. note:: 
+        .. note::
            This is different from :py:meth:`get_roles()`. While this one gets the "Role"
            of the user from the profile, ``get_roles()`` gets the user's roles in the
            organization (user, guest, admin).
@@ -1486,7 +1523,7 @@ class User(Chat):
         """
         Get this user's role in the organization.
 
-        .. note:: 
+        .. note::
            This is different from :py:meth:`get_role()`. While this one gets the user's
            roles in the organization (user, guest, admin), ``get_role()`` gets the
            user's role from their profile.
@@ -1494,7 +1531,7 @@ class User(Chat):
         :return: The user's roles in the organization.
         """
         return self._data["roles"]
-    
+
     def get_user_type(self) -> str:
         """
         Get the type of this user (member or guest).
@@ -1513,7 +1550,7 @@ class User(Chat):
         :return: Whether the user is an org admin.
         """
         return User.ROLE_ADMIN in self.get_roles()
-    
+
     def accepted_invite(self) -> bool:
         """
         Get whether this user has accepted their user invite.
@@ -1581,7 +1618,7 @@ class User(Chat):
         # Admins also have the normal user role
         if role == User.ROLE_ADMIN:
             self._data["roles"].append(User.ROLE_USER)
-    
+
     async def add_to_chat(self, chat: "GroupChat", role: typing.Optional[str] = None) -> None:
         """
         Add a user to a forum/team.
@@ -1652,8 +1689,8 @@ class User(Chat):
             data["createSource"] = creator.to_dict()
         if attachments:
             data["attachments"] = {
-                "results": [attachment.get_file().get_raw_data() if isinstance(attachment, Storage) 
-                            and attachment.get_storage_type() == Storage.STORAGE_TYPE_FILE 
+                "results": [attachment.get_file().get_raw_data() if isinstance(attachment, Storage)
+                            and attachment.get_storage_type() == Storage.STORAGE_TYPE_FILE
                             else attachment.get_raw_data() for attachment in attachments]
             }
         async with self._ryver._session.post(url, json=data) as resp:
@@ -1694,7 +1731,7 @@ class GroupChatMember(Object):
         :return: The member as a ``User`` object.
         """
         return await self.get_deferred_field("member", TYPE_USER)
-    
+
     def get_name(self) -> str:
         """
         Get the display name of this member.
@@ -1711,14 +1748,14 @@ class GroupChatMember(Object):
         :return: Whether this user is a forum admin/team admin.
         """
         return GroupChatMember.ROLE_ADMIN == self.get_role()
-    
+
     async def remove(self) -> None:
         """
         Remove this member from the forum/team.
         """
         url = self.get_api_url(action="Remove()")
         await self._ryver._session.post(url)
-    
+
     async def set_role(self, role: str) -> None:
         """
         Set the role of this member (regular member or admin).
@@ -1761,7 +1798,7 @@ class GroupChat(Chat):
         :return: The nickname of this forum/team.
         """
         return self._data["nickname"]
-    
+
     def has_chat(self) -> bool:
         """
         Get whether this forum/team has a chat tab.
@@ -1769,7 +1806,7 @@ class GroupChat(Chat):
         :return: Whether there is a chat tab for this forum/team.
         """
         return "chat" in self._data["tabs"]
-    
+
     def has_topics(self) -> bool:
         """
         Get whether this forum/team has a topics tab.
@@ -1777,7 +1814,7 @@ class GroupChat(Chat):
         :return: Whether there is a topics tab for this forum/team.
         """
         return "post" in self._data["tabs"]
-    
+
     def has_tasks(self) -> bool:
         """
         Get whether this forum/team has a tasks tab.
@@ -1793,7 +1830,7 @@ class GroupChat(Chat):
         :return: Whether new topics are announced with a chat message.
         """
         return self._data["sharePosts"]
-    
+
     def does_announce_tasks(self) -> bool:
         """
         Get whether new tasks are announced with a chat message.
@@ -1801,7 +1838,7 @@ class GroupChat(Chat):
         :return: Whether new tasks are announced with a chat message.
         """
         return self._data["shareTasks"]
-    
+
     def is_archived(self) -> bool:
         """
         Get whether this team/forum is archived.
@@ -1810,7 +1847,7 @@ class GroupChat(Chat):
         """
         return not self._data["active"]
 
-    async def get_members(self, top: int = -1, skip: int = 0) -> typing.AsyncIterator[GroupChatMember]:
+    async def get_members(self, top: int = -1, skip: int = 0) -> typing.AsyncIterable[GroupChatMember]:
         """
         Get all the members of this chat.
 
@@ -1851,7 +1888,7 @@ class GroupChat(Chat):
         async with self._ryver._session.get(url) as resp:
             member = (await resp.json())["d"]["results"]
         return GroupChatMember(self._ryver, member[0]) if member else None
-    
+
     async def add_member(self, user: User, role: str = None) -> None:
         """
         Add a member to this forum or team.
@@ -1924,13 +1961,13 @@ class GroupChat(Chat):
             data["createSource"] = creator.to_dict()
         if attachments:
             data["attachments"] = {
-                "results": [attachment.get_file().get_raw_data() if isinstance(attachment, Storage) 
-                            and attachment.get_storage_type() == Storage.STORAGE_TYPE_FILE 
+                "results": [attachment.get_file().get_raw_data() if isinstance(attachment, Storage)
+                            and attachment.get_storage_type() == Storage.STORAGE_TYPE_FILE
                             else attachment.get_raw_data() for attachment in attachments]
             }
         async with self._ryver._session.post(url, json=data) as resp:
             return Topic(self._ryver, (await resp.json())["d"]["results"])
-    
+
     async def change_settings(self, chat: typing.Optional[bool] = NO_CHANGE, topics: typing.Optional[bool] = NO_CHANGE,
                               tasks: typing.Optional[bool] = NO_CHANGE, announce_topics: typing.Optional[bool] = NO_CHANGE,
                               announce_tasks: typing.Optional[bool] = NO_CHANGE) -> None:
@@ -1939,12 +1976,12 @@ class GroupChat(Chat):
 
         .. note::
            The settings here contain only the settings in the "Settings" tab in the UI.
-        
+
            This method also updates these properties in this object.
 
         If any parameters are unspecified, :py:const:`NO_CHANGE`, or ``None``, they will
         be left as-is.
-        
+
         :param chat: Whether there should be a chat tab for this forum/team (optional).
         :param topics: Whether there should be a topics tab for this forum/team (optional).
         :param tasks: Whether there should be a tasks tab for this form/team (optional).
@@ -1978,7 +2015,7 @@ class GroupChat(Chat):
             data["shareTasks"] = announce_tasks
         await self._ryver._session.patch(url, json=data)
         self._data.update(data)
-    
+
     async def set_archived(self, archived: bool) -> None:
         """
         Set whether this team/forum is archived.
@@ -1994,7 +2031,7 @@ class GroupChat(Chat):
         }
         await self._ryver._session.patch(url, json=data)
         self._data["active"] = not archived
-    
+
     async def delete(self) -> None:
         """
         Delete this forum/team.
@@ -2003,13 +2040,13 @@ class GroupChat(Chat):
         """
         url = self.get_api_url()
         await self._ryver._session.delete(url)
-    
+
     async def join(self) -> None:
         """
         Join this forum/team as the current logged in user.
         """
         await self._ryver._session.post(self.get_api_url("Team.Join()", format="json"))
-    
+
     async def leave(self) -> None:
         """
         Leave this forum/team as the current logged in user.
@@ -2097,7 +2134,7 @@ class TaskBoard(Object):
         """
         return self._data["shortPrefix"]
 
-    async def get_categories(self, top: int = -1, skip: int = 0) -> typing.AsyncIterator["TaskCategory"]:
+    async def get_categories(self, top: int = -1, skip: int = 0) -> typing.AsyncIterable["TaskCategory"]:
         """
         Get all the categories in this task board.
 
@@ -2132,7 +2169,7 @@ class TaskBoard(Object):
         async with self._ryver._session.post(url, json=data) as resp:
             return TaskCategory(self._ryver, (await resp.json())["d"]["results"])
 
-    async def get_tasks(self, archived: typing.Optional[bool] = None, top: int = -1, skip: int = 0) -> typing.AsyncIterator["Task"]:
+    async def get_tasks(self, archived: typing.Optional[bool] = None, top: int = -1, skip: int = 0) -> typing.AsyncIterable["Task"]:
         """
         Get all the tasks in this task board.
 
@@ -2224,7 +2261,7 @@ class TaskBoard(Object):
         url = self._ryver.get_api_url(TYPE_TASK)
         async with self._ryver._session.post(url, json=data) as resp:
             return Task(self._ryver, (await resp.json())["d"]["results"])
-    
+
     async def get_chat(self) -> Chat:
         """
         Get the chat this task board is in.
@@ -2393,7 +2430,7 @@ class TaskCategory(Object):
            The first user-created category that is shown in the UI has a position of 1.
            This is because the "Uncategorized" category, which is present in all task
            boards, always has a position of 0, even when it's not shown (when there are
-           no uncategorized tasks). 
+           no uncategorized tasks).
 
            Therefore, no user-created task category can ever be moved to position 0,
            and the "Uncategorized" category should never be moved.
@@ -2416,7 +2453,7 @@ class TaskCategory(Object):
             action=f"TaskCategory.MoveTasks(moveTo={category.get_id()},completeOnly={'true' if completed_only else 'false'})")
         await self._ryver._session.post(url)
 
-    async def get_tasks(self, archived: typing.Optional[bool] = None, top: int = -1, skip: int = 0) -> typing.AsyncIterator["Task"]:
+    async def get_tasks(self, archived: typing.Optional[bool] = None, top: int = -1, skip: int = 0) -> typing.AsyncIterable["Task"]:
         """
         Get all the tasks in this category.
 
@@ -2472,7 +2509,7 @@ class Task(PostedMessage):
         If there is no due date, this method will return None.
 
         .. tip::
-           You can use :py:meth:`pyryver.util.iso8601_to_datetime()` to convert the 
+           You can use :py:meth:`pyryver.util.iso8601_to_datetime()` to convert the
            timestamps returned by this method into a datetime.
 
         :return: The due date of this task.
@@ -2486,7 +2523,7 @@ class Task(PostedMessage):
         If the task has not been completed, this method will return None.
 
         .. tip::
-           You can use :py:meth:`pyryver.util.iso8601_to_datetime()` to convert the 
+           You can use :py:meth:`pyryver.util.iso8601_to_datetime()` to convert the
            timestamps returned by this method into a datetime.
 
         :return: The completion date of this task.
@@ -2503,7 +2540,7 @@ class Task(PostedMessage):
 
     def get_short_repr(self) -> typing.Optional[str]:
         """
-        Get the short representation of this task. 
+        Get the short representation of this task.
 
         This is can be used to reference this task across Ryver.
         It has the form PREFIX-ID, and is also unique across the entire organization.
@@ -2581,7 +2618,7 @@ class Task(PostedMessage):
         is complete.
 
         An optional completion time can be specified in the form of an ISO 8601
-        timestamp with a timezone offset. If not specified or an empty string, the 
+        timestamp with a timezone offset. If not specified or an empty string, the
         current time will be used.
 
         .. tip::
@@ -2602,7 +2639,7 @@ class Task(PostedMessage):
         :param time: The completion time (optional).
         """
         if time == "":
-            time = datetime_to_iso8601(
+            time = util.datetime_to_iso8601(
                 datetime.datetime.now(datetime.timezone.utc))
         url = self.get_api_url()
         data = {
@@ -2648,7 +2685,7 @@ class Task(PostedMessage):
         Mark this task as uncomplete.
         """
         await self.set_complete_date(None)
-    
+
     async def archive(self, archived: bool = True) -> None:
         """
         Archive or un-archive this task.
@@ -2657,7 +2694,7 @@ class Task(PostedMessage):
         """
         url = self.get_api_url("Task.Archive()" if archived else "Task.Unarchive()")
         await self._ryver._session.post(url)
-    
+
     async def unarchive(self) -> None:
         """
         Un-archive this task.
@@ -2679,7 +2716,7 @@ class Task(PostedMessage):
         await self._ryver._session.post(url)
         self._data["position"] = position
 
-    async def get_checklist(self, top: int = -1, skip: int = 0) -> typing.AsyncIterator["Task"]:
+    async def get_checklist(self, top: int = -1, skip: int = 0) -> typing.AsyncIterable["Task"]:
         """
         Get the checklist items of this task (subtasks).
 
@@ -2752,11 +2789,11 @@ class Task(PostedMessage):
         }
         url = self.get_api_url()
         await self._ryver._session.patch(url, json=data)
-    
-    async def edit(self, subject: typing.Optional[str] = NO_CHANGE, body: typing.Optional[str] = NO_CHANGE, 
-                   category: typing.Optional["TaskCategory"] = NO_CHANGE, 
+
+    async def edit(self, subject: typing.Optional[str] = NO_CHANGE, body: typing.Optional[str] = NO_CHANGE,
+                   category: typing.Optional["TaskCategory"] = NO_CHANGE,
                    assignees: typing.Optional[typing.Iterable[User]] = NO_CHANGE,
-                   due_date: typing.Optional[str] = NO_CHANGE, 
+                   due_date: typing.Optional[str] = NO_CHANGE,
                    tags: typing.Optional[typing.Union[typing.List[str], typing.List[TaskTag]]] = NO_CHANGE,
                    attachments: typing.Optional[typing.Iterable[typing.Union["Storage", "File"]]] = NO_CHANGE) -> None:
         """
@@ -2768,10 +2805,10 @@ class Task(PostedMessage):
            The file attachments (if specified) will **replace** all existing attachments.
 
            Additionally, this method also updates these properties in this object.
-        
+
         .. note::
            While a value of ``None`` for the category in :py:meth:`TaskBoard.create_task()`
-           will result in the task being placed in the "Uncategorized" category, 
+           will result in the task being placed in the "Uncategorized" category,
            ``None`` is not a valid value for the category in this method, and if used
            will result in the category being unmodified.
 
@@ -2834,8 +2871,8 @@ class Task(PostedMessage):
         url = self.get_api_url()
         await self._ryver._session.patch(url, json=data)
         self._data.update(data)
-    
-    async def get_comments(self, top: int = -1, skip: int = 0) -> typing.AsyncIterator["TaskComment"]:
+
+    async def get_comments(self, top: int = -1, skip: int = 0) -> typing.AsyncIterable["TaskComment"]:
         """
         Get all the comments on this task.
 
@@ -2846,7 +2883,7 @@ class Task(PostedMessage):
         url = self.get_api_url(action="comments")
         async for comment in self._ryver.get_all(url, top, skip):
             yield TaskComment(self._ryver, comment) #NOSONAR
-    
+
     async def comment(self, message: str, attachments: typing.Optional[typing.Iterable[typing.Union["Storage", "File"]]] = None,
                       creator: typing.Optional[Creator] = None,) -> "TaskComment":
         """
@@ -2859,7 +2896,7 @@ class Task(PostedMessage):
            To attach files to the comment, use :py:meth:`pyryver.ryver.Ryver.upload_file()`
            to upload the files you wish to attach. Alternatively, use
            :py:meth:`pyryver.ryver.Ryver.create_link()` for link attachments.
-        
+
         .. versionchanged:: 0.4.0
            Switched the order of attachments and creator for consistency.
 
@@ -2879,8 +2916,8 @@ class Task(PostedMessage):
             data["createSource"] = creator.to_dict()
         if attachments:
             data["attachments"] = {
-                "results": [attachment.get_file().get_raw_data() if isinstance(attachment, Storage) 
-                            and attachment.get_storage_type() == Storage.STORAGE_TYPE_FILE 
+                "results": [attachment.get_file().get_raw_data() if isinstance(attachment, Storage)
+                            and attachment.get_storage_type() == Storage.STORAGE_TYPE_FILE
                             else attachment.get_raw_data() for attachment in attachments]
             }
         async with self._ryver._session.post(url, json=data) as resp:
@@ -2963,7 +3000,7 @@ class Notification(Object):
         Get the "subjects" of this notification.
 
         The exact nature of this field is not yet known, but it seems to be the
-        user that did the action which caused this notification. It is also 
+        user that did the action which caused this notification. It is also
         unknown why this is an array, as it seems to only ever contain one
         element.
 
@@ -3066,7 +3103,7 @@ class Notification(Object):
         """
         Set the read/unread and seen/unseen (new) status of this notification.
 
-        .. note:: 
+        .. note::
            This also updates these properties in this object.
         """
         data = {
@@ -3261,7 +3298,7 @@ class Storage(Object):
         url = self._ryver.get_api_url(
             Storage.STORAGE_TYPE_FILE, self.get_content_id(), format="json")
         await self._ryver._session.delete(url)
-    
+
     async def make_avatar_of(self, chat: Chat) -> None:
         """
         Make this image an avatar of a chat.
@@ -3306,6 +3343,3 @@ def get_obj_by_field(objs: typing.Iterable[Object], field: str, value: typing.An
             if obj._data[field] == value:
                 return obj
     return None
-
-
-from .ryver import *  # nopep8

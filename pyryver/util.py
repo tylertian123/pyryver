@@ -7,41 +7,8 @@ import asyncio
 import datetime
 import typing
 
+from . import objects
 
-#: This constant is used in the various ``edit()`` methods.
-#: It's used to indicate that there should be no change to the value of a field,
-#: in the cases where ``None`` is a valid value.
-NO_CHANGE = type('no_change', (), {"__repr__": lambda x: "NO_CHANGE"})()
-
-TYPE_USER = "users"
-TYPE_FORUM = "forums"
-TYPE_TEAM = "workrooms"
-TYPE_TOPIC = "posts"
-TYPE_TOPIC_REPLY = "postComments"
-TYPE_NOTIFICATION = "userNotifications"
-TYPE_GROUPCHAT_MEMBER = "workroomMembers"
-TYPE_FILE = "files"
-TYPE_STORAGE = "storage"
-TYPE_TASK_BOARD = "taskBoards"
-TYPE_TASK_CATEGORY = "taskCategories"
-TYPE_TASK = "tasks"
-TYPE_TASK_COMMENT = "taskComments"
-
-ENTITY_TYPES = {
-    TYPE_USER: "Entity.User",
-    TYPE_FORUM: "Entity.Forum",
-    TYPE_TEAM: "Entity.Workroom",
-    TYPE_TOPIC: "Entity.Post",
-    TYPE_TOPIC_REPLY: "Entity.Post.Comment",
-    TYPE_NOTIFICATION: "Entity.UserNotification",
-    TYPE_GROUPCHAT_MEMBER: "Entity.Workroom.Member",
-    TYPE_FILE: "Entity.File",
-    TYPE_STORAGE: "Entity.Storage",
-    TYPE_TASK_BOARD: "Entity.Tasks.TaskBoard",
-    TYPE_TASK_CATEGORY: "Entity.Tasks.TaskCategory",
-    TYPE_TASK: "Entity.Tasks.Task",
-    TYPE_TASK_COMMENT: "Entity.Tasks.TaskComment",
-}
 
 # Field names for get_obj_by_field
 FIELD_USERNAME = "username"
@@ -82,13 +49,13 @@ def get_type_from_entity(entity_type: str) -> typing.Optional[str]:
     :param entity_type: The entity type of the object.
     :return: The regular type of the object, or None if an invalid type.
     """
-    for t, e in ENTITY_TYPES.items():
+    for t, e in objects.ENTITY_TYPES.items():
         if e == entity_type:
             return t
     return None
 
 
-_T = typing.TypeVar("T")
+_T = typing.TypeVar("_T")
 
 
 async def retry_until_available(action: typing.Callable[..., typing.Awaitable[_T]], *args,

@@ -15,8 +15,9 @@ Currently, the lists of all users, forums, and teams can be cached.
 import json
 import os
 import typing
-from .objects import *
 from abc import ABC, abstractmethod
+from . import objects
+from . import ryver as ryver_ # pylint: disable=unused-import
 
 
 class AbstractCacheStorage(ABC):
@@ -28,7 +29,7 @@ class AbstractCacheStorage(ABC):
     """
 
     @abstractmethod
-    def load(self, ryver: "Ryver", obj_type: str) -> typing.List[Object]:
+    def load(self, ryver: "ryver_.Ryver", obj_type: str) -> typing.List["objects.Object"]:
         """
         Load all saved objects of a specific type.
 
@@ -40,7 +41,7 @@ class AbstractCacheStorage(ABC):
         """
 
     @abstractmethod
-    def save(self, obj_type: str, data: typing.Iterable[Object]) -> None:
+    def save(self, obj_type: str, data: typing.Iterable["objects.Object"]) -> None:
         """
         Save all objects of a specific type.
 
@@ -64,7 +65,7 @@ class FileCacheStorage(AbstractCacheStorage):
         self._root_dir = root_dir
         self._prefix = prefix
 
-    def load(self, ryver: "Ryver", obj_type: str) -> typing.List[Object]:
+    def load(self, ryver: "ryver_.Ryver", obj_type: str) -> typing.List["objects.Object"]:
         """
         Load all saved objects of a specific type.
 
@@ -83,9 +84,9 @@ class FileCacheStorage(AbstractCacheStorage):
         except json.JSONDecodeError:
             print("Warning: Invalid JSON in cache")
             return []
-        return [TYPES_DICT[obj_type](ryver, obj_data) for obj_data in data]
+        return [objects.TYPES_DICT[obj_type](ryver, obj_data) for obj_data in data]
 
-    def save(self, obj_type: str, data: typing.Iterable[Object]) -> None:
+    def save(self, obj_type: str, data: typing.Iterable["objects.Object"]) -> None:
         """
         Save all objects of a specific type.
 
@@ -96,6 +97,3 @@ class FileCacheStorage(AbstractCacheStorage):
         obj_data = [obj.get_raw_data() for obj in data]
         with open(name, "w") as f:
             json.dump(obj_data, f)
-
-
-from .ryver import *  # nopep8

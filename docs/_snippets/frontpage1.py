@@ -6,12 +6,12 @@ async def main():
     async with pyryver.Ryver("my_organization", "my_username", "my_password") as ryver:
         # Load all chats
         await ryver.load_chats()
-        
+
         # get a user by username
         my_friend = ryver.get_user(username="tylertian123")
         me = ryver.get_user(username="my_username")
         # send a message to a chat (in this case a DM)
-        await my_friend.send_message("hello there") 
+        await my_friend.send_message("hello there")
 
         # connect to the websockets interface
         async with ryver.get_live_session(auto_reconnect=True) as session:
@@ -25,7 +25,7 @@ async def main():
                     # This could be either a user (for a private message) or a forum/team
                     chat = ryver.get_chat(jid=msg.to_jid)
                     await chat.send_message("hi")
-        
+
             # run until session.terminate() is called
             await session.run_forever()
 

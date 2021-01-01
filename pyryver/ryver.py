@@ -5,12 +5,12 @@ application using pyryver.
 
 import aiohttp
 import typing
-from . import doc
 from getpass import getpass
 from pyryver import ryver_ws
-from .util import *
-from .objects import *
-from .cache_storage import *
+from . import cache_storage # pylint: disable=unused-import
+from . import doc
+from . import objects
+from . import util
 
 
 class Ryver:
@@ -19,7 +19,7 @@ class Ryver:
 
     This is the starting point for any application using pyryver.
 
-    If the organization, it will be prompted using input(). 
+    If the organization, it will be prompted using input().
     If the username or password are not provided, and the token is not provided,
     the username and password will be prompted.
 
@@ -41,7 +41,7 @@ class Ryver:
 
     def __init__(self, org: typing.Optional[str] = None, user: typing.Optional[str] = None,
                  password: typing.Optional[str] = None, token: typing.Optional[str] = None,
-                 cache: typing.Optional[typing.Type[AbstractCacheStorage]] = None):
+                 cache: typing.Optional[typing.Type["cache_storage.AbstractCacheStorage"]] = None):
         if org is None:
             org = input("Organization: ")
         if user is None and token is None:
@@ -51,7 +51,7 @@ class Ryver:
 
         self._org = org
         self._user = user
-        
+
         self._url_prefix = "https://" + org + ".ryver.com/api/1/odata.svc/"
         if token is None:
             self._session = aiohttp.ClientSession(
@@ -66,9 +66,9 @@ class Ryver:
         self._cache = cache
         # Try to load from cache if it exists
         if cache:
-            self.users = cache.load(self, TYPE_USER) or None
-            self.forums = cache.load(self, TYPE_FORUM) or None
-            self.teams = cache.load(self, TYPE_TEAM) or None
+            self.users = cache.load(self, objects.TYPE_USER) or None
+            self.forums = cache.load(self, objects.TYPE_FORUM) or None
+            self.teams = cache.load(self, objects.TYPE_TEAM) or None
         else:
             self.users = None
             self.forums = None
@@ -87,7 +87,7 @@ class Ryver:
     async def __aexit__(self, exc, *exc_info):
         return await self._session.__aexit__(exc, *exc_info)
 
-    async def _get_chats(self, obj_type: str, top: int = -1, skip: int = 0) -> typing.List[Chat]:
+    async def _get_chats(self, obj_type: str, top: int = -1, skip: int = 0) -> typing.List["objects.Chat"]:
         """
         Get a list of chats (teams, forums, users, etc) from Ryver.
 
@@ -103,7 +103,7 @@ class Ryver:
         :return: The chats.
         """
         url = self.get_api_url(obj_type)
-        return [TYPES_DICT[obj_type](self, chat) async for chat in self.get_all(url=url, top=top, skip=skip)]
+        return [objects.TYPES_DICT[obj_type](self, chat) async for chat in self.get_all(url=url, top=top, skip=skip)]
 
     async def close(self):
         """
@@ -123,8 +123,8 @@ class Ryver:
         If any parameter is unspecified, they will be omitted.
 
         If extra keyword arguments are supplied, they are appended to the request
-        as additional query parameters. Possible values include ``top``, ``skip``, 
-        ``select``, ``expand`` and more. 
+        as additional query parameters. Possible values include ``top``, ``skip``,
+        ``select``, ``expand`` and more.
         The `Ryver Developer Docs <https://api.ryver.com/ryvrest_api_examples.html>`_
         contains documentation for some of these parameters.
 
@@ -148,7 +148,7 @@ class Ryver:
             url += "?" + "&".join(f"${k}={v}" for k, v in kwargs.items())
         return url
 
-    async def get_all(self, url: str, top: int = -1, skip: int = 0) -> typing.AsyncIterator[dict]:
+    async def get_all(self, url: str, top: int = -1, skip: int = 0) -> typing.AsyncIterable[dict]:
         """
         Get all objects from an URL, without the typical 50 result limit.
 
@@ -180,13 +180,13 @@ class Ryver:
             skip += len(page)
 
     async def get_object(self, obj_type: typing.Union[str, type], obj_id: typing.Optional[int] = None,
-                         **kwargs) -> typing.Union[typing.Type[Object], typing.List[typing.Type[Object]]]:
+                         **kwargs) -> typing.Union[typing.Type["objects.Object"], typing.List[typing.Type["objects.Object"]]]:
         """
         Get an object or multiple objects from Ryver with a type and optionally ID.
 
         If extra keyword arguments are supplied, they are appended to the request
-        as additional query parameters. Possible values include ``top``, ``skip``, 
-        ``select``, ``expand`` and more. 
+        as additional query parameters. Possible values include ``top``, ``skip``,
+        ``select``, ``expand`` and more.
         The `Ryver Developer Docs <https://api.ryver.com/ryvrest_api_examples.html>`_
         or `OData Specification <https://www.odata.org/documentation/odata-version-2-0/uri-conventions/>`_
         contains documentation for some of these parameters. (Note: The link is to Odata
@@ -212,9 +212,9 @@ class Ryver:
         async with self._session.get(self.get_api_url(obj_type, obj_id, action=None, **kwargs)) as resp:
             data = (await resp.json())["d"]["results"]
             if isinstance(data, list):
-                return [TYPES_DICT[obj_type](self, obj_data) for obj_data in data]
+                return [objects.TYPES_DICT[obj_type](self, obj_data) for obj_data in data]
             else:
-                return TYPES_DICT[obj_type](self, (await resp.json())["d"]["results"])
+                return objects.TYPES_DICT[obj_type](self, (await resp.json())["d"]["results"])
 
     async def load_users(self) -> None:
         """
@@ -222,9 +222,9 @@ class Ryver:
 
         This refreshes the cached data if a cache is supplied.
         """
-        self.users = await self._get_chats(TYPE_USER)
+        self.users = await self._get_chats(objects.TYPE_USER)
         if self._cache:
-            self._cache.save(TYPE_USER, self.users)
+            self._cache.save(objects.TYPE_USER, self.users)
 
     async def load_forums(self) -> None:
         """
@@ -232,9 +232,9 @@ class Ryver:
 
         This refreshes the cached data if a cache is supplied.
         """
-        self.forums = await self._get_chats(TYPE_FORUM)
+        self.forums = await self._get_chats(objects.TYPE_FORUM)
         if self._cache:
-            self._cache.save(TYPE_FORUM, self.forums)
+            self._cache.save(objects.TYPE_FORUM, self.forums)
 
     async def load_teams(self) -> None:
         """
@@ -242,23 +242,23 @@ class Ryver:
 
         This refreshes the cached data if a cache is supplied.
         """
-        self.teams = await self._get_chats(TYPE_TEAM)
+        self.teams = await self._get_chats(objects.TYPE_TEAM)
         if self._cache:
-            self._cache.save(TYPE_TEAM, self.teams)
+            self._cache.save(objects.TYPE_TEAM, self.teams)
 
     async def load_chats(self) -> None:
         """
-        Load the data of all users/teams/forums. 
+        Load the data of all users/teams/forums.
 
         This refreshes the cached data if a cache is supplied.
         """
-        self.users = await self._get_chats(TYPE_USER)
-        self.forums = await self._get_chats(TYPE_FORUM)
-        self.teams = await self._get_chats(TYPE_TEAM)
+        self.users = await self._get_chats(objects.TYPE_USER)
+        self.forums = await self._get_chats(objects.TYPE_FORUM)
+        self.teams = await self._get_chats(objects.TYPE_TEAM)
         if self._cache:
-            self._cache.save(TYPE_USER, self.users)
-            self._cache.save(TYPE_FORUM, self.forums)
-            self._cache.save(TYPE_TEAM, self.teams)
+            self._cache.save(objects.TYPE_USER, self.users)
+            self._cache.save(objects.TYPE_FORUM, self.forums)
+            self._cache.save(objects.TYPE_TEAM, self.teams)
 
     async def load_missing_chats(self) -> None:
         """
@@ -275,7 +275,7 @@ class Ryver:
         if self.teams is None:
             await self.load_teams()
 
-    def get_user(self, **kwargs) -> typing.Optional[User]:
+    def get_user(self, **kwargs) -> typing.Optional["objects.User"]:
         """
         Get a specific user.
 
@@ -310,11 +310,11 @@ class Ryver:
         if field == "username" or field == "email":
             case_sensitive = False
         try:
-            return get_obj_by_field(self.users, FIELD_NAMES[field], value, case_sensitive)
+            return util.get_obj_by_field(self.users, util.FIELD_NAMES[field], value, case_sensitive)
         except KeyError:
             raise ValueError("Invalid query parameter!") # pylint: disable=raise-missing-from
 
-    def get_groupchat(self, forums: bool = True, teams: bool = True, **kwargs) -> typing.Optional[GroupChat]:
+    def get_groupchat(self, forums: bool = True, teams: bool = True, **kwargs) -> typing.Optional["objects.GroupChat"]:
         """
         Get a specific forum/team.
 
@@ -355,14 +355,14 @@ class Ryver:
         try:
             obj = None
             if forums:
-                obj = get_obj_by_field(self.forums, FIELD_NAMES[field], value, case_sensitive)
+                obj = objects.get_obj_by_field(self.forums, util.FIELD_NAMES[field], value, case_sensitive)
             if teams and obj is None:
-                obj = get_obj_by_field(self.teams, FIELD_NAMES[field], value, case_sensitive)
+                obj = objects.get_obj_by_field(self.teams, util.FIELD_NAMES[field], value, case_sensitive)
             return obj
         except KeyError:
             raise ValueError("Invalid query parameter!") # pylint: disable=raise-missing-from
-    
-    def get_forum(self, **kwargs) -> typing.Optional[Forum]:
+
+    def get_forum(self, **kwargs) -> typing.Optional["objects.Forum"]:
         """
         Get a specific forum.
 
@@ -385,8 +385,8 @@ class Ryver:
         :return: The chat, or None if not found.
         """
         return self.get_groupchat(forums=True, teams=False, **kwargs)
-    
-    def get_team(self, **kwargs) -> typing.Optional[Forum]:
+
+    def get_team(self, **kwargs) -> typing.Optional["objects.Team"]:
         """
         Get a specific team.
 
@@ -410,7 +410,7 @@ class Ryver:
         """
         return self.get_groupchat(forums=False, teams=True, **kwargs)
 
-    def get_chat(self, **kwargs) -> typing.Optional[Chat]:
+    def get_chat(self, **kwargs) -> typing.Optional["objects.Chat"]:
         """
         Get a specific forum/team/user.
 
@@ -440,11 +440,11 @@ class Ryver:
         if field == "username" or field == "email" or field == "nickname":
             case_sensitive = False
         try:
-            return get_obj_by_field(self.forums + self.teams + self.users, FIELD_NAMES[field], value, case_sensitive)
+            return util.get_obj_by_field(self.forums + self.teams + self.users, util.FIELD_NAMES[field], value, case_sensitive)
         except KeyError:
             raise ValueError("Invalid query parameter!") # pylint: disable=raise-missing-from
 
-    async def get_notifs(self, unread: bool = False, top: int = -1, skip: int = 0) -> typing.AsyncIterator[Notification]:
+    async def get_notifs(self, unread: bool = False, top: int = -1, skip: int = 0) -> typing.AsyncIterable["objects.Notification"]:
         """
         Get the notifications for the logged in user.
 
@@ -454,14 +454,14 @@ class Ryver:
         :return: An async iterator for the user's notifications.
         """
         if unread:
-            url = self.get_api_url(TYPE_NOTIFICATION, format="json",
+            url = self.get_api_url(objects.TYPE_NOTIFICATION, format="json",
                                    orderby="modifyDate desc", filter="((unread eq true))")
         else:
             url = self.get_api_url(
-                TYPE_NOTIFICATION, format="json", orderby="modifyDate desc")
+                objects.TYPE_NOTIFICATION, format="json", orderby="modifyDate desc")
 
         async for notif in self.get_all(url=url, top=top, skip=skip):
-            yield Notification(self, notif) #NOSONAR
+            yield objects.Notification(self, notif) #NOSONAR
 
     async def mark_all_notifs_read(self) -> int:
         """
@@ -470,7 +470,7 @@ class Ryver:
         :return: How many notifications were marked as read.
         """
         url = self.get_api_url(
-            TYPE_NOTIFICATION, action="UserNotification.MarkAllRead()", format="json")
+            objects.TYPE_NOTIFICATION, action="UserNotification.MarkAllRead()", format="json")
         async with self._session.post(url) as resp:
             return (await resp.json())["d"]["count"]
 
@@ -481,11 +481,11 @@ class Ryver:
         :return: How many notifications were marked as seen.
         """
         url = self.get_api_url(
-            TYPE_NOTIFICATION, action="UserNotification.MarkAllSeen()", format="json")
+            objects.TYPE_NOTIFICATION, action="UserNotification.MarkAllSeen()", format="json")
         async with self._session.post(url) as resp:
             return (await resp.json())["d"]["count"]
 
-    async def upload_file(self, filename: str, filedata: typing.Any, filetype: typing.Optional[str] = None) -> Storage:
+    async def upload_file(self, filename: str, filedata: typing.Any, filetype: typing.Optional[str] = None) -> "objects.Storage":
         """
         Upload a file to Ryver (for attaching to messages).
 
@@ -500,14 +500,14 @@ class Ryver:
         :return: The uploaded file, as a :py:class:`Storage` object.
         """
         url = self.get_api_url(
-            TYPE_STORAGE, action="Storage.File.Create(createFile=true)", expand="file", format="json")
+            objects.TYPE_STORAGE, action="Storage.File.Create(createFile=true)", expand="file", format="json")
         data = aiohttp.FormData(quote_fields=False)
         data.add_field("file", filedata, filename=filename,
                        content_type=filetype)
         async with self._session.post(url, data=data) as resp:
-            return Storage(self, await resp.json())
+            return objects.Storage(self, await resp.json())
 
-    async def create_link(self, name: str, link_url: str) -> Storage:
+    async def create_link(self, name: str, link_url: str) -> "objects.Storage":
         """
         Create a link on Ryver (for attaching to messages).
 
@@ -519,7 +519,7 @@ class Ryver:
         :return: The created link, as a :py:class:`Storage` object.
         """
         url = self.get_api_url(
-            TYPE_STORAGE, action="Storage.Link.Create()", format="json")
+            objects.TYPE_STORAGE, action="Storage.Link.Create()", format="json")
         data = {
             "description": False,
             "fileName": name,
@@ -527,7 +527,7 @@ class Ryver:
             "url": link_url,
         }
         async with self._session.post(url, json=data) as resp:
-            return Storage(self, await resp.json())
+            return objects.Storage(self, await resp.json())
 
     async def get_info(self) -> typing.Dict[str, typing.Any]:
         """
@@ -551,9 +551,9 @@ class Ryver:
         url = self.get_api_url(action="Ryver.Info()", format="json")
         async with self._session.get(url) as resp:
             return (await resp.json())["d"]
-    
-    async def invite_user(self, email: str, role: str = User.USER_TYPE_MEMBER, username: typing.Optional[str] = None, 
-                          display_name: typing.Optional[str] = None) -> User:
+
+    async def invite_user(self, email: str, role: str = "member", username: typing.Optional[str] = None,
+                          display_name: typing.Optional[str] = None) -> "objects.User":
         """
         Invite a new user to the organization.
 
@@ -577,15 +577,15 @@ class Ryver:
         if display_name is not None:
             data["displayName"] = display_name
         async with self._session.post(url, json=data) as resp:
-            return User(self, (await resp.json())["d"]["results"])
+            return objects.User(self, (await resp.json())["d"]["results"])
 
-    async def _create_groupchat(self, chat_type: str, name: str, nickname: str, about: str, description: str) -> GroupChat:
+    async def _create_groupchat(self, chat_type: str, name: str, nickname: str, about: str, description: str) -> "objects.GroupChat":
         """
         Create a forum or team.
 
         .. warning::
            This method is intended for internal use only.
-        
+
         :param chat_type: The type (forum or team).
         :param name: The name.
         :param nickname: The nickname.
@@ -604,10 +604,10 @@ class Ryver:
         if description is not None:
             data["description"] = description
         async with self._session.post(url, json=data) as resp:
-            return TYPES_DICT[chat_type](self, (await resp.json())["d"]["results"])
-    
+            return objects.TYPES_DICT[chat_type](self, (await resp.json())["d"]["results"])
+
     async def create_team(self, name: str, nickname: typing.Optional[str] = None, about: typing.Optional[str] = None,
-                          description: typing.Optional[str] = None) -> Team:
+                          description: typing.Optional[str] = None) -> "objects.Team":
         """
         Create a new private team.
 
@@ -617,10 +617,10 @@ class Ryver:
         :param description: The description of this team (optional).
         :return: The created team object.
         """
-        return await self._create_groupchat(TYPE_TEAM, name, nickname, about, description)
-    
+        return await self._create_groupchat(objects.TYPE_TEAM, name, nickname, about, description)
+
     async def create_forum(self, name: str, nickname: typing.Optional[str] = None, about: typing.Optional[str] = None,
-                           description: typing.Optional[str] = None) -> Forum:
+                           description: typing.Optional[str] = None) -> "objects.Forum":
         """
         Create a new open forum.
 
@@ -630,7 +630,7 @@ class Ryver:
         :param description: The description of this forum (optional).
         :return: The created forum object.
         """
-        return await self._create_groupchat(TYPE_FORUM, name, nickname, about, description)
+        return await self._create_groupchat(objects.TYPE_FORUM, name, nickname, about, description)
 
     @doc.acontexmanager
     def get_live_session(self, auto_reconnect: bool = False) -> ryver_ws.RyverWS:
