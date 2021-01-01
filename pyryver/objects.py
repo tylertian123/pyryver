@@ -180,7 +180,7 @@ class Object(ABC):
     """
     Base class for all Ryver objects.
 
-    :param ryver: The parent :py:class:`pyryver.pyryver.Ryver` instance.
+    :param ryver: The parent :py:class:`~pyryver.ryver.Ryver` instance.
     :param data: The object's data.
     """
 
@@ -1106,7 +1106,7 @@ class Chat(Object):
 
            This method also updates the task tags property of this object.
 
-        :param tags: The new tags as a list of ``TaskTag``s.
+        :param tags: The new tags as a list of ``TaskTag`` s.
         """
         data = {
             "tagDefs": [tag.to_dict() for tag in tags]
@@ -2220,7 +2220,7 @@ class TaskBoard(Object):
         :param category: The category of the task; if None, the task will be uncategorized (optional).
         :param assignees: A list of users to assign for this task (optional).
         :param due_date: The due date, as an ISO 8601 formatted string **with a timezone offset** (optional).
-        :param tags: A list of tags of this task (optional). Can either be a list of strings or a list of ``TaskTag``s.
+        :param tags: A list of tags of this task (optional). Can either be a list of strings or a list of ``TaskTag`` s.
         :param checklist: A list of strings which are used as the item names for the checklist of this task (optional).
         :param attachments: A list of attachments for this task (optional).
         :return: The created task.
@@ -2582,7 +2582,7 @@ class Task(PostedMessage):
         Get all the tags of this task.
 
         .. note::
-           The tags are returned as a list of strings, not a list of ``TaskTag``s.
+           The tags are returned as a list of strings, not a list of ``TaskTag`` s.
 
         :return: All the tags of this task, as strings.
         """
@@ -2837,7 +2837,7 @@ class Task(PostedMessage):
         :param category: The category of the task; if None, the task will be uncategorized (optional).
         :param assignees: A list of users to assign for this task (optional).
         :param due_date: The due date, as an ISO 8601 formatted string **with a timezone offset** (optional).
-        :param tags: A list of tags of this task (optional). Can either be a list of strings or a list of ``TaskTag``s.
+        :param tags: A list of tags of this task (optional). Can either be a list of strings or a list of ``TaskTag`` s.
         :param attachments: A list of attachments for this task (optional).
         """
         data = {}
