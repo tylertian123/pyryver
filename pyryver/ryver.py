@@ -4,6 +4,7 @@ application using pyryver.
 """
 
 import aiohttp
+import itertools
 import typing
 from getpass import getpass
 from pyryver import ryver_ws
@@ -37,11 +38,14 @@ class Ryver:
     :param password: The password to authenticate with (optional).
     :param token: The custom integration token to authenticate with (optional).
     :param cache: The aforementioned cache (optional).
+    :param sort_lists: If true, lists of chats will be sorted in ascending order by ID.
+                       Searches by ID will use binary search. (optional, default False).
     """
 
     def __init__(self, org: typing.Optional[str] = None, user: typing.Optional[str] = None,
                  password: typing.Optional[str] = None, token: typing.Optional[str] = None,
-                 cache: typing.Optional[typing.Type["cache_storage.AbstractCacheStorage"]] = None):
+                 cache: typing.Optional[typing.Type["cache_storage.AbstractCacheStorage"]] = None,
+                 sort_lists: bool = False):
         if org is None:
             org = input("Organization: ")
         if user is None and token is None:
@@ -51,6 +55,7 @@ class Ryver:
 
         self._org = org
         self._user = user
+        self._sort = sort_lists
 
         self._url_prefix = "https://" + org + ".ryver.com/api/1/odata.svc/"
         if token is None:
@@ -69,6 +74,17 @@ class Ryver:
             self.users = cache.load(self, objects.TYPE_USER) or None
             self.forums = cache.load(self, objects.TYPE_FORUM) or None
             self.teams = cache.load(self, objects.TYPE_TEAM) or None
+            # Sort the cached lists just in case
+            if self._sort:
+                # With the most common implementation using CPython Timsort
+                # sorting an already sorted list is O(N), so no need for checking
+                func = lambda x: x._id
+                if self.users is not None:
+                    self.users.sort(key=func)
+                if self.forums is not None:
+                    self.forums.sort(key=func)
+                if self.teams is not None:
+                    self.teams.sort(key=func)
         else:
             self.users = None
             self.forums = None
@@ -103,7 +119,10 @@ class Ryver:
         :return: The chats.
         """
         url = self.get_api_url(obj_type)
-        return [objects.TYPES_DICT[obj_type](self, chat) async for chat in self.get_all(url=url, top=top, skip=skip)]
+        chats = [objects.TYPES_DICT[obj_type](self, chat) async for chat in self.get_all(url=url, top=top, skip=skip)]
+        if self._sort:
+            chats.sort(key=lambda x: x._id)
+        return chats
 
     async def close(self):
         """
@@ -291,6 +310,7 @@ class Ryver:
         - email
 
         If using username or email to find the user, the search will be case-insensitive.
+        When searching by ID and sort lists is set to true, a binary search will be used.
 
         Returns None if not found.
 
@@ -310,7 +330,7 @@ class Ryver:
         if field == "username" or field == "email":
             case_sensitive = False
         try:
-            return util.get_obj_by_field(self.users, util.FIELD_NAMES[field], value, case_sensitive)
+            return util.get_obj_by_field(self.users, util.FIELD_NAMES[field], value, case_sensitive, field == "id" and self._sort)
         except KeyError:
             raise ValueError("Invalid query parameter!") # pylint: disable=raise-missing-from
 
@@ -329,6 +349,7 @@ class Ryver:
         - nickname
 
         If using nickname to find the chat, the search will be case-insensitive.
+        When searching by ID and sort lists is set to true, a binary search will be used.
 
         Returns None if not found.
 
@@ -355,9 +376,9 @@ class Ryver:
         try:
             obj = None
             if forums:
-                obj = objects.get_obj_by_field(self.forums, util.FIELD_NAMES[field], value, case_sensitive)
+                obj = util.get_obj_by_field(self.forums, util.FIELD_NAMES[field], value, case_sensitive, field == "id" and self._sort)
             if teams and obj is None:
-                obj = objects.get_obj_by_field(self.teams, util.FIELD_NAMES[field], value, case_sensitive)
+                obj = util.get_obj_by_field(self.teams, util.FIELD_NAMES[field], value, case_sensitive, field == "id" and self._sort)
             return obj
         except KeyError:
             raise ValueError("Invalid query parameter!") # pylint: disable=raise-missing-from
@@ -422,6 +443,8 @@ class Ryver:
         - id
         - jid
 
+        When searching by ID and sort lists is set to true, a binary search will be used.
+
         Returns None if not found.
 
         :raises ValueError: If not all chats are loaded, or zero or multiple query
@@ -440,7 +463,12 @@ class Ryver:
         if field == "username" or field == "email" or field == "nickname":
             case_sensitive = False
         try:
-            return util.get_obj_by_field(self.forums + self.teams + self.users, util.FIELD_NAMES[field], value, case_sensitive)
+            return util.get_obj_by_field(self.forums, util.FIELD_NAMES[field], value, case_sensitive,
+                                         field == "id" and self._sort) \
+                   or util.get_obj_by_field(self.teams, util.FIELD_NAMES[field], value, case_sensitive,
+                                         field == "id" and self._sort) \
+                   or util.get_obj_by_field(self.users, util.FIELD_NAMES[field], value, case_sensitive,
+                                         field == "id" and self._sort)
         except KeyError:
             raise ValueError("Invalid query parameter!") # pylint: disable=raise-missing-from
 

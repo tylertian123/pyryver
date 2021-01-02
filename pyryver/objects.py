@@ -3312,34 +3312,3 @@ class Storage(Object):
             "type": chat.get_type(),
         }
         await self._ryver._session.post(url, json=data)
-
-
-def get_obj_by_field(objs: typing.Iterable[Object], field: str, value: typing.Any, case_sensitive: str = True) -> typing.Optional[Object]:
-    """
-    Gets an object from a list of objects by a field.
-
-    For example, this function can find a chat with a specific nickname in a
-    list of chats.
-
-    :param objs: List of objects to search in.
-    :param field: The field's name (usually a constant beginning with ``FIELD_`` in
-                  :ref:`pyryver.util <util-data-constants>`) within the object's
-                  JSON data.
-    :param value: The value to look for.
-    :param case_sensitive: Whether the search should be case-sensitive. Can be useful
-                           for fields such as username or nickname, which are
-                           case-insensitive. Defaults to True. If the field value is not
-                           a string, it will be ignored.
-    :return: The object with the matching field, or None if not found.
-    """
-    if not case_sensitive and isinstance(value, str):
-        value = value.casefold()
-    for obj in objs:
-        data = obj._data[field]
-        if not case_sensitive and isinstance(data, str):
-            if data.casefold() == value:
-                return obj
-        else:
-            if obj._data[field] == value:
-                return obj
-    return None

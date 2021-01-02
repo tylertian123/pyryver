@@ -16,7 +16,7 @@ API Helpers
    :members:
    :undoc-members:
 
-.. autofunction:: pyryver.objects.get_obj_by_field
+.. autofunction:: pyryver.util.get_obj_by_field
 
 .. _util-data-constants:
 
