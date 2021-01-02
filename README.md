@@ -11,6 +11,8 @@ It provides a simple and sane way of automating tasks on Ryver and building bots
 *`pyryver` is still in major version 0, so breaking changes may be introduced any time. Please check changelogs carefully.*
 However, we will attempt to make it as backwards-compatible as possible (excluding version 0.1.0).
 
+v0.4 is now out of beta! **Minor breaking changes were introduced since 0.3.2! See the [Release Description](https://github.com/tylertian123/pyryver/releases/tag/v0.4.0) for the changelog.**
+
 Special thanks to [@mincrmatt12](https://github.com/mincrmatt12)!
 
 ## Installation
