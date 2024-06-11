@@ -275,7 +275,7 @@ class Object(ABC):
         """
         if not self.is_instantiable():
             raise TypeError(f"The type {self.__class__.__name__} is not instantiable!")
-        return f"https://{self._ryver.org}.ryver.com/#{self.get_type()}/{self.get_id()}"
+        return f"https://{self._ryver._org}.ryver.com/#{self.get_type()}/{self.get_id()}"
     
     def get_creator(self) -> typing.Optional[Creator]:
         """
