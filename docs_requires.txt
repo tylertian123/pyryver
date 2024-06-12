@@ -1,3 +1,4 @@
 sphinxcontrib_trio
+sphinx_rtd_theme
 aiohttp
-sphinx==3.0.3
+sphinx>7.2
